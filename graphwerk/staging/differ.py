@@ -30,6 +30,8 @@ class FileChange:
         self.diff = diff
         # qualname -> (status, symbol-level unified diff)
         self.symbols: dict[str, tuple[Status, str]] = {}
+        # full staged text (base text for deleted files); None if unreadable
+        self.source: str | None = None
 
 
 class ChangeSetBuilder:
@@ -70,8 +72,17 @@ class ChangeSetBuilder:
                         status = Status.UNCHANGED
                     diff = "" if status is Status.UNCHANGED else self._symbol_diff(base, staged, qualname)
                     change.symbols[qualname] = (status, diff)
+            change.source = self._file_source(rel)
             changes[rel] = change
         return changes
+
+    def _file_source(self, rel: str) -> str | None:
+        for root in (self.staged_root, self.base_root):
+            try:
+                return (root / rel).read_text(encoding="utf-8")
+            except OSError:
+                continue
+        return None
 
     def _same_content(self, rel: str) -> bool:
         try:

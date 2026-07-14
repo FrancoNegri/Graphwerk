@@ -52,6 +52,33 @@ def test_exact_dotted_path_wins_over_ambiguous_suffix():
     assert resolver.resolve("a.utils") == "a/utils.py"
 
 
+def test_symbol_nodes_carry_staged_source(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def f():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+    assert nodes["a.py::f"].source == "def f():\n    return 2\n"
+
+
+def test_deleted_symbol_carries_base_source(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def gone():\n    return 1\n\ndef kept():\n    pass\n"})
+    write_tree(staged, {"a.py": "def kept():\n    pass\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+    assert nodes["a.py::gone"].source == "def gone():\n    return 1\n"
+
+
+def test_file_nodes_carry_full_source_text(tmp_path):
+    text = "def f():\n    pass\n"
+    service = make_service(tmp_path, {"a.py": text})
+    nodes = {n.id: n for n in service.snapshot().nodes}
+    assert nodes["a.py"].source == text
+
+
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     service = make_service(tmp_path, {
         "pipeline.py": (

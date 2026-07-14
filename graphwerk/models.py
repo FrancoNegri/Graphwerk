@@ -47,6 +47,7 @@ class GraphNode:
     why: str | None = None
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
+    source: str | None = None  # full text of the node, changed or not
 
     def to_dict(self) -> dict:
         return {
@@ -59,6 +60,7 @@ class GraphNode:
             "why": self.why,
             "diff": self.diff,
             "layer": self.layer,
+            "source": self.source,
         }
 
 

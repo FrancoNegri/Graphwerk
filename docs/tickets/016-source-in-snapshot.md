@@ -1,6 +1,6 @@
 # 016. Thread full source text into the snapshot for every node
 
-Status: ready
+Status: done
 Decision: docs/decisions/004-always-show-source.md
 
 ## Goal

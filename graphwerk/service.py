@@ -67,6 +67,7 @@ class GraphService:
                     status=change.status,
                     why=self.rationale.why_for(rel) if change.status in CHANGED else None,
                     diff=change.diff or None,
+                    source=change.source,
                 )
             )
             index = change.staged or change.base
@@ -88,6 +89,7 @@ class GraphService:
                         parent=parent,
                         why=self.rationale.why_for(rel, qualname) if status in CHANGED else None,
                         diff=diff or None,
+                        source=info.source,
                     )
                 )
                 simple = qualname.split(".")[-1]
