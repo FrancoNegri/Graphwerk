@@ -22,5 +22,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [008](008-unparseable-staged-file.md) | Distinct state for unparseable staged files | ready | [001](../decisions/001-phase-2-real-session.md) |
 | [009](009-non-python-changes-visible.md) | Non-Python staged changes visible in the graph | ready | [001](../decisions/001-phase-2-real-session.md) |
 | [010](010-collapse-by-default.md) | Collapse unchanged files by default | done | [002](../decisions/002-graph-layout-legibility.md) |
-| [011](011-import-layer-assignment.md) | Import-depth layer assignment | ready | [002](../decisions/002-graph-layout-legibility.md) |
+| [011](011-import-layer-assignment.md) | Import-depth layer assignment | done | [002](../decisions/002-graph-layout-legibility.md) |
 | [012](012-layered-band-placement.md) | Layered band placement | ready | [002](../decisions/002-graph-layout-legibility.md) |
+| [013](013-src-layout-import-edges.md) | Import edges resolve src-layout and package roots | ready | [001](../decisions/001-phase-2-real-session.md) |

@@ -141,6 +141,103 @@ function changedAndBlastRadiusIds(nodes, parentOf) {
   return revealed;
 }
 
+function fileLayersByImportDepth(data) {
+  const parentOf = new Map(data.nodes.map((n) => [n.id, n.parent]));
+  const containingFile = (id) => {
+    let top = id;
+    for (let ancestor = parentOf.get(id); ancestor; ancestor = parentOf.get(ancestor)) top = ancestor;
+    return top;
+  };
+
+  const importedFilesOf = new Map(
+    data.nodes.filter((n) => n.kind === "file").map((n) => [n.id, new Set()]),
+  );
+  for (const edge of data.edges) {
+    if (edge.kind !== "imports") continue;
+    const importer = containingFile(edge.source);
+    const imported = containingFile(edge.target);
+    if (importer === imported) continue;
+    if (importedFilesOf.has(importer) && importedFilesOf.has(imported)) {
+      importedFilesOf.get(importer).add(imported);
+    }
+  }
+
+  const { componentOf, componentCount } = stronglyConnectedComponents(importedFilesOf);
+
+  const importedComponentsOf = Array.from({ length: componentCount }, () => new Set());
+  for (const [importer, importedFiles] of importedFilesOf) {
+    for (const imported of importedFiles) {
+      const from = componentOf.get(importer);
+      const to = componentOf.get(imported);
+      if (from !== to) importedComponentsOf[from].add(to);
+    }
+  }
+
+  // Tarjan emits components in reverse topological order, so everything a
+  // component imports already has its layer by the time we reach it.
+  const componentLayer = new Array(componentCount).fill(0);
+  for (let component = 0; component < componentCount; component++) {
+    for (const imported of importedComponentsOf[component]) {
+      componentLayer[component] = Math.max(componentLayer[component], componentLayer[imported] + 1);
+    }
+  }
+
+  return new Map(
+    [...importedFilesOf.keys()].map((fileId) => [fileId, componentLayer[componentOf.get(fileId)]]),
+  );
+}
+
+function stronglyConnectedComponents(neighborsOf) {
+  const visitIndex = new Map();
+  const lowlink = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const componentOf = new Map();
+  let nextIndex = 0;
+  let componentCount = 0;
+
+  for (const start of neighborsOf.keys()) {
+    if (visitIndex.has(start)) continue;
+    const pending = [[start, 0]];
+    while (pending.length) {
+      const frame = pending[pending.length - 1];
+      const [node, neighborPosition] = frame;
+      if (neighborPosition === 0) {
+        visitIndex.set(node, nextIndex);
+        lowlink.set(node, nextIndex);
+        nextIndex++;
+        stack.push(node);
+        onStack.add(node);
+      }
+      const neighbors = [...neighborsOf.get(node)];
+      if (neighborPosition < neighbors.length) {
+        frame[1]++;
+        const neighbor = neighbors[neighborPosition];
+        if (!visitIndex.has(neighbor)) pending.push([neighbor, 0]);
+        else if (onStack.has(neighbor)) {
+          lowlink.set(node, Math.min(lowlink.get(node), visitIndex.get(neighbor)));
+        }
+      } else {
+        pending.pop();
+        if (pending.length) {
+          const caller = pending[pending.length - 1][0];
+          lowlink.set(caller, Math.min(lowlink.get(caller), lowlink.get(node)));
+        }
+        if (lowlink.get(node) === visitIndex.get(node)) {
+          let member;
+          do {
+            member = stack.pop();
+            onStack.delete(member);
+            componentOf.set(member, componentCount);
+          } while (member !== node);
+          componentCount++;
+        }
+      }
+    }
+  }
+  return { componentOf, componentCount };
+}
+
 function setChangedOnlyView(enabled) {
   changedOnlyView = enabled;
   if (graphData) renderGraph(toElements(graphData));
@@ -429,5 +526,7 @@ setInterval(async () => {
     /* server briefly unreachable; keep polling */
   }
 }, 1500);
+
+window.fileLayersByImportDepth = fileLayersByImportDepth; // console/debugging access, like window.cy
 
 loadGraph();
