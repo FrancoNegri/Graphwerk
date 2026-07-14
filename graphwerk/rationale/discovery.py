@@ -14,7 +14,9 @@ def project_dir_name(worktree: Path) -> str:
     return str(worktree).replace("/", "-").replace(".", "-")
 
 
-def find_latest_transcript(worktree: Path, claude_dir: Path = Path.home() / ".claude") -> Path | None:
+def find_latest_transcript(worktree: Path, claude_dir: Path | None = None) -> Path | None:
+    if claude_dir is None:
+        claude_dir = Path.home() / ".claude"
     project_dir = claude_dir / "projects" / project_dir_name(worktree)
     transcripts = project_dir.glob("*.jsonl")
     return max(transcripts, key=lambda transcript: transcript.stat().st_mtime, default=None)

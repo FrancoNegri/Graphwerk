@@ -1,6 +1,6 @@
 # 002. RationaleStore uses auto-discovered transcripts
 
-Status: ready
+Status: done
 Decision: docs/decisions/001-phase-2-real-session.md
 
 Depends on: ticket 001.

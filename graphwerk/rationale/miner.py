@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from graphwerk.rationale.discovery import find_latest_transcript
+
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MAX_WHY_LEN = 700
 
@@ -30,7 +32,14 @@ class RationaleStore:
 
     def reload(self) -> None:
         self._sidecar = self._load_sidecar()
-        self._transcript = self._mine_transcript()
+        self._transcript = self._mine_transcript(self._resolve_transcript_path())
+
+    def _resolve_transcript_path(self) -> Path | None:
+        if self.transcript_path:
+            return self.transcript_path
+        if self.staged_root:
+            return find_latest_transcript(self.staged_root)
+        return None
 
     def why_for(self, rel_path: str, qualname: str | None = None) -> str | None:
         """Most specific rationale available for a node."""
@@ -49,13 +58,13 @@ class RationaleStore:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def _mine_transcript(self) -> dict[str, str]:
-        if not self.transcript_path or not self.transcript_path.exists() or not self.staged_root:
+    def _mine_transcript(self, transcript_path: Path | None) -> dict[str, str]:
+        if not transcript_path or not transcript_path.exists() or not self.staged_root:
             return {}
         rationale: dict[str, str] = {}
         last_text = ""
         try:
-            lines = self.transcript_path.read_text(encoding="utf-8").splitlines()
+            lines = transcript_path.read_text(encoding="utf-8").splitlines()
         except OSError:
             return {}
         for line in lines:
