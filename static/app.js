@@ -439,6 +439,15 @@ function layeredPlacementConstraints(data, nodes) {
     });
   }
 
+  // Chain each layer's own anchors left-to-right with a minimum gap so
+  // same-band files don't crowd together horizontally; alignmentConstraint
+  // only fixes their shared y, not spacing along it.
+  for (const anchors of anchorsByLayer.values()) {
+    for (let i = 0; i < anchors.length - 1; i++) {
+      relativePlacementConstraint.push({ left: anchors[i], right: anchors[i + 1], gap: 190 });
+    }
+  }
+
   return {
     alignmentConstraint: { horizontal: [...anchorsByLayer.values()] },
     relativePlacementConstraint,
