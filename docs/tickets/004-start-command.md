@@ -1,6 +1,6 @@
 # 004. `graphwerk start` command
 
-Status: ready
+Status: done
 Decision: docs/decisions/001-phase-2-real-session.md
 
 Depends on: tickets 001, 002.
