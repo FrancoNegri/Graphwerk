@@ -13,6 +13,33 @@ from graphwerk.staging import ChangeSetBuilder
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 
 
+class ModuleFileResolver:
+    """Maps imported module names to repo files, tolerating src/-style
+    package roots by matching dotted-path suffixes ("pkg.store" finds
+    "src/pkg/store.py")."""
+
+    def __init__(self, rel_paths):
+        self._file_by_exact_path: dict[str, str] = {}
+        self._files_by_suffix: dict[str, list[str]] = {}
+        for rel in rel_paths:
+            dotted = rel[:-3].replace("/", ".")
+            if dotted == "__init__":
+                continue
+            if dotted.endswith(".__init__"):
+                dotted = dotted.removesuffix(".__init__")
+            self._file_by_exact_path[dotted] = rel
+            parts = dotted.split(".")
+            for start in range(len(parts)):
+                suffix = ".".join(parts[start:])
+                self._files_by_suffix.setdefault(suffix, []).append(rel)
+
+    def resolve(self, module: str) -> str | None:
+        if module in self._file_by_exact_path:
+            return self._file_by_exact_path[module]
+        matches = self._files_by_suffix.get(module, [])
+        return matches[0] if len(matches) == 1 else None
+
+
 class GraphService:
     def __init__(self, base_root: Path, staged_root: Path, rationale: RationaleStore):
         self.base_root = base_root
@@ -91,14 +118,13 @@ class GraphService:
                     snap.edges.append(GraphEdge(source_id, target_id, "calls"))
 
     def _add_import_edges(self, snap: Snapshot, changes: dict) -> None:
-        # "shop.utils" -> "shop/utils.py"
-        module_to_file = {rel[:-3].replace("/", "."): rel for rel in changes}
+        resolver = ModuleFileResolver(changes)
         for rel, change in changes.items():
             index = change.staged or change.base
             if index is None:
                 continue
             for module in index.imports:
-                target = module_to_file.get(module)
+                target = resolver.resolve(module)
                 if target and target != rel:
                     snap.edges.append(GraphEdge(rel, target, "imports"))
 

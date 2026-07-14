@@ -24,4 +24,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [010](010-collapse-by-default.md) | Collapse unchanged files by default | done | [002](../decisions/002-graph-layout-legibility.md) |
 | [011](011-import-layer-assignment.md) | Import-depth layer assignment | done | [002](../decisions/002-graph-layout-legibility.md) |
 | [012](012-layered-band-placement.md) | Layered band placement | ready | [002](../decisions/002-graph-layout-legibility.md) |
-| [013](013-src-layout-import-edges.md) | Import edges resolve src-layout and package roots | ready | [001](../decisions/001-phase-2-real-session.md) |
+| [013](013-src-layout-import-edges.md) | Import edges resolve src-layout and package roots | done | [001](../decisions/001-phase-2-real-session.md) |
