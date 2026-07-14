@@ -10,3 +10,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | # | Title | Status |
 |---|-------|--------|
 | [001](001-phase-2-real-session.md) | Phase 2 — review a real Claude session end to end | proposed |
+| [002](002-graph-layout-legibility.md) | Graph layout legibility: collapse-by-default + import-depth layers | proposed |

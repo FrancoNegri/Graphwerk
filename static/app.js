@@ -18,6 +18,7 @@ let nodesById = {};
 let selectedId = null;
 const collapsedFileIds = new Set();
 let changedOnlyView = false;
+let hideTestsView = true;
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -63,7 +64,9 @@ function toElements(data) {
   const revealedIds = changedOnlyView ? changedAndBlastRadiusIds(data.nodes, parentOf) : null;
 
   const nodes = data.nodes
-    .filter((n) => representativeId(n.id) === n.id && (!revealedIds || revealedIds.has(n.id)))
+    .filter((n) => representativeId(n.id) === n.id
+      && (!revealedIds || revealedIds.has(n.id))
+      && (!hideTestsView || !isTestPath(n.path)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (collapsedFileIds.has(n.id)) {
@@ -116,6 +119,18 @@ function changedAndBlastRadiusIds(nodes, parentOf) {
 
 function setChangedOnlyView(enabled) {
   changedOnlyView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function isTestPath(path) {
+  const segments = path.split("/");
+  if (segments.some((segment) => segment === "tests" || segment === "test")) return true;
+  const filename = segments[segments.length - 1];
+  return /^test_.*\.py$/.test(filename) || /_test\.py$/.test(filename);
+}
+
+function setHideTestsView(enabled) {
+  hideTestsView = enabled;
   if (graphData) renderGraph(toElements(graphData));
 }
 
@@ -364,6 +379,10 @@ function toast(msg) {
 
 document.getElementById("changed-only").addEventListener("change", (event) => {
   setChangedOnlyView(event.target.checked);
+});
+
+document.getElementById("hide-tests").addEventListener("change", (event) => {
+  setHideTestsView(event.target.checked);
 });
 
 setInterval(async () => {
