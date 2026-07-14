@@ -50,3 +50,27 @@ def test_exact_dotted_path_wins_over_ambiguous_suffix():
     resolver = ModuleFileResolver(["utils.py", "a/utils.py"])
     assert resolver.resolve("utils") == "utils.py"
     assert resolver.resolve("a.utils") == "a/utils.py"
+
+
+def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
+    service = make_service(tmp_path, {
+        "pipeline.py": (
+            "def load(path):\n"
+            "    return path\n"
+            "\n"
+            "def parse(path):\n"
+            "    return load(path)\n"
+            "\n"
+            "def report(path):\n"
+            "    return parse(path)\n"
+        ),
+        "main.py": "import pipeline\n\ndef main():\n    return pipeline.report(\"x\")\n",
+    })
+    snapshot = service.snapshot()
+    layers = {n.id: n.layer for n in snapshot.nodes}
+    assert layers["pipeline.py"] == 0
+    assert layers["main.py"] == 1
+    assert layers["pipeline.py::load"] == 0
+    assert layers["pipeline.py::parse"] == 1
+    assert layers["pipeline.py::report"] == 2
+    assert all("layer" in n.to_dict() for n in snapshot.nodes)

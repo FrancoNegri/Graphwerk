@@ -3,6 +3,12 @@
 Status: done
 Decision: docs/decisions/003-symbol-layered-placement.md
 
+> Superseded by [ADR 005](../decisions/005-server-side-layers.md): the JS
+> `symbolLayersByCallDepth` this ticket added was replaced by server-side
+> layer assignment in `graphwerk/layout.py`, exposed as `node.layer` in the
+> payload and covered by `tests/test_layout.py`. The console-verifiability
+> criterion no longer applies.
+
 ## Goal
 
 Every top-level function symbol gets a layer number derived from intra-file

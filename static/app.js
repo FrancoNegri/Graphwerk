@@ -141,127 +141,6 @@ function changedAndBlastRadiusIds(nodes, parentOf) {
   return revealed;
 }
 
-function fileLayersByImportDepth(data) {
-  const parentOf = new Map(data.nodes.map((n) => [n.id, n.parent]));
-  const containingFile = (id) => {
-    let top = id;
-    for (let ancestor = parentOf.get(id); ancestor; ancestor = parentOf.get(ancestor)) top = ancestor;
-    return top;
-  };
-
-  const importedFilesOf = new Map(
-    data.nodes.filter((n) => n.kind === "file").map((n) => [n.id, new Set()]),
-  );
-  for (const edge of data.edges) {
-    if (edge.kind !== "imports") continue;
-    const importer = containingFile(edge.source);
-    const imported = containingFile(edge.target);
-    if (importer === imported) continue;
-    if (importedFilesOf.has(importer) && importedFilesOf.has(imported)) {
-      importedFilesOf.get(importer).add(imported);
-    }
-  }
-
-  return layersByLongestPath(importedFilesOf);
-}
-
-function symbolLayersByCallDepth(data, fileId) {
-  const topLevelFunctionIds = new Set(
-    data.nodes
-      .filter((node) => node.parent === fileId && node.kind === "function")
-      .map((node) => node.id),
-  );
-
-  const calleesOf = new Map([...topLevelFunctionIds].map((id) => [id, new Set()]));
-  for (const edge of data.edges) {
-    if (edge.kind !== "calls") continue;
-    if (topLevelFunctionIds.has(edge.source) && topLevelFunctionIds.has(edge.target)) {
-      calleesOf.get(edge.source).add(edge.target);
-    }
-  }
-
-  return layersByLongestPath(calleesOf);
-}
-
-// Nodes pointing at nothing get layer 0; otherwise 1 + max over neighbors
-// (longest-path depth). Cycles collapse into one shared layer via SCC.
-function layersByLongestPath(neighborsOf) {
-  const { componentOf, componentCount } = stronglyConnectedComponents(neighborsOf);
-
-  const neighborComponentsOf = Array.from({ length: componentCount }, () => new Set());
-  for (const [node, neighbors] of neighborsOf) {
-    for (const neighbor of neighbors) {
-      const from = componentOf.get(node);
-      const to = componentOf.get(neighbor);
-      if (from !== to) neighborComponentsOf[from].add(to);
-    }
-  }
-
-  // Tarjan emits components in reverse topological order, so everything a
-  // component points at already has its layer by the time we reach it.
-  const componentLayer = new Array(componentCount).fill(0);
-  for (let component = 0; component < componentCount; component++) {
-    for (const neighbor of neighborComponentsOf[component]) {
-      componentLayer[component] = Math.max(componentLayer[component], componentLayer[neighbor] + 1);
-    }
-  }
-
-  return new Map(
-    [...neighborsOf.keys()].map((node) => [node, componentLayer[componentOf.get(node)]]),
-  );
-}
-
-function stronglyConnectedComponents(neighborsOf) {
-  const visitIndex = new Map();
-  const lowlink = new Map();
-  const onStack = new Set();
-  const stack = [];
-  const componentOf = new Map();
-  let nextIndex = 0;
-  let componentCount = 0;
-
-  for (const start of neighborsOf.keys()) {
-    if (visitIndex.has(start)) continue;
-    const pending = [[start, 0]];
-    while (pending.length) {
-      const frame = pending[pending.length - 1];
-      const [node, neighborPosition] = frame;
-      if (neighborPosition === 0) {
-        visitIndex.set(node, nextIndex);
-        lowlink.set(node, nextIndex);
-        nextIndex++;
-        stack.push(node);
-        onStack.add(node);
-      }
-      const neighbors = [...neighborsOf.get(node)];
-      if (neighborPosition < neighbors.length) {
-        frame[1]++;
-        const neighbor = neighbors[neighborPosition];
-        if (!visitIndex.has(neighbor)) pending.push([neighbor, 0]);
-        else if (onStack.has(neighbor)) {
-          lowlink.set(node, Math.min(lowlink.get(node), visitIndex.get(neighbor)));
-        }
-      } else {
-        pending.pop();
-        if (pending.length) {
-          const caller = pending[pending.length - 1][0];
-          lowlink.set(caller, Math.min(lowlink.get(caller), lowlink.get(node)));
-        }
-        if (lowlink.get(node) === visitIndex.get(node)) {
-          let member;
-          do {
-            member = stack.pop();
-            onStack.delete(member);
-            componentOf.set(member, componentCount);
-          } while (member !== node);
-          componentCount++;
-        }
-      }
-    }
-  }
-  return { componentOf, componentCount };
-}
-
 function setChangedOnlyView(enabled) {
   changedOnlyView = enabled;
   if (graphData) renderGraph(toElements(graphData));
@@ -435,47 +314,66 @@ function layoutOptions(keepPositions, elements, data) {
   };
 }
 
+// Turns the backend's precomputed `layer` numbers (import depth for files,
+// intra-file call depth for top-level functions — see graphwerk/layout.py)
+// into fcose banding constraints for whatever is currently visible.
 function layeredPlacementConstraints(data, nodes) {
-  const layerOfFile = fileLayersByImportDepth(data);
-  const visibleFileIds = new Set(
-    nodes.filter((n) => n.data.kind === "file").map((n) => n.data.id),
-  );
+  const layerOf = new Map(data.nodes.map((n) => [n.id, n.layer]));
   const anchorOf = simpleConstraintAnchors(nodes);
 
-  const anchorsByLayer = new Map();
-  for (const [fileId, layer] of layerOfFile) {
-    if (!visibleFileIds.has(fileId)) continue;
-    if (!anchorsByLayer.has(layer)) anchorsByLayer.set(layer, []);
-    anchorsByLayer.get(layer).push(anchorOf(fileId));
-  }
-  if (anchorsByLayer.size < 2) return {};
-
-  // Entry points (deeper import depth) render above what they import;
-  // one representative per layer suffices since alignmentConstraint already
-  // ties every file in a layer to the same horizontal band.
-  const layersDeepestFirst = [...anchorsByLayer.keys()].sort((a, b) => b - a);
-  const relativePlacementConstraint = [];
-  for (let i = 0; i < layersDeepestFirst.length - 1; i++) {
-    relativePlacementConstraint.push({
-      top: anchorsByLayer.get(layersDeepestFirst[i])[0],
-      bottom: anchorsByLayer.get(layersDeepestFirst[i + 1])[0],
-      gap: 220,
-    });
-  }
-
-  // Chain each layer's own anchors left-to-right with a minimum gap so
-  // same-band files don't crowd together horizontally; alignmentConstraint
-  // only fixes their shared y, not spacing along it.
-  for (const anchors of anchorsByLayer.values()) {
-    for (let i = 0; i < anchors.length - 1; i++) {
-      relativePlacementConstraint.push({ left: anchors[i], right: anchors[i + 1], gap: 190 });
+  const fileAnchorsByLayer = new Map();
+  const functionAnchorsByLayerPerFile = new Map();
+  for (const node of nodes) {
+    const layer = layerOf.get(node.data.id);
+    if (layer == null) continue;
+    if (node.data.kind === "file") {
+      addAnchor(fileAnchorsByLayer, layer, anchorOf(node.data.id));
+    } else if (node.data.kind === "function") {
+      if (!functionAnchorsByLayerPerFile.has(node.data.parent)) {
+        functionAnchorsByLayerPerFile.set(node.data.parent, new Map());
+      }
+      addAnchor(functionAnchorsByLayerPerFile.get(node.data.parent), layer, node.data.id);
     }
   }
 
-  return {
-    alignmentConstraint: { horizontal: [...anchorsByLayer.values()] },
-    relativePlacementConstraint,
-  };
+  const alignments = [];
+  const relativePlacementConstraint = [];
+  appendBandConstraints(fileAnchorsByLayer, 220, alignments, relativePlacementConstraint);
+  for (const anchorsByLayer of functionAnchorsByLayerPerFile.values()) {
+    // function chips are smaller than file boxes, so their bands sit closer
+    appendBandConstraints(anchorsByLayer, 75, alignments, relativePlacementConstraint);
+  }
+
+  if (!alignments.length) return {};
+  return { alignmentConstraint: { horizontal: alignments }, relativePlacementConstraint };
+}
+
+function addAnchor(anchorsByLayer, layer, anchor) {
+  if (!anchorsByLayer.has(layer)) anchorsByLayer.set(layer, []);
+  anchorsByLayer.get(layer).push(anchor);
+}
+
+// Deeper layers (entry points, callers) render above what they depend on;
+// one representative per layer pair suffices vertically since
+// alignmentConstraint already ties every member of a layer to one band.
+// Members of a layer chain left-to-right with a minimum gap so same-band
+// nodes don't crowd — alignment only fixes their shared y, not spacing.
+function appendBandConstraints(anchorsByLayer, verticalGap, alignments, relativePlacements) {
+  if (anchorsByLayer.size < 2) return;
+  const layersDeepestFirst = [...anchorsByLayer.keys()].sort((a, b) => b - a);
+  for (let i = 0; i < layersDeepestFirst.length - 1; i++) {
+    relativePlacements.push({
+      top: anchorsByLayer.get(layersDeepestFirst[i])[0],
+      bottom: anchorsByLayer.get(layersDeepestFirst[i + 1])[0],
+      gap: verticalGap,
+    });
+  }
+  for (const anchors of anchorsByLayer.values()) {
+    for (let i = 0; i < anchors.length - 1; i++) {
+      relativePlacements.push({ left: anchors[i], right: anchors[i + 1], gap: 190 });
+    }
+    alignments.push(anchors);
+  }
 }
 
 // fcose's alignment/relative-placement constraints only accept "simple"
@@ -613,7 +511,5 @@ setInterval(async () => {
   }
 }, 1500);
 
-window.fileLayersByImportDepth = fileLayersByImportDepth; // console/debugging access, like window.cy
-window.symbolLayersByCallDepth = symbolLayersByCallDepth; // console/debugging access, like window.cy
 
 loadGraph();

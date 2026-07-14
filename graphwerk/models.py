@@ -46,6 +46,7 @@ class GraphNode:
     parent: str | None = None  # file node id for symbols, class node id for methods
     why: str | None = None
     diff: str | None = None
+    layer: int | None = None  # layout band; files and top-level functions only
 
     def to_dict(self) -> dict:
         return {
@@ -57,6 +58,7 @@ class GraphNode:
             "parent": self.parent,
             "why": self.why,
             "diff": self.diff,
+            "layer": self.layer,
         }
 
 

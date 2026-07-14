@@ -26,6 +26,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [012](012-layered-band-placement.md) | Layered band placement | done | [002](../decisions/002-graph-layout-legibility.md) |
 | [013](013-src-layout-import-edges.md) | Import edges resolve src-layout and package roots | done | [001](../decisions/001-phase-2-real-session.md) |
 | [014](014-symbol-layer-assignment.md) | Call-depth layer assignment for symbols within a file | done | [003](../decisions/003-symbol-layered-placement.md) |
-| [015](015-symbol-layered-placement.md) | Layered placement for symbols within an expanded file | ready | [003](../decisions/003-symbol-layered-placement.md) |
+| [015](015-symbol-layered-placement.md) | Layered placement for symbols within an expanded file | done | [003](../decisions/003-symbol-layered-placement.md) |
 | [016](016-source-in-snapshot.md) | Thread full source text into the snapshot for every node | ready | [004](../decisions/004-always-show-source.md) |
 | [017](017-sidebar-fallback-source.md) | Sidebar: render source as fallback code view when a node has no diff | ready | [004](../decisions/004-always-show-source.md) |

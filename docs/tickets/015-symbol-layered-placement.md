@@ -1,7 +1,14 @@
 # 015. Layered placement for symbols within an expanded file
 
-Status: ready
+Status: done
 Decision: docs/decisions/003-symbol-layered-placement.md
+
+> Amended by [ADR 005](../decisions/005-server-side-layers.md) during
+> implementation: layers arrive precomputed on the payload (`node.layer`,
+> from `graphwerk/layout.py`) instead of from a JS
+> `symbolLayersByCallDepth`; the logic is pytest-covered and the constraint
+> mapping in `app.js` is verified visually. The visual acceptance criteria
+> below are unchanged.
 
 ## Goal
 

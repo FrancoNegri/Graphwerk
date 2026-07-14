@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 
 from graphwerk.indexing.walk import iter_python_files
+from graphwerk.layout import assign_layers
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder
@@ -96,6 +97,7 @@ class GraphService:
         self._add_call_edges(snap, name_to_ids, symbol_calls)
         self._add_import_edges(snap, changes)
         self._mark_affected(snap)
+        assign_layers(snap.nodes, snap.edges)
         return snap
 
     def state_hash(self) -> str:
