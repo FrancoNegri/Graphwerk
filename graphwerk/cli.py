@@ -15,6 +15,7 @@ from pathlib import Path
 
 import uvicorn
 
+from graphwerk import __version__
 from graphwerk.apply import ApplyEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
@@ -24,6 +25,7 @@ from graphwerk.staging import ShadowWorkspace
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="graphwerk")
+    parser.add_argument("--version", action="version", version=f"graphwerk {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     demo = sub.add_parser("demo", help="build the scripted demo workspace and serve it")

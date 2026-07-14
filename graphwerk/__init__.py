@@ -9,4 +9,4 @@ Layers (see docs/03-architecture-notes.md):
   server.py   FastAPI API + static UI
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

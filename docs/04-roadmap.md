@@ -14,7 +14,10 @@ Exit criterion: **build a graphwerk feature using graphwerk to review it.**
   for the staged worktree instead of requiring `--transcript`.
 - Real-repo hardening: run against this repo and at least one mid-size repo;
   fix what the differ/indexer trips on (symlinks, generated files, .gitignore
-  respect).
+  respect). *Done — Flask run (959 nodes / 3632 edges): `/api/graph` ~1s,
+  `/api/hash` ~30ms, so no snapshot perf work needed at mid-size. Two real
+  trips filed as tickets 008 (unparseable staged file reads as mass-delete)
+  and 009 (non-Python staged changes invisible in the graph).*
 - Scale UX: collapse/expand file boxes (double-click), a "changed + blast
   radius only" view toggle so big repos open readable.
 
@@ -45,7 +48,13 @@ Goal: graduate from file-level apply.
 - Multi-language indexing via tree-sitter (JS/TS first), behind the existing
   FileIndex contract.
 - Rationale quality: post-hoc one-liner summarization pass (Haiku) over mined
-  narration.
+  narration. **Dogfood finding (ticket 007, July 2026): this is needed sooner
+  than "polish".** Current sessions batch many edits after one short lead-in
+  sentence, so the "narration immediately before the edit" heuristic attached
+  the same weak line to all six changed files — while the genuinely useful
+  per-file rationale sat in the session's final summary, which the miner
+  ignores. Any redesign (mine the wrap-up summary, attribute per-file
+  mentions, summarize) is a `north-star` decision, not a quick fix.
 - Packaging: `pipx install graphwerk`, static assets bundled into the package.
 - Multi-session: several agents staging into one graph, per-session coloring.
 

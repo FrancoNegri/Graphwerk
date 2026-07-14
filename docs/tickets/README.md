@@ -18,4 +18,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [004](004-start-command.md) | `graphwerk start` command | done | [001](../decisions/001-phase-2-real-session.md) |
 | [005](005-collapse-expand.md) | Collapse/expand file nodes (double-click) | done | [001](../decisions/001-phase-2-real-session.md) |
 | [006](006-changed-only-toggle.md) | "Changed + blast radius only" view toggle | done | [001](../decisions/001-phase-2-real-session.md) |
-| [007](007-dogfood-run.md) | Dogfood: review a real graphwerk change with graphwerk | ready | [001](../decisions/001-phase-2-real-session.md) |
+| [007](007-dogfood-run.md) | Dogfood: review a real graphwerk change with graphwerk | done | [001](../decisions/001-phase-2-real-session.md) |
+| [008](008-unparseable-staged-file.md) | Distinct state for unparseable staged files | ready | [001](../decisions/001-phase-2-real-session.md) |
+| [009](009-non-python-changes-visible.md) | Non-Python staged changes visible in the graph | ready | [001](../decisions/001-phase-2-real-session.md) |

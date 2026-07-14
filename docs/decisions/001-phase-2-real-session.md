@@ -1,7 +1,18 @@
 # 001. Phase 2 — review a real Claude session end to end
 
-Status: proposed
+Status: accepted (validated by the ticket 007 dogfood run, 2026-07-14)
 Date: 2026-07-14
+
+Validation: a real headless Claude session implemented the `--version`
+feature in the `graphwerk start` worktree; the graph showed correct
+modified/affected states, rationale came from the auto-discovered transcript
+with no `--transcript` flag, one node was rejected and its files applied via
+the API the UI buttons call, and the recorded reject payload — fed back to a
+session manually — made the agent revert exactly the rejected edit, after
+which the graph converged to all-unchanged. Flask (959 nodes) indexed and
+diffed correctly at ~1s per snapshot. Findings: tickets 008–009 and the
+Phase 5 rationale-quality note in docs/04 (the pre-edit narration heuristic
+degrades under batched edits).
 
 ## Context
 
