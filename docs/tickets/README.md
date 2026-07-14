@@ -16,6 +16,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [002](002-rationale-auto-discovery.md) | RationaleStore uses auto-discovered transcripts | done | [001](../decisions/001-phase-2-real-session.md) |
 | [003](003-git-aware-walk.md) | Git-aware file enumeration (.gitignore + symlinks) | done | [001](../decisions/001-phase-2-real-session.md) |
 | [004](004-start-command.md) | `graphwerk start` command | done | [001](../decisions/001-phase-2-real-session.md) |
-| [005](005-collapse-expand.md) | Collapse/expand file nodes (double-click) | ready | [001](../decisions/001-phase-2-real-session.md) |
+| [005](005-collapse-expand.md) | Collapse/expand file nodes (double-click) | done | [001](../decisions/001-phase-2-real-session.md) |
 | [006](006-changed-only-toggle.md) | "Changed + blast radius only" view toggle | ready | [001](../decisions/001-phase-2-real-session.md) |
 | [007](007-dogfood-run.md) | Dogfood: review a real graphwerk change with graphwerk | ready | [001](../decisions/001-phase-2-real-session.md) |

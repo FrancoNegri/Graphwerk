@@ -9,22 +9,34 @@ const COLORS = {
   unchanged: "#475569",
 };
 
+const STATUS_RANK = ["modified", "added", "deleted", "affected", "unchanged"];
+
 let cy = null;
 let currentHash = null;
+let graphData = null;
 let nodesById = {};
 let selectedId = null;
+const collapsedFileIds = new Set();
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
   const data = await res.json();
   currentHash = data.hash;
+  graphData = data;
   nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
+  for (const id of [...collapsedFileIds]) {
+    if (!nodesById[id] || nodesById[id].kind !== "file") collapsedFileIds.delete(id);
+  }
   document.getElementById("paths").innerHTML =
     `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
 
   const elements = toElements(data);
   if (cy && sameTopology(elements)) {
-    for (const n of data.nodes) cy.getElementById(n.id).data("status", n.status);
+    for (const n of elements.nodes) {
+      const ele = cy.getElementById(n.data.id);
+      ele.data("status", n.data.status);
+      if (collapsedFileIds.has(n.data.id)) ele.data("collapsedStatus", n.data.collapsedStatus);
+    }
   } else {
     renderGraph(elements);
   }
@@ -35,24 +47,92 @@ async function loadGraph() {
 }
 
 function toElements(data) {
-  const nodes = data.nodes.map((n) => ({
-    data: { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined },
-  }));
+  const parentOf = new Map(data.nodes.map((n) => [n.id, n.parent]));
+
+  // A node hidden inside a collapsed file is represented by that file node;
+  // everything else represents itself.
+  const representativeId = (id) => {
+    let representative = id;
+    for (let ancestor = parentOf.get(id); ancestor; ancestor = parentOf.get(ancestor)) {
+      if (collapsedFileIds.has(ancestor)) representative = ancestor;
+    }
+    return representative;
+  };
+
+  const nodes = data.nodes
+    .filter((n) => representativeId(n.id) === n.id)
+    .map((n) => {
+      const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
+      if (collapsedFileIds.has(n.id)) {
+        nodeData.collapsedStatus = strongestDescendantStatus(n.id, data.nodes, parentOf);
+      }
+      return { data: nodeData };
+    });
+
   const ids = new Set(data.nodes.map((n) => n.id));
-  const edges = data.edges
-    .filter((e) => ids.has(e.source) && ids.has(e.target))
-    .map((e, i) => ({ data: { id: `e${i}`, source: e.source, target: e.target, kind: e.kind } }));
+  const seenEdgeIds = new Set();
+  const edges = [];
+  for (const e of data.edges) {
+    if (!ids.has(e.source) || !ids.has(e.target)) continue;
+    const source = representativeId(e.source);
+    const target = representativeId(e.target);
+    if (source === target && e.source !== e.target) continue;
+    const id = `${source}->${target}:${e.kind}`;
+    if (seenEdgeIds.has(id)) continue;
+    seenEdgeIds.add(id);
+    edges.push({ data: { id, source, target, kind: e.kind } });
+  }
   return { nodes, edges };
 }
 
+function strongestDescendantStatus(fileId, nodes, parentOf) {
+  const rankOf = (status) => {
+    const rank = STATUS_RANK.indexOf(status);
+    return rank === -1 ? STATUS_RANK.length : rank;
+  };
+  let strongest = "unchanged";
+  for (const n of nodes) {
+    for (let ancestor = parentOf.get(n.id); ancestor; ancestor = parentOf.get(ancestor)) {
+      if (ancestor === fileId && rankOf(n.status) < rankOf(strongest)) strongest = n.status;
+    }
+  }
+  return strongest;
+}
+
+function toggleFileCollapsed(fileId) {
+  if (collapsedFileIds.has(fileId)) collapsedFileIds.delete(fileId);
+  else collapsedFileIds.add(fileId);
+  renderGraph(toElements(graphData));
+}
+
 function sameTopology(elements) {
-  const ids = new Set(elements.nodes.map((n) => n.data.id));
-  const current = cy.nodes().map((n) => n.id());
-  return current.length === ids.size && current.every((id) => ids.has(id));
+  const wanted = new Set([
+    ...elements.nodes.map((n) => n.data.id),
+    ...elements.edges.map((e) => e.data.id),
+  ]);
+  const current = cy.elements().map((ele) => ele.id());
+  return current.length === wanted.size && current.every((id) => wanted.has(id));
 }
 
 function renderGraph(elements) {
-  if (cy) cy.destroy();
+  // Carry node positions across rebuilds so collapse/expand and refreshes
+  // adjust the map instead of rescrambling it; nodes new to the view start
+  // at their nearest surviving ancestor.
+  const previousPositions = new Map();
+  if (cy) {
+    cy.nodes().forEach((n) => previousPositions.set(n.id(), { ...n.position() }));
+    cy.destroy();
+  }
+  const parentOf = new Map(elements.nodes.map((n) => [n.data.id, n.data.parent]));
+  for (const node of elements.nodes) {
+    for (let id = node.data.id; id; id = parentOf.get(id)) {
+      const position = previousPositions.get(id);
+      if (position) {
+        node.position = { ...position };
+        break;
+      }
+    }
+  }
   cy = cytoscape({
     container: document.getElementById("cy"),
     elements,
@@ -101,6 +181,17 @@ function renderGraph(elements) {
         },
       },
       {
+        selector: "node[kind='file'][collapsedStatus]",
+        style: {
+          "background-color": (ele) => COLORS[ele.data("collapsedStatus")] || COLORS.unchanged,
+          "background-opacity": 1,
+          "border-color": (ele) => COLORS[ele.data("collapsedStatus")] || COLORS.unchanged,
+          "text-valign": "center",
+          "text-margin-y": 0,
+          padding: "7px",
+        },
+      },
+      {
         selector: "node[status='deleted']",
         style: { "border-style": "dashed", opacity: 0.6 },
       },
@@ -121,8 +212,12 @@ function renderGraph(elements) {
       },
       { selector: "node:selected", style: { "border-color": "#f8fafc", "border-width": 3 } },
     ],
-    layout: layoutOptions(),
+    layout: layoutOptions(previousPositions.size > 0),
   });
+  // fcose measures label-sized childless nodes before fonts resolve, which
+  // caches them as zero-width/invisible; recomputing styles clears that.
+  cy.nodes().updateStyle();
+  window.cy = cy; // console/debugging access
   cy.on("tap", "node", (evt) => {
     selectedId = evt.target.id();
     showDetails(nodesById[selectedId]);
@@ -130,15 +225,17 @@ function renderGraph(elements) {
   cy.on("tap", (evt) => {
     if (evt.target === cy) clearDetails();
   });
+  cy.on("dbltap", "node[kind='file']", (evt) => toggleFileCollapsed(evt.target.id()));
 }
 
-function layoutOptions() {
+function layoutOptions(keepPositions) {
   // fcose packs compound (file/class) boxes tightly around their children,
   // so box size tracks content instead of layout scatter.
   return {
     name: "fcose",
     animate: false,
     quality: "proof",
+    randomize: !keepPositions,
     padding: 30,
     nodeSeparation: 75,
     idealEdgeLength: 70,
