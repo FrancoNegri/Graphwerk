@@ -379,7 +379,7 @@ function renderGraph(elements) {
       },
       { selector: "node:selected", style: { "border-color": "#f8fafc", "border-width": 3 } },
     ],
-    layout: layoutOptions(previousPositions.size > 0),
+    layout: layoutOptions(previousPositions.size > 0, elements, graphData),
   });
   // fcose measures label-sized childless nodes before fonts resolve, which
   // caches them as zero-width/invisible; recomputing styles clears that.
@@ -395,7 +395,7 @@ function renderGraph(elements) {
   cy.on("dbltap", "node[kind='file']", (evt) => toggleFileCollapsed(evt.target.id()));
 }
 
-function layoutOptions(keepPositions) {
+function layoutOptions(keepPositions, elements, data) {
   // fcose packs compound (file/class) boxes tightly around their children,
   // so box size tracks content instead of layout scatter.
   return {
@@ -407,6 +407,59 @@ function layoutOptions(keepPositions) {
     nodeSeparation: 75,
     idealEdgeLength: 70,
     nestingFactor: 0.1,
+    ...layeredPlacementConstraints(data, elements.nodes),
+  };
+}
+
+function layeredPlacementConstraints(data, nodes) {
+  const layerOfFile = fileLayersByImportDepth(data);
+  const visibleFileIds = new Set(
+    nodes.filter((n) => n.data.kind === "file").map((n) => n.data.id),
+  );
+  const anchorOf = simpleConstraintAnchors(nodes);
+
+  const anchorsByLayer = new Map();
+  for (const [fileId, layer] of layerOfFile) {
+    if (!visibleFileIds.has(fileId)) continue;
+    if (!anchorsByLayer.has(layer)) anchorsByLayer.set(layer, []);
+    anchorsByLayer.get(layer).push(anchorOf(fileId));
+  }
+  if (anchorsByLayer.size < 2) return {};
+
+  // Entry points (deeper import depth) render above what they import;
+  // one representative per layer suffices since alignmentConstraint already
+  // ties every file in a layer to the same horizontal band.
+  const layersDeepestFirst = [...anchorsByLayer.keys()].sort((a, b) => b - a);
+  const relativePlacementConstraint = [];
+  for (let i = 0; i < layersDeepestFirst.length - 1; i++) {
+    relativePlacementConstraint.push({
+      top: anchorsByLayer.get(layersDeepestFirst[i])[0],
+      bottom: anchorsByLayer.get(layersDeepestFirst[i + 1])[0],
+      gap: 220,
+    });
+  }
+
+  return {
+    alignmentConstraint: { horizontal: [...anchorsByLayer.values()] },
+    relativePlacementConstraint,
+  };
+}
+
+// fcose's alignment/relative-placement constraints only accept "simple"
+// (childless) node ids, never a compound (expanded file/class) node itself
+// — so an expanded file is represented by one of its leaf descendants,
+// which the compound-gravity forces keep nested inside the file's box.
+function simpleConstraintAnchors(nodes) {
+  const childrenOf = new Map();
+  for (const node of nodes) {
+    if (!node.data.parent) continue;
+    if (!childrenOf.has(node.data.parent)) childrenOf.set(node.data.parent, []);
+    childrenOf.get(node.data.parent).push(node.data.id);
+  }
+  return function anchorOf(id) {
+    let current = id;
+    while (childrenOf.has(current)) current = childrenOf.get(current)[0];
+    return current;
   };
 }
 

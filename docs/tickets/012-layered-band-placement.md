@@ -1,6 +1,6 @@
 # 012. Layered band placement
 
-Status: ready
+Status: done
 Decision: docs/decisions/002-graph-layout-legibility.md
 
 ## Goal
