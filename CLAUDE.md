@@ -14,6 +14,21 @@ session end-to-end) is next.**
   npm IS used to vendor frontend libs into `static/vendor/` (never CDN).
 - Backend deps stay minimal: fastapi + uvicorn only, stdlib otherwise.
 
+## Workflow
+
+Big decisions and small implementation steps are deliberately separated:
+
+- **`north-star` skill** — run before any nontrivial feature or
+  architectural change. Re-grounds the decision in docs/02-04 and the
+  invariants below, then writes an ADR to `docs/decisions/` and splits it
+  into scoped ticket files under `docs/tickets/`. Produces plans, not code.
+- **`ticket` skill** — implements exactly one ticket via strict TDD, small
+  single-responsibility classes, minimum coupling between the layers below,
+  and a passing test for everything touched.
+
+Don't skip straight to multi-file code changes for anything that would
+count as an architectural decision — run `north-star` first.
+
 ## Running
 
 ```bash
