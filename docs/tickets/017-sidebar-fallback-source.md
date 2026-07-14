@@ -1,6 +1,6 @@
 # 017. Sidebar: render source as fallback code view when a node has no diff
 
-Status: ready
+Status: done
 Decision: docs/decisions/004-always-show-source.md
 
 ## Goal

@@ -28,4 +28,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [014](014-symbol-layer-assignment.md) | Call-depth layer assignment for symbols within a file | done | [003](../decisions/003-symbol-layered-placement.md) |
 | [015](015-symbol-layered-placement.md) | Layered placement for symbols within an expanded file | done | [003](../decisions/003-symbol-layered-placement.md) |
 | [016](016-source-in-snapshot.md) | Thread full source text into the snapshot for every node | done | [004](../decisions/004-always-show-source.md) |
-| [017](017-sidebar-fallback-source.md) | Sidebar: render source as fallback code view when a node has no diff | ready | [004](../decisions/004-always-show-source.md) |
+| [017](017-sidebar-fallback-source.md) | Sidebar: render source as fallback code view when a node has no diff | done | [004](../decisions/004-always-show-source.md) |

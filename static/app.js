@@ -415,6 +415,11 @@ function showDetails(node) {
   diffSection.hidden = !node.diff;
   if (node.diff) document.getElementById("d-diff").innerHTML = renderDiff(node.diff);
 
+  const sourceSection = document.getElementById("source-section");
+  const showSource = !node.diff && Boolean(node.source);
+  sourceSection.hidden = !showSource;
+  if (showSource) document.getElementById("d-source").textContent = node.source;
+
   const changed = ["modified", "added", "deleted"].includes(node.status);
   const applyBtn = document.getElementById("btn-apply");
   applyBtn.hidden = !changed;
