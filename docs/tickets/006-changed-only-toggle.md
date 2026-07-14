@@ -1,6 +1,6 @@
 # 006. "Changed + blast radius only" view toggle
 
-Status: ready
+Status: done
 Decision: docs/decisions/001-phase-2-real-session.md
 
 ## Goal

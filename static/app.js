@@ -17,6 +17,7 @@ let graphData = null;
 let nodesById = {};
 let selectedId = null;
 const collapsedFileIds = new Set();
+let changedOnlyView = false;
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -59,8 +60,10 @@ function toElements(data) {
     return representative;
   };
 
+  const revealedIds = changedOnlyView ? changedAndBlastRadiusIds(data.nodes, parentOf) : null;
+
   const nodes = data.nodes
-    .filter((n) => representativeId(n.id) === n.id)
+    .filter((n) => representativeId(n.id) === n.id && (!revealedIds || revealedIds.has(n.id)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (collapsedFileIds.has(n.id)) {
@@ -69,13 +72,13 @@ function toElements(data) {
       return { data: nodeData };
     });
 
-  const ids = new Set(data.nodes.map((n) => n.id));
+  const renderedIds = new Set(nodes.map((n) => n.data.id));
   const seenEdgeIds = new Set();
   const edges = [];
   for (const e of data.edges) {
-    if (!ids.has(e.source) || !ids.has(e.target)) continue;
     const source = representativeId(e.source);
     const target = representativeId(e.target);
+    if (!renderedIds.has(source) || !renderedIds.has(target)) continue;
     if (source === target && e.source !== e.target) continue;
     const id = `${source}->${target}:${e.kind}`;
     if (seenEdgeIds.has(id)) continue;
@@ -97,6 +100,23 @@ function strongestDescendantStatus(fileId, nodes, parentOf) {
     }
   }
   return strongest;
+}
+
+function changedAndBlastRadiusIds(nodes, parentOf) {
+  const revealed = new Set();
+  for (const node of nodes) {
+    if (node.status === "unchanged") continue;
+    revealed.add(node.id);
+    for (let ancestor = parentOf.get(node.id); ancestor; ancestor = parentOf.get(ancestor)) {
+      revealed.add(ancestor);
+    }
+  }
+  return revealed;
+}
+
+function setChangedOnlyView(enabled) {
+  changedOnlyView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
 }
 
 function toggleFileCollapsed(fileId) {
@@ -341,6 +361,10 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (el.hidden = true), 3000);
 }
+
+document.getElementById("changed-only").addEventListener("change", (event) => {
+  setChangedOnlyView(event.target.checked);
+});
 
 setInterval(async () => {
   try {
