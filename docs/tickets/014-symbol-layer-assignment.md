@@ -1,6 +1,6 @@
 # 014. Call-depth layer assignment for symbols within a file
 
-Status: ready
+Status: done
 Decision: docs/decisions/003-symbol-layered-placement.md
 
 ## Goal

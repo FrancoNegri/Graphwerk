@@ -162,28 +162,52 @@ function fileLayersByImportDepth(data) {
     }
   }
 
-  const { componentOf, componentCount } = stronglyConnectedComponents(importedFilesOf);
+  return layersByLongestPath(importedFilesOf);
+}
 
-  const importedComponentsOf = Array.from({ length: componentCount }, () => new Set());
-  for (const [importer, importedFiles] of importedFilesOf) {
-    for (const imported of importedFiles) {
-      const from = componentOf.get(importer);
-      const to = componentOf.get(imported);
-      if (from !== to) importedComponentsOf[from].add(to);
+function symbolLayersByCallDepth(data, fileId) {
+  const topLevelFunctionIds = new Set(
+    data.nodes
+      .filter((node) => node.parent === fileId && node.kind === "function")
+      .map((node) => node.id),
+  );
+
+  const calleesOf = new Map([...topLevelFunctionIds].map((id) => [id, new Set()]));
+  for (const edge of data.edges) {
+    if (edge.kind !== "calls") continue;
+    if (topLevelFunctionIds.has(edge.source) && topLevelFunctionIds.has(edge.target)) {
+      calleesOf.get(edge.source).add(edge.target);
+    }
+  }
+
+  return layersByLongestPath(calleesOf);
+}
+
+// Nodes pointing at nothing get layer 0; otherwise 1 + max over neighbors
+// (longest-path depth). Cycles collapse into one shared layer via SCC.
+function layersByLongestPath(neighborsOf) {
+  const { componentOf, componentCount } = stronglyConnectedComponents(neighborsOf);
+
+  const neighborComponentsOf = Array.from({ length: componentCount }, () => new Set());
+  for (const [node, neighbors] of neighborsOf) {
+    for (const neighbor of neighbors) {
+      const from = componentOf.get(node);
+      const to = componentOf.get(neighbor);
+      if (from !== to) neighborComponentsOf[from].add(to);
     }
   }
 
   // Tarjan emits components in reverse topological order, so everything a
-  // component imports already has its layer by the time we reach it.
+  // component points at already has its layer by the time we reach it.
   const componentLayer = new Array(componentCount).fill(0);
   for (let component = 0; component < componentCount; component++) {
-    for (const imported of importedComponentsOf[component]) {
-      componentLayer[component] = Math.max(componentLayer[component], componentLayer[imported] + 1);
+    for (const neighbor of neighborComponentsOf[component]) {
+      componentLayer[component] = Math.max(componentLayer[component], componentLayer[neighbor] + 1);
     }
   }
 
   return new Map(
-    [...importedFilesOf.keys()].map((fileId) => [fileId, componentLayer[componentOf.get(fileId)]]),
+    [...neighborsOf.keys()].map((node) => [node, componentLayer[componentOf.get(node)]]),
   );
 }
 
@@ -590,5 +614,6 @@ setInterval(async () => {
 }, 1500);
 
 window.fileLayersByImportDepth = fileLayersByImportDepth; // console/debugging access, like window.cy
+window.symbolLayersByCallDepth = symbolLayersByCallDepth; // console/debugging access, like window.cy
 
 loadGraph();
