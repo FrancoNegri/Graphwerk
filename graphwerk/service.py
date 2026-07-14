@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from graphwerk.indexing.python_ast import iter_python_files
+from graphwerk.indexing.walk import iter_python_files
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder

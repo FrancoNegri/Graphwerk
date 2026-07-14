@@ -9,19 +9,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from graphwerk.indexing.walk import iter_python_files
 from graphwerk.models import FileIndex, SymbolInfo
-
-IGNORED_DIRS = {
-    ".git",
-    ".hg",
-    ".venv",
-    "venv",
-    "node_modules",
-    "__pycache__",
-    ".graphwerk",
-    ".idea",
-    ".vscode",
-}
 
 
 class PythonAstExtractor:
@@ -80,15 +69,6 @@ def _imported_modules(node: ast.Import | ast.ImportFrom) -> set[str]:
     if isinstance(node, ast.Import):
         return {alias.name for alias in node.names}
     return {node.module} if node.module else set()
-
-
-def iter_python_files(root: Path):
-    """Yield (abs_path, rel_path) for indexable .py files under root."""
-    for path in sorted(root.rglob("*.py")):
-        rel_parts = path.relative_to(root).parts
-        if any(part in IGNORED_DIRS or part.startswith(".") for part in rel_parts[:-1]):
-            continue
-        yield path, path.relative_to(root).as_posix()
 
 
 def index_tree(root: Path) -> dict[str, FileIndex]:

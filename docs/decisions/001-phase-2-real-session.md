@@ -39,8 +39,11 @@ Ship Phase 2 as four narrow pieces, all inside existing layers:
 3. **Git-aware file enumeration** — when a tree is git-managed, enumerate
    Python files via `git ls-files --cached --others --exclude-standard`
    (respects .gitignore for free) and skip symlinks; otherwise keep the
-   current `rglob` walk (the demo trees are not git repos). The differ,
-   indexer, and `state_hash` all share this one walk, so they stay consistent.
+   current `rglob` walk so any plain directory pair still works. (The demo
+   trees are in fact git repos — `demo.py` inits the base and stages via a
+   worktree — so the demo exercises the git branch; the fallback's consumer
+   is arbitrary non-git pairs passed to `serve`.) The differ, indexer, and
+   `state_hash` all share this one walk, so they stay consistent.
 4. **Scale UX, in `static/` only** — (a) double-click collapses/expands a
    file's compound node; (b) a "changed + blast radius only" toggle that
    hides unchanged, unaffected nodes and the edges into them. Any Cytoscape

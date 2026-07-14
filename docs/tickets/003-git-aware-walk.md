@@ -1,6 +1,6 @@
 # 003. Git-aware file enumeration (.gitignore + symlinks)
 
-Status: ready
+Status: done
 Decision: docs/decisions/001-phase-2-real-session.md
 
 ## Goal
