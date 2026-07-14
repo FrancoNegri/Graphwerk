@@ -8,5 +8,8 @@ dependencies = [
     "uvicorn>=0.29",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [tool.setuptools]
 packages = ["graphwerk", "graphwerk.indexing", "graphwerk.staging", "graphwerk.rationale"]
