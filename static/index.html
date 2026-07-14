@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>graphwerk — staged changes</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">graphwerk <span class="sub">staged change review</span></div>
+    <div class="legend">
+      <span><i class="dot modified"></i>modified</span>
+      <span><i class="dot added"></i>new</span>
+      <span><i class="dot deleted"></i>deleted</span>
+      <span><i class="dot affected"></i>affected caller</span>
+      <span><i class="dot unchanged"></i>unchanged</span>
+    </div>
+    <div id="paths" class="paths"></div>
+  </header>
+  <main>
+    <div id="cy"></div>
+    <aside id="sidebar">
+      <div id="placeholder" class="placeholder">
+        Select a node to review its staged change.<br><br>
+        Files are boxes; classes and functions live inside them.
+        Solid arrows are calls, dashed arrows are imports.
+      </div>
+      <div id="details" hidden>
+        <h2 id="d-label"></h2>
+        <div class="meta"><span id="d-kind" class="chip kind"></span><span id="d-status" class="chip"></span></div>
+        <div id="d-path" class="path"></div>
+        <section id="why-section" hidden>
+          <h3>Why this change</h3>
+          <div id="d-why" class="why"></div>
+        </section>
+        <section id="diff-section" hidden>
+          <h3>Staged diff</h3>
+          <pre id="d-diff" class="diff"></pre>
+        </section>
+        <section id="actions">
+          <button id="btn-apply" hidden></button>
+          <div id="reject-box" hidden>
+            <textarea id="reject-comment" rows="3"
+              placeholder="What's wrong with this change? (becomes the re-prompt)"></textarea>
+            <button id="btn-reject" class="danger">Reject &amp; re-prompt</button>
+          </div>
+          <div id="reject-result" hidden>
+            <h3>Re-prompt recorded</h3>
+            <p class="note">In the full build this goes straight back into the live Claude session:</p>
+            <pre id="reject-prompt" class="diff"></pre>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </main>
+  <div id="toast" hidden></div>
+  <script src="/static/vendor/cytoscape.min.js"></script>
+  <script src="/static/vendor/layout-base.js"></script>
+  <script src="/static/vendor/cose-base.js"></script>
+  <script src="/static/vendor/cytoscape-fcose.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

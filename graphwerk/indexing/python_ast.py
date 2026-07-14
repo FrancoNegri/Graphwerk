@@ -1,0 +1,97 @@
+"""Symbol extraction for Python files using the stdlib ast module.
+
+v1 indexes Python only. The FileIndex/SymbolInfo contract is language-neutral,
+so a tree-sitter extractor can slot in later for other languages.
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+from graphwerk.models import FileIndex, SymbolInfo
+
+IGNORED_DIRS = {
+    ".git",
+    ".hg",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".graphwerk",
+    ".idea",
+    ".vscode",
+}
+
+
+class PythonAstExtractor:
+    """Extracts top-level classes/functions and class methods from one file."""
+
+    def extract(self, file_path: Path, rel_path: str) -> FileIndex:
+        index = FileIndex(rel_path=rel_path)
+        try:
+            source = file_path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+        except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+            index.parse_error = f"{type(exc).__name__}: {exc}"
+            return index
+
+        lines = source.splitlines(keepends=True)
+
+        for node in tree.body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                index.imports |= _imported_modules(node)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                index.symbols[node.name] = _symbol(node, node.name, "function", lines)
+            elif isinstance(node, ast.ClassDef):
+                index.symbols[node.name] = _symbol(node, node.name, "class", lines)
+                for child in node.body:
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        qualname = f"{node.name}.{child.name}"
+                        index.symbols[qualname] = _symbol(child, qualname, "method", lines)
+        return index
+
+
+def _symbol(node: ast.AST, qualname: str, kind: str, lines: list[str]) -> SymbolInfo:
+    start, end = node.lineno, node.end_lineno or node.lineno
+    return SymbolInfo(
+        qualname=qualname,
+        kind=kind,
+        lineno=start,
+        end_lineno=end,
+        source="".join(lines[start - 1 : end]),
+        calls=_called_names(node),
+    )
+
+
+def _called_names(node: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Call):
+            func = sub.func
+            if isinstance(func, ast.Name):
+                names.add(func.id)
+            elif isinstance(func, ast.Attribute):
+                names.add(func.attr)
+    return names
+
+
+def _imported_modules(node: ast.Import | ast.ImportFrom) -> set[str]:
+    if isinstance(node, ast.Import):
+        return {alias.name for alias in node.names}
+    return {node.module} if node.module else set()
+
+
+def iter_python_files(root: Path):
+    """Yield (abs_path, rel_path) for indexable .py files under root."""
+    for path in sorted(root.rglob("*.py")):
+        rel_parts = path.relative_to(root).parts
+        if any(part in IGNORED_DIRS or part.startswith(".") for part in rel_parts[:-1]):
+            continue
+        yield path, path.relative_to(root).as_posix()
+
+
+def index_tree(root: Path) -> dict[str, FileIndex]:
+    """Index every Python file under a directory tree."""
+    extractor = PythonAstExtractor()
+    return {rel: extractor.extract(path, rel) for path, rel in iter_python_files(root)}

@@ -1,0 +1,12 @@
+[project]
+name = "graphwerk"
+version = "0.1.0"
+description = "Graph-based staging and review layer between an AI coding agent and the filesystem"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[tool.setuptools]
+packages = ["graphwerk", "graphwerk.indexing", "graphwerk.staging", "graphwerk.rationale"]
