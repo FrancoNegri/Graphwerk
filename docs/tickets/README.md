@@ -36,7 +36,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [022](022-token-highlighting.md) | Python token highlighting via stdlib tokenize | done | [007](../decisions/007-sidebar-code-view.md) |
 | [023](023-merged-line-view.md) | Merged line view of base vs staged text | done | [007](../decisions/007-sidebar-code-view.md) |
 | [024](024-code-view-builder.md) | Code view builder: merged lines + highlight spans | done | [007](../decisions/007-sidebar-code-view.md) |
-| [025](025-filechange-both-texts.md) | FileChange carries base and staged full text | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [025](025-filechange-both-texts.md) | FileChange carries base and staged full text | done | [007](../decisions/007-sidebar-code-view.md) |
 | [026](026-snapshot-code-view.md) | Snapshot attaches a code view to every node | ready | [007](../decisions/007-sidebar-code-view.md) |
 | [027](027-sidebar-code-render.md) | Sidebar renders the unified code view | ready | [007](../decisions/007-sidebar-code-view.md) |
 | [028](028-drop-source-payload.md) | Drop the redundant source field from the node payload | ready | [007](../decisions/007-sidebar-code-view.md) |

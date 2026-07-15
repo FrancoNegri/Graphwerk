@@ -62,7 +62,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #cy { flex: 1; min-width: 0; }
 
 #sidebar {
-  width: 420px;
+  width: 820px;
   background: var(--panel);
   border-left: 1px solid var(--border);
   overflow-y: auto;

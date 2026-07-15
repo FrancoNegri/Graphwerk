@@ -1,6 +1,6 @@
 # 025. FileChange carries base and staged full text
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 ## Goal

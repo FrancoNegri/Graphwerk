@@ -39,8 +39,41 @@ def test_deleted_file_change_carries_base_text(tmp_path):
     assert changes["old.py"].source == "x = 1\n"
 
 
-def test_file_missing_on_both_sides_yields_none_source(tmp_path):
-    (tmp_path / "base").mkdir()
-    (tmp_path / "staged").mkdir()
-    builder = ChangeSetBuilder(tmp_path / "base", tmp_path / "staged")
-    assert builder._file_source("vanished.py") is None
+def test_modified_file_carries_both_full_texts(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "def f():\n    return 1\n"},
+        staged={"a.py": "def f():\n    return 2\n"},
+    )
+    change = changes["a.py"]
+    assert change.base_source == "def f():\n    return 1\n"
+    assert change.staged_source == "def f():\n    return 2\n"
+
+
+def test_added_file_has_no_base_source(tmp_path):
+    changes = build_changes(tmp_path, base={}, staged={"new.py": "x = 1\n"})
+
+    change = changes["new.py"]
+    assert change.base_source is None
+    assert change.staged_source == "x = 1\n"
+
+
+def test_deleted_file_has_no_staged_source(tmp_path):
+    changes = build_changes(tmp_path, base={"old.py": "x = 1\n"}, staged={})
+
+    change = changes["old.py"]
+    assert change.base_source == "x = 1\n"
+    assert change.staged_source is None
+
+
+def test_undecodable_file_yields_none_sources_without_raising(tmp_path):
+    for root_name in ("base", "staged"):
+        root = tmp_path / root_name
+        root.mkdir()
+        (root / "junk.py").write_bytes(b"\xff\xfe\x00 not utf-8 \xff")
+    changes = ChangeSetBuilder(tmp_path / "base", tmp_path / "staged").build()
+
+    change = changes["junk.py"]
+    assert change.base_source is None
+    assert change.staged_source is None
+    assert change.source is None

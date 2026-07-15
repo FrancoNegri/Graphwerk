@@ -32,6 +32,8 @@ class FileChange:
         self.symbols: dict[str, tuple[Status, str]] = {}
         # full staged text (base text for deleted files); None if unreadable
         self.source: str | None = None
+        self.base_source: str | None = None
+        self.staged_source: str | None = None
 
 
 class ChangeSetBuilder:
@@ -46,20 +48,24 @@ class ChangeSetBuilder:
 
         for rel in sorted(set(base_files) | set(staged_files)):
             base, staged = base_files.get(rel), staged_files.get(rel)
+            base_bytes = _read_bytes(self.base_root / rel)
+            staged_bytes = _read_bytes(self.staged_root / rel)
+            base_text = _decode(base_bytes)
+            staged_text = _decode(staged_bytes)
             if base is not None and staged is None:
-                change = FileChange(rel, Status.DELETED, base, None, self._file_diff(rel))
+                change = FileChange(rel, Status.DELETED, base, None, _file_diff(rel, base_text, staged_text))
                 for qualname in base.symbols:
                     change.symbols[qualname] = (Status.DELETED, self._symbol_diff(base, None, qualname))
             elif base is None and staged is not None:
-                change = FileChange(rel, Status.ADDED, None, staged, self._file_diff(rel))
+                change = FileChange(rel, Status.ADDED, None, staged, _file_diff(rel, base_text, staged_text))
                 for qualname in staged.symbols:
                     change.symbols[qualname] = (Status.ADDED, self._symbol_diff(None, staged, qualname))
-            elif self._same_content(rel):
+            elif base_bytes is not None and base_bytes == staged_bytes:
                 change = FileChange(rel, Status.UNCHANGED, base, staged, "")
                 for qualname in staged.symbols:
                     change.symbols[qualname] = (Status.UNCHANGED, "")
             else:
-                change = FileChange(rel, Status.MODIFIED, base, staged, self._file_diff(rel))
+                change = FileChange(rel, Status.MODIFIED, base, staged, _file_diff(rel, base_text, staged_text))
                 for qualname in sorted(set(base.symbols) | set(staged.symbols)):
                     in_base, in_staged = qualname in base.symbols, qualname in staged.symbols
                     if in_base and not in_staged:
@@ -72,30 +78,11 @@ class ChangeSetBuilder:
                         status = Status.UNCHANGED
                     diff = "" if status is Status.UNCHANGED else self._symbol_diff(base, staged, qualname)
                     change.symbols[qualname] = (status, diff)
-            change.source = self._file_source(rel)
+            change.source = staged_text if staged_text is not None else base_text
+            change.base_source = base_text
+            change.staged_source = staged_text
             changes[rel] = change
         return changes
-
-    def _file_source(self, rel: str) -> str | None:
-        for root in (self.staged_root, self.base_root):
-            try:
-                return (root / rel).read_text(encoding="utf-8")
-            except OSError:
-                continue
-        return None
-
-    def _same_content(self, rel: str) -> bool:
-        try:
-            return (self.base_root / rel).read_bytes() == (self.staged_root / rel).read_bytes()
-        except OSError:
-            return False
-
-    def _file_diff(self, rel: str) -> str:
-        base_lines = _read_lines(self.base_root / rel)
-        staged_lines = _read_lines(self.staged_root / rel)
-        return "".join(
-            difflib.unified_diff(base_lines, staged_lines, fromfile=f"base/{rel}", tofile=f"staged/{rel}")
-        )
 
     def _symbol_diff(self, base: FileIndex | None, staged: FileIndex | None, qualname: str) -> str:
         base_src = base.symbols[qualname].source if base and qualname in base.symbols else ""
@@ -110,8 +97,28 @@ class ChangeSetBuilder:
         )
 
 
-def _read_lines(path: Path) -> list[str]:
+def _file_diff(rel: str, base_text: str | None, staged_text: str | None) -> str:
+    return "".join(
+        difflib.unified_diff(
+            (base_text or "").splitlines(keepends=True),
+            (staged_text or "").splitlines(keepends=True),
+            fromfile=f"base/{rel}",
+            tofile=f"staged/{rel}",
+        )
+    )
+
+
+def _read_bytes(path: Path) -> bytes | None:
     try:
-        return path.read_text(encoding="utf-8").splitlines(keepends=True)
+        return path.read_bytes()
     except OSError:
-        return []
+        return None
+
+
+def _decode(raw: bytes | None) -> str | None:
+    if raw is None:
+        return None
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
