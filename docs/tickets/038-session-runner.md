@@ -1,6 +1,6 @@
 # 038. SessionRunner: spawn and track one headless agent session
 
-Status: ready
+Status: done
 Decision: docs/decisions/011-prompt-box-session-kickoff.md
 
 ## Goal
