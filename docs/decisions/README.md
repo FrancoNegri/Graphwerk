@@ -17,3 +17,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [006](006-rationale-mining-v2.md) | Rationale mining v2: whole-transcript mention attribution | proposed |
 | [007](007-sidebar-code-view.md) | Sidebar code view: full source with diff overlay and syntax highlighting | proposed |
 | [008](008-within-layer-ordering.md) | Within-layer ordering: barycenter sweeps to shorten cross-layer edges | proposed |
+| [009](009-rationale-fails-loudly.md) | Rationale fails loudly: source status in the payload + misplaced-session hint | proposed |
