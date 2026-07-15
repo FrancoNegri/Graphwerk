@@ -1,6 +1,6 @@
 # 018. Transcript parser: ordered segments + edit events
 
-Status: ready
+Status: done
 Decision: docs/decisions/006-rationale-mining-v2.md
 
 ## Goal
