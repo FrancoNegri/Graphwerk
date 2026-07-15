@@ -56,8 +56,8 @@ class GraphService:
         self.builder = ChangeSetBuilder(base_root, staged_root)
 
     def snapshot(self) -> Snapshot:
-        self.rationale.reload()
         changes = self.builder.build()
+        self.rationale.reload(changed_symbols=self._changed_symbols(changes))
         snap = Snapshot()
         name_to_ids: dict[str, list[str]] = {}  # simple name -> symbol node ids
         symbol_calls: dict[str, set[str]] = {}  # node id -> called simple names
@@ -115,6 +115,14 @@ class GraphService:
         self._mark_affected(snap)
         assign_layers(snap.nodes, snap.edges)
         return snap
+
+    @staticmethod
+    def _changed_symbols(changes: dict) -> dict[str, list[str]]:
+        by_file = {
+            rel: [qualname for qualname, (status, _) in change.symbols.items() if status in CHANGED]
+            for rel, change in changes.items()
+        }
+        return {rel: qualnames for rel, qualnames in by_file.items() if qualnames}
 
     def state_hash(self) -> str:
         """Cheap fingerprint of both trees; the UI polls this to know when to refetch."""

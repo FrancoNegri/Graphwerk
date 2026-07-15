@@ -117,6 +117,57 @@ def test_unmentioned_file_falls_back_to_preceding_narration(staged_root, claude_
     assert store.why_for("helpers.py") == "Quick cleanup pass."
 
 
+def test_symbol_mention_beats_file_why_while_siblings_keep_it(staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Working through payment.py."),
+            edit_block(staged_root / "payment.py"),
+        ),
+        assistant_entry(text_block(
+            "Summary:\n"
+            "- payment.py: validation and retries\n"
+            "- charge now retries three times"
+        )),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+    store.reload(changed_symbols={"payment.py": ["Gateway.charge", "Gateway.refund"]})
+
+    assert store.why_for("payment.py", "Gateway.charge") == "- charge now retries three times"
+    assert store.why_for("payment.py", "Gateway.refund") == "- payment.py: validation and retries"
+
+
+def test_why_for_prefers_sidecar_symbol_then_sidecar_file_then_transcript(
+        tmp_path, staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Transcript file why for payment.py."),
+            edit_block(staged_root / "payment.py"),
+        ),
+        assistant_entry(text_block("Transcript symbol why: charge retries now.")),
+    ])
+    changed = {"payment.py": ["Gateway.charge"]}
+
+    def store_with(sidecar_entries):
+        sidecar = tmp_path / "rationale.json"
+        sidecar.write_text(json.dumps(sidecar_entries), encoding="utf-8")
+        store = RationaleStore(sidecar_path=sidecar, staged_root=staged_root)
+        store.reload(changed_symbols=changed)
+        return store
+
+    full = store_with({"payment.py": "Sidecar file why",
+                       "payment.py::Gateway.charge": "Sidecar symbol why"})
+    assert full.why_for("payment.py", "Gateway.charge") == "Sidecar symbol why"
+
+    file_only = store_with({"payment.py": "Sidecar file why"})
+    assert file_only.why_for("payment.py", "Gateway.charge") == "Sidecar file why"
+
+    no_sidecar = store_with({})
+    assert no_sidecar.why_for("payment.py", "Gateway.charge") == \
+        "Transcript symbol why: charge retries now."
+    assert no_sidecar.why_for("payment.py") == "Transcript file why for payment.py."
+
+
 def test_empty_discovery_falls_back_to_sidecar_only(tmp_path, staged_root, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     sidecar = tmp_path / "rationale.json"

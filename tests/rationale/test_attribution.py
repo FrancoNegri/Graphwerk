@@ -1,4 +1,4 @@
-from graphwerk.rationale.attribution import attribute_files
+from graphwerk.rationale.attribution import attribute_files, attribute_symbols
 from graphwerk.rationale.transcript import Segment
 
 
@@ -52,6 +52,42 @@ def test_unmentioned_files_are_absent():
 
     assert "models.py" not in result
     assert set(result) == {"cli.py"}
+
+
+def test_symbol_mention_yields_qualname_entry_latest_wins():
+    parsed = segments(
+        "First pass: charge gets a retry loop.",
+        "Final: charge now retries three times with backoff.",
+        "Unrelated closing remark.",
+    )
+
+    result = attribute_symbols(parsed, {"pkg/payment.py": ["PaymentGateway.charge"]})
+
+    assert result == {
+        "pkg/payment.py::PaymentGateway.charge":
+            "Final: charge now retries three times with backoff.",
+    }
+
+
+def test_symbol_name_must_be_a_distinct_token():
+    parsed = segments("The supercharger and charged paths are untouched.")
+
+    assert attribute_symbols(parsed, {"pkg/payment.py": ["PaymentGateway.charge"]}) == {}
+
+
+def test_same_name_in_two_files_needs_a_file_mention_to_count():
+    changed = {"jobs/worker.py": ["Worker.run"], "jobs/scheduler.py": ["Scheduler.run"]}
+
+    unqualified = segments("Tightened up run to exit cleanly.")
+    assert attribute_symbols(unqualified, changed) == {}
+
+    both_files = segments("run changed in worker.py and scheduler.py.")
+    assert attribute_symbols(both_files, changed) == {}
+
+    one_file = segments("In worker.py, run now exits cleanly.")
+    assert attribute_symbols(one_file, changed) == {
+        "jobs/worker.py::Worker.run": "In worker.py, run now exits cleanly.",
+    }
 
 
 def test_rationale_is_truncated_to_max_why_len():

@@ -1,6 +1,6 @@
 # 021. Symbol-level mention attribution
 
-Status: ready
+Status: done
 Decision: docs/decisions/006-rationale-mining-v2.md
 
 Depends on: tickets 018-020.
