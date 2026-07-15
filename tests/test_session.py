@@ -41,7 +41,8 @@ def test_successful_run_reports_done_with_session_id(staged_root, tmp_path):
 
     started = runner.start("add a docstring")
 
-    assert started["state"] == "running"
+    # the stub may already have exited by the time start() reports back
+    assert started["state"] in ("running", "done")
     finished = wait_until_finished(runner)
     assert finished == {"state": "done", "detail": "", "session_id": "sess-42"}
 
