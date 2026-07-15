@@ -1,6 +1,6 @@
 # 022. Python token highlighting via stdlib tokenize
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 ## Goal
