@@ -52,3 +52,8 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [038](038-session-runner.md) | SessionRunner: spawn and track one headless agent session | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [039](039-prompt-endpoints.md) | `/api/prompt` + `/api/session` endpoints and the permissions flag | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [040](040-prompt-box-ui.md) | Prompt box + busy indicator in the UI | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
+| [041](041-session-guidance-text.md) | Session guidance text + round-trip attribution test | ready | [012](../decisions/012-rationale-session-guidance.md) |
+| [042](042-session-runner-system-prompt.md) | `SessionRunner` gains a `system_prompt` parameter | ready | [012](../decisions/012-rationale-session-guidance.md) |
+| [043](043-wire-session-guidance-into-serve.md) | Wire `SESSION_GUIDANCE` into `cli._serve`'s `SessionRunner` | ready | [012](../decisions/012-rationale-session-guidance.md) |
+| [044](044-show-deps-calls-toggle.md) | "show deps + calls" edge visibility toggle | ready | [013](../decisions/013-graph-edge-visibility-toggle.md) |
+| [045](045-fix-polling-loop-overlap.md) | Fix unbounded overlap in the hash/session polling loop | ready | [011](../decisions/011-prompt-box-session-kickoff.md) |
