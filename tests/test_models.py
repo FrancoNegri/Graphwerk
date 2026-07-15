@@ -1,10 +1,12 @@
 from graphwerk.models import GraphNode
 
 
-def test_graph_node_source_defaults_to_none_and_is_serialized():
-    node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py")
-    assert node.source is None
-    assert node.to_dict()["source"] is None
+def test_graph_node_source_stays_internal_and_off_the_wire():
+    node = GraphNode(
+        id="a.py::f", label="f", kind="function", path="a.py", source="def f():\n    pass\n"
+    )
+    assert node.source == "def f():\n    pass\n"
+    assert "source" not in node.to_dict()
 
 
 def test_graph_node_code_defaults_to_none_and_is_serialized():
@@ -19,8 +21,3 @@ def test_graph_node_code_round_trips_through_to_dict():
     assert node.to_dict()["code"] == view
 
 
-def test_graph_node_source_round_trips_through_to_dict():
-    node = GraphNode(
-        id="a.py::f", label="f", kind="function", path="a.py", source="def f():\n    pass\n"
-    )
-    assert node.to_dict()["source"] == "def f():\n    pass\n"

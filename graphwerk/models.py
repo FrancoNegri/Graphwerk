@@ -61,7 +61,6 @@ class GraphNode:
             "why": self.why,
             "diff": self.diff,
             "layer": self.layer,
-            "source": self.source,
             "code": self.code,
         }
 

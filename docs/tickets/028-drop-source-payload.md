@@ -1,6 +1,6 @@
 # 028. Drop the redundant source field from the node payload
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 Depends on: ticket 027 (the UI must no longer read `source`).

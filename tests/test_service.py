@@ -144,6 +144,15 @@ def test_unreadable_file_node_code_is_none(tmp_path):
     assert nodes["junk.py"].code is None
 
 
+def test_serialized_node_carries_code_but_not_source(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+    payload = service.snapshot().to_dict()
+
+    for node in payload["nodes"]:
+        assert "source" not in node
+        assert "code" in node
+
+
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     service = make_service(tmp_path, {
         "pipeline.py": (
