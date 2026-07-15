@@ -1,6 +1,6 @@
 # 024. Code view builder: merged lines + highlight spans
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 Depends on: tickets 022, 023.

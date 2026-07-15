@@ -3,6 +3,8 @@
 import difflib
 from dataclasses import dataclass
 
+from graphwerk.highlight import highlight_lines
+
 
 @dataclass
 class CodeLine:
@@ -11,6 +13,23 @@ class CodeLine:
     text: str
     op: str  # "ctx" | "add" | "del"
     origin_line: int  # 1-based on the side the line came from
+
+
+def build_code_view(base_text: str | None, staged_text: str | None) -> list[dict]:
+    base_spans = highlight_lines(base_text or "")
+    staged_spans = highlight_lines(staged_text or "")
+    view = []
+    for line in merge_lines(base_text, staged_text):
+        side_spans = base_spans if line.op == "del" else staged_spans
+        view.append(
+            {
+                "text": line.text,
+                "op": line.op,
+                "line": line.origin_line,
+                "spans": [list(span) for span in side_spans[line.origin_line - 1]],
+            }
+        )
+    return view
 
 
 def merge_lines(base_text: str | None, staged_text: str | None) -> list[CodeLine]:
