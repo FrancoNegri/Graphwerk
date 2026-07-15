@@ -58,3 +58,8 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [044](044-show-deps-calls-toggle.md) | "show deps + calls" edge visibility toggle | ready | [013](../decisions/013-graph-edge-visibility-toggle.md) |
 | [045](045-fix-polling-loop-overlap.md) | Fix unbounded overlap in the hash/session polling loop | ready | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [046](046-split-imports-calls-toggle.md) | Split "show deps + calls" into independent imports/calls toggles | done | [014](../decisions/014-split-imports-calls-toggle.md) |
+| [047](047-generalize-container-collapse.md) | Generalize collapse to every container, always collapsed by default | ready | [015](../decisions/015-contract-by-default.md) |
+| [048](048-show-calls-default-on.md) | `show-calls` defaults to on | ready | [015](../decisions/015-contract-by-default.md) |
+| [049](049-call-edge-status-model.md) | `GraphEdge.status` computed for `calls` edges | ready | [016](../decisions/016-call-edge-status.md) |
+| [050](050-color-call-edges-by-status.md) | Color `calls` edges by their status | ready | [016](../decisions/016-call-edge-status.md) |
+| [051](051-click-edge-lists-underlying-calls.md) | Clicking a `calls` edge lists the calls it collapsed | ready | [016](../decisions/016-call-edge-status.md) |
