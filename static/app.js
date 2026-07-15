@@ -46,7 +46,9 @@ async function loadGraph() {
       if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
     }
     for (const e of elements.edges) {
-      cy.getElementById(e.data.id).data("status", e.data.status);
+      const ele = cy.getElementById(e.data.id);
+      ele.data("status", e.data.status);
+      ele.data("calls", e.data.calls);
     }
   } else {
     renderGraph(elements);
@@ -87,8 +89,7 @@ function toElements(data) {
     });
 
   const renderedIds = new Set(nodes.map((n) => n.data.id));
-  const seenEdgeIds = new Set();
-  const edges = [];
+  const edgesById = new Map();
   for (const e of data.edges) {
     const source = representativeId(e.source);
     const target = representativeId(e.target);
@@ -97,11 +98,14 @@ function toElements(data) {
     if (e.kind === "imports" && !showImportsView) continue;
     if (e.kind === "calls" && !showCallsView) continue;
     const id = `${source}->${target}:${e.kind}`;
-    if (seenEdgeIds.has(id)) continue;
-    seenEdgeIds.add(id);
-    edges.push({ data: { id, source, target, kind: e.kind, status: e.status } });
+    let edge = edgesById.get(id);
+    if (!edge) {
+      edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] } };
+      edgesById.set(id, edge);
+    }
+    edge.data.calls.push({ source: e.source, target: e.target });
   }
-  return { nodes, edges };
+  return { nodes, edges: [...edgesById.values()] };
 }
 
 function strongestDescendantStatusByAncestor(nodes, parentOf) {
@@ -303,6 +307,7 @@ function renderGraph(elements) {
     selectedId = evt.target.id();
     showDetails(nodesById[selectedId]);
   });
+  cy.on("tap", "edge[kind='calls']", (evt) => showEdgeCalls(evt.target));
   cy.on("tap", (evt) => {
     if (evt.target === cy) clearDetails();
   });
@@ -422,6 +427,7 @@ function simpleConstraintAnchors(nodes) {
 function showDetails(node) {
   if (!node) return;
   document.getElementById("placeholder").hidden = true;
+  document.getElementById("edge-calls").hidden = true;
   const details = document.getElementById("details");
   details.hidden = false;
 
@@ -456,6 +462,24 @@ function clearDetails() {
   selectedId = null;
   document.getElementById("placeholder").hidden = false;
   document.getElementById("details").hidden = true;
+  document.getElementById("edge-calls").hidden = true;
+}
+
+// The raw graph id is "<rel_path>::<qualname>"; the qualname alone (e.g.
+// "PaymentValidator.charge") is more legible here than the file-qualified id.
+function qualifiedLabel(nodeId) {
+  const separator = nodeId.indexOf("::");
+  return separator === -1 ? nodeId : nodeId.slice(separator + 2);
+}
+
+function showEdgeCalls(edge) {
+  document.getElementById("placeholder").hidden = true;
+  document.getElementById("details").hidden = true;
+  document.getElementById("edge-calls").hidden = false;
+  document.getElementById("d-calls-list").innerHTML = edge
+    .data("calls")
+    .map(({ source, target }) => `<li>${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}</li>`)
+    .join("");
 }
 
 async function applyFile(path) {

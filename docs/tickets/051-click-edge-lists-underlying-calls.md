@@ -1,6 +1,6 @@
 # 051. Clicking a `calls` edge lists the calls it collapsed
 
-Status: ready
+Status: done
 Decision: docs/decisions/016-call-edge-status.md
 
 ## Goal

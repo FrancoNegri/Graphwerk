@@ -178,6 +178,10 @@ section h3 {
   font-size: 13px;
 }
 
+.calls-list { list-style: none; padding: 0; font-size: 13px; }
+.calls-list li { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.calls-list li:last-child { border-bottom: none; }
+
 .diff {
   background: #0b1220;
   border: 1px solid var(--border);
