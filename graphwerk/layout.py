@@ -55,6 +55,71 @@ def _function_layers_by_call_depth(
     return layers
 
 
+_BARYCENTER_SWEEPS = 4
+
+
+def _orders_by_barycenter(
+    layer_by_id: dict[str, int], neighbors_of: dict[str, set[str]]
+) -> dict[str, int]:
+    linked_to = _undirected_adjacency(layer_by_id, neighbors_of)
+
+    nodes_by_layer: dict[int, list[str]] = {}
+    for node in sorted(layer_by_id):
+        nodes_by_layer.setdefault(layer_by_id[node], []).append(node)
+
+    position: dict[str, int] = {}
+    for layer_nodes in nodes_by_layer.values():
+        position.update({node: index for index, node in enumerate(layer_nodes)})
+
+    for sweep in range(_BARYCENTER_SWEEPS):
+        toward_higher_layers = sweep % 2 == 0
+        for layer in sorted(nodes_by_layer, reverse=not toward_higher_layers):
+            layer_nodes = nodes_by_layer[layer]
+            barycenter = {
+                node: _neighbor_position_mean(
+                    node, layer, layer_by_id, linked_to, position, toward_higher_layers
+                )
+                for node in layer_nodes
+            }
+            layer_nodes.sort(key=barycenter.__getitem__)
+            position.update({node: index for index, node in enumerate(layer_nodes)})
+    return position
+
+
+def _undirected_adjacency(
+    layer_by_id: dict[str, int], neighbors_of: dict[str, set[str]]
+) -> dict[str, set[str]]:
+    linked_to: dict[str, set[str]] = {node: set() for node in layer_by_id}
+    for node, neighbors in neighbors_of.items():
+        for neighbor in neighbors:
+            if node != neighbor and node in linked_to and neighbor in linked_to:
+                linked_to[node].add(neighbor)
+                linked_to[neighbor].add(node)
+    return linked_to
+
+
+def _neighbor_position_mean(
+    node: str,
+    layer: int,
+    layer_by_id: dict[str, int],
+    linked_to: dict[str, set[str]],
+    position: dict[str, int],
+    toward_higher_layers: bool,
+) -> float:
+    # Sweeping toward higher layers means each layer looks at the (already
+    # re-sorted) layers below it, and vice versa. A neighbor further than one
+    # layer away still counts, via its position in its own layer (no dummy
+    # nodes). Nodes with nothing to look at keep their current slot as key,
+    # so the stable sort preserves their order.
+    if toward_higher_layers:
+        relevant = [position[n] for n in linked_to[node] if layer_by_id[n] < layer]
+    else:
+        relevant = [position[n] for n in linked_to[node] if layer_by_id[n] > layer]
+    if not relevant:
+        return float(position[node])
+    return sum(relevant) / len(relevant)
+
+
 def _layers_by_longest_path(neighbors_of: dict[str, set[str]]) -> dict[str, int]:
     component_of, component_count = _strongly_connected_components(neighbors_of)
 

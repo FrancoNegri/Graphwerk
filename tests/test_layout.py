@@ -1,4 +1,4 @@
-from graphwerk.layout import assign_layers
+from graphwerk.layout import _orders_by_barycenter, assign_layers
 from graphwerk.models import GraphEdge, GraphNode
 
 
@@ -157,6 +157,42 @@ def test_classes_and_methods_get_no_layer():
     assert layers["svc.py::Service"] is None
     assert layers["svc.py::Service.run"] is None
     assert layers["svc.py::Service.helper"] is None
+
+
+def test_barycenter_uncrosses_a_two_layer_crossing():
+    layer_by_id = {"a.py": 0, "b.py": 0, "c.py": 1, "d.py": 1}
+    neighbors_of = {"c.py": {"b.py"}, "d.py": {"a.py"}}
+    orders = _orders_by_barycenter(layer_by_id, neighbors_of)
+    assert orders == {"a.py": 0, "b.py": 1, "d.py": 0, "c.py": 1}
+
+
+def test_node_without_cross_layer_neighbors_keeps_its_slot():
+    layer_by_id = {"a": 0, "b": 0, "c": 0, "p": 1, "q": 1, "r": 1}
+    neighbors_of = {"p": {"c"}, "r": {"a"}}
+    orders = _orders_by_barycenter(layer_by_id, neighbors_of)
+    assert orders == {"a": 0, "b": 1, "c": 2, "r": 0, "q": 1, "p": 2}
+
+
+def test_barycenter_is_deterministic_across_runs():
+    layer_by_id = {"a.py": 0, "b.py": 0, "c.py": 1, "d.py": 1}
+    neighbors_of = {"c.py": {"b.py"}, "d.py": {"a.py"}}
+    first = _orders_by_barycenter(layer_by_id, neighbors_of)
+    second = _orders_by_barycenter(dict(layer_by_id), {k: set(v) for k, v in neighbors_of.items()})
+    assert first == second
+
+
+def test_single_layer_keeps_stable_initial_id_order():
+    layer_by_id = {"beta": 0, "alpha": 0, "gamma": 0}
+    orders = _orders_by_barycenter(layer_by_id, {"beta": {"alpha"}})
+    assert orders == {"alpha": 0, "beta": 1, "gamma": 2}
+
+
+def test_edge_spanning_two_layers_uses_neighbor_position_in_its_own_layer():
+    layer_by_id = {"a": 0, "b": 0, "m": 1, "p": 2, "q": 2}
+    neighbors_of = {"m": {"a"}, "p": {"b"}, "q": {"a"}}
+    orders = _orders_by_barycenter(layer_by_id, neighbors_of)
+    assert orders["q"] == 0
+    assert orders["p"] == 1
 
 
 def test_node_to_dict_carries_layer():
