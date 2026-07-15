@@ -15,3 +15,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [004](004-always-show-source.md) | Show source for any selected node, not just diffs | proposed |
 | [005](005-server-side-layers.md) | Layer computation moves server-side; the JS layer stays thin | accepted |
 | [006](006-rationale-mining-v2.md) | Rationale mining v2: whole-transcript mention attribution | proposed |
+| [007](007-sidebar-code-view.md) | Sidebar code view: full source with diff overlay and syntax highlighting | proposed |

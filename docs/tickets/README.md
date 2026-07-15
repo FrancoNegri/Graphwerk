@@ -33,3 +33,10 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [019](019-file-mention-attribution.md) | File-level mention attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
 | [020](020-rationale-store-rewire.md) | RationaleStore mines via parser + attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
 | [021](021-symbol-mention-attribution.md) | Symbol-level mention attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
+| [022](022-token-highlighting.md) | Python token highlighting via stdlib tokenize | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [023](023-merged-line-view.md) | Merged line view of base vs staged text | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [024](024-code-view-builder.md) | Code view builder: merged lines + highlight spans | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [025](025-filechange-both-texts.md) | FileChange carries base and staged full text | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [026](026-snapshot-code-view.md) | Snapshot attaches a code view to every node | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [027](027-sidebar-code-render.md) | Sidebar renders the unified code view | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [028](028-drop-source-payload.md) | Drop the redundant source field from the node payload | ready | [007](../decisions/007-sidebar-code-view.md) |
