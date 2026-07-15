@@ -57,3 +57,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [043](043-wire-session-guidance-into-serve.md) | Wire `SESSION_GUIDANCE` into `cli._serve`'s `SessionRunner` | ready | [012](../decisions/012-rationale-session-guidance.md) |
 | [044](044-show-deps-calls-toggle.md) | "show deps + calls" edge visibility toggle | ready | [013](../decisions/013-graph-edge-visibility-toggle.md) |
 | [045](045-fix-polling-loop-overlap.md) | Fix unbounded overlap in the hash/session polling loop | ready | [011](../decisions/011-prompt-box-session-kickoff.md) |
+| [046](046-split-imports-calls-toggle.md) | Split "show deps + calls" into independent imports/calls toggles | done | [014](../decisions/014-split-imports-calls-toggle.md) |

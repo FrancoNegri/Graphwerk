@@ -22,3 +22,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [011](011-prompt-box-session-kickoff.md) | Prompt box: graphwerk kicks off the agent session (headless CLI subprocess) | proposed |
 | [012](012-rationale-session-guidance.md) | Rationale guidance injected into spawned sessions | proposed |
 | [013](013-graph-edge-visibility-toggle.md) | Import/call edges hidden by default behind a toggle | proposed |
+| [014](014-split-imports-calls-toggle.md) | Split the combined edge toggle into independent imports/calls checkboxes | proposed |

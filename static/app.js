@@ -22,7 +22,8 @@ const userCollapsedFileIds = new Set();
 const userExpandedFileIds = new Set();
 let changedOnlyView = false;
 let hideTestsView = true;
-let showEdgesView = false;
+let showImportsView = false;
+let showCallsView = false;
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -92,7 +93,8 @@ function toElements(data) {
     const target = representativeId(e.target);
     if (!renderedIds.has(source) || !renderedIds.has(target)) continue;
     if (source === target && e.source !== e.target) continue;
-    if (!showEdgesView && (e.kind === "imports" || e.kind === "calls")) continue;
+    if (e.kind === "imports" && !showImportsView) continue;
+    if (e.kind === "calls" && !showCallsView) continue;
     const id = `${source}->${target}:${e.kind}`;
     if (seenEdgeIds.has(id)) continue;
     seenEdgeIds.add(id);
@@ -161,8 +163,13 @@ function setHideTestsView(enabled) {
   if (graphData) renderGraph(toElements(graphData));
 }
 
-function setShowEdgesView(enabled) {
-  showEdgesView = enabled;
+function setShowImportsView(enabled) {
+  showImportsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowCallsView(enabled) {
+  showCallsView = enabled;
   if (graphData) renderGraph(toElements(graphData));
 }
 
@@ -575,8 +582,12 @@ document.getElementById("hide-tests").addEventListener("change", (event) => {
   setHideTestsView(event.target.checked);
 });
 
-document.getElementById("show-edges").addEventListener("change", (event) => {
-  setShowEdgesView(event.target.checked);
+document.getElementById("show-imports").addEventListener("change", (event) => {
+  setShowImportsView(event.target.checked);
+});
+
+document.getElementById("show-calls").addEventListener("change", (event) => {
+  setShowCallsView(event.target.checked);
 });
 
 setInterval(async () => {
