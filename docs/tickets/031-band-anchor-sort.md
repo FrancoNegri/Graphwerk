@@ -1,6 +1,6 @@
 # 031. Bands chain anchors in payload order
 
-Status: ready
+Status: done (pending the user's visual check on the demo graph)
 Decision: docs/decisions/008-within-layer-ordering.md
 
 ## Goal

@@ -319,6 +319,7 @@ function layoutOptions(keepPositions, elements, data) {
 // into fcose banding constraints for whatever is currently visible.
 function layeredPlacementConstraints(data, nodes) {
   const layerOf = new Map(data.nodes.map((n) => [n.id, n.layer]));
+  const orderOf = new Map(data.nodes.map((n) => [n.id, n.order]));
   const anchorOf = simpleConstraintAnchors(nodes);
 
   const fileAnchorsByLayer = new Map();
@@ -326,31 +327,44 @@ function layeredPlacementConstraints(data, nodes) {
   for (const node of nodes) {
     const layer = layerOf.get(node.data.id);
     if (layer == null) continue;
+    const order = orderOf.get(node.data.id);
     if (node.data.kind === "file") {
-      addAnchor(fileAnchorsByLayer, layer, anchorOf(node.data.id));
+      addAnchor(fileAnchorsByLayer, layer, anchorOf(node.data.id), order);
     } else if (node.data.kind === "function") {
       if (!functionAnchorsByLayerPerFile.has(node.data.parent)) {
         functionAnchorsByLayerPerFile.set(node.data.parent, new Map());
       }
-      addAnchor(functionAnchorsByLayerPerFile.get(node.data.parent), layer, node.data.id);
+      addAnchor(functionAnchorsByLayerPerFile.get(node.data.parent), layer, node.data.id, order);
     }
   }
 
   const alignments = [];
   const relativePlacementConstraint = [];
-  appendBandConstraints(fileAnchorsByLayer, 220, alignments, relativePlacementConstraint);
+  appendBandConstraints(anchorsSortedByOrder(fileAnchorsByLayer), 220, alignments, relativePlacementConstraint);
   for (const anchorsByLayer of functionAnchorsByLayerPerFile.values()) {
     // function chips are smaller than file boxes, so their bands sit closer
-    appendBandConstraints(anchorsByLayer, 75, alignments, relativePlacementConstraint);
+    appendBandConstraints(anchorsSortedByOrder(anchorsByLayer), 75, alignments, relativePlacementConstraint);
   }
 
   if (!alignments.length) return {};
   return { alignmentConstraint: { horizontal: alignments }, relativePlacementConstraint };
 }
 
-function addAnchor(anchorsByLayer, layer, anchor) {
+function addAnchor(anchorsByLayer, layer, anchor, order) {
   if (!anchorsByLayer.has(layer)) anchorsByLayer.set(layer, []);
-  anchorsByLayer.get(layer).push(anchor);
+  anchorsByLayer.get(layer).push({ anchor, order });
+}
+
+// The left-right chain pins each band's sequence, so chain in the backend's
+// barycenter `order` (ADR 008); nodes without one keep insertion order, last.
+function anchorsSortedByOrder(entriesByLayer) {
+  const anchorsByLayer = new Map();
+  for (const [layer, entries] of entriesByLayer) {
+    const rank = (entry) => (entry.order == null ? Number.MAX_SAFE_INTEGER : entry.order);
+    const sorted = [...entries].sort((a, b) => rank(a) - rank(b));
+    anchorsByLayer.set(layer, sorted.map((entry) => entry.anchor));
+  }
+  return anchorsByLayer;
 }
 
 // Deeper layers (entry points, callers) render above what they depend on;

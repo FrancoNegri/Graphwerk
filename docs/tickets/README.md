@@ -42,4 +42,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [028](028-drop-source-payload.md) | Drop the redundant source field from the node payload | done | [007](../decisions/007-sidebar-code-view.md) |
 | [029](029-barycenter-ordering.md) | Within-layer ordering utility (barycenter sweeps) | done | [008](../decisions/008-within-layer-ordering.md) |
 | [030](030-order-in-snapshot.md) | `GraphNode.order` in the snapshot payload | done | [008](../decisions/008-within-layer-ordering.md) |
-| [031](031-band-anchor-sort.md) | Bands chain anchors in payload order | ready | [008](../decisions/008-within-layer-ordering.md) |
+| [031](031-band-anchor-sort.md) | Bands chain anchors in payload order | done | [008](../decisions/008-within-layer-ordering.md) |
