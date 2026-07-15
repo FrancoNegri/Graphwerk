@@ -203,7 +203,68 @@ def test_status_serializes_to_plain_dict(tmp_path, staged_root, monkeypatch):
         "sidecar_entries": 0,
         "transcript_path": None,
         "transcript_entries": 0,
+        "warning": None,
     }
+
+
+@pytest.fixture
+def base_root(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    return base
+
+
+def base_projects_dir(base_root: Path) -> Path:
+    project_dir = Path.home() / ".claude" / "projects" / project_dir_name(base_root)
+    project_dir.mkdir(parents=True)
+    return project_dir
+
+
+def test_base_tree_session_warns_and_contributes_no_rationale(
+        staged_root, base_root, claude_projects_dir):
+    write_transcript(base_projects_dir(base_root) / "session-a.jsonl", base_root,
+                     "Edited in the wrong tree", mtime=1000)
+
+    store = RationaleStore(staged_root=staged_root, base_root=base_root)
+
+    assert store.status.warning is not None
+    assert str(base_root) in store.status.warning
+    assert "staging worktree" in store.status.warning
+    assert store.status.transcript_path is None
+    assert store.status.transcript_entries == 0
+    assert store.why_for("foo.py") is None
+
+
+def test_base_root_is_not_probed_when_staged_has_its_own_transcript(
+        staged_root, base_root, claude_projects_dir):
+    write_transcript(claude_projects_dir / "session-a.jsonl", staged_root,
+                     "Right tree", mtime=1000)
+    write_transcript(base_projects_dir(base_root) / "session-b.jsonl", base_root,
+                     "Wrong tree", mtime=2000)
+
+    store = RationaleStore(staged_root=staged_root, base_root=base_root)
+
+    assert store.status.warning is None
+    assert store.why_for("foo.py") == "Right tree"
+
+
+def test_base_transcript_editing_elsewhere_does_not_warn(
+        tmp_path, staged_root, base_root, claude_projects_dir):
+    elsewhere = tmp_path / "elsewhere"
+    write_transcript(base_projects_dir(base_root) / "session-a.jsonl", elsewhere,
+                     "Edits outside the base tree", mtime=1000)
+
+    store = RationaleStore(staged_root=staged_root, base_root=base_root)
+
+    assert store.status.warning is None
+
+
+def test_no_transcript_anywhere_reports_none_without_warning(
+        staged_root, base_root, claude_projects_dir):
+    store = RationaleStore(staged_root=staged_root, base_root=base_root)
+
+    assert store.status.transcript_path is None
+    assert store.status.warning is None
 
 
 def test_empty_discovery_falls_back_to_sidecar_only(tmp_path, staged_root, monkeypatch):

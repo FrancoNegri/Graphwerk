@@ -1,6 +1,6 @@
 # 033. Misplaced-session hint when the transcript sits with the base tree
 
-Status: ready
+Status: done
 Decision: docs/decisions/009-rationale-fails-loudly.md
 
 ## Goal

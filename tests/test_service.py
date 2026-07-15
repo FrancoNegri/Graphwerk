@@ -163,6 +163,7 @@ def test_snapshot_meta_carries_rationale_status(tmp_path, monkeypatch):
         "sidecar_entries": 0,
         "transcript_path": None,
         "transcript_entries": 0,
+        "warning": None,
     }
 
 

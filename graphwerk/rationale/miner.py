@@ -30,6 +30,7 @@ class RationaleStatus:
     sidecar_entries: int = 0
     transcript_path: str | None = None
     transcript_entries: int = 0
+    warning: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -37,15 +38,17 @@ class RationaleStatus:
             "sidecar_entries": self.sidecar_entries,
             "transcript_path": self.transcript_path,
             "transcript_entries": self.transcript_entries,
+            "warning": self.warning,
         }
 
 
 class RationaleStore:
     def __init__(self, sidecar_path: Path | None = None, transcript_path: Path | None = None,
-                 staged_root: Path | None = None):
+                 staged_root: Path | None = None, base_root: Path | None = None):
         self.sidecar_path = sidecar_path
         self.transcript_path = transcript_path
         self.staged_root = staged_root
+        self.base_root = base_root
         self._sidecar: dict[str, str] = {}
         self._transcript: dict[str, str] = {}  # rel_path -> latest narration
         self.status = RationaleStatus()
@@ -61,6 +64,26 @@ class RationaleStore:
             sidecar_entries=len(self._sidecar),
             transcript_path=str(transcript_path) if transcript_path else None,
             transcript_entries=len(self._transcript),
+            warning=None if transcript_path else self._misplaced_session_warning(),
+        )
+
+    def _misplaced_session_warning(self) -> str | None:
+        """The observed dogfood failure: the agent session ran in the base tree,
+        so its transcript sits with the base root's project dir. That transcript
+        is never adopted as a rationale source (ADR 009) — it only powers this
+        warning."""
+        if not self.base_root:
+            return None
+        base_transcript = find_latest_transcript(self.base_root)
+        if not base_transcript:
+            return None
+        _, edits = parse_transcript(base_transcript, self.base_root)
+        if not edits:
+            return None
+        return (
+            f"The latest agent session edited the base tree ({self.base_root}), "
+            f"not the staging worktree — run the agent in the staging worktree, "
+            f"or check whether --base and --staged are swapped."
         )
 
     def _usable_transcript_path(self) -> Path | None:

@@ -44,5 +44,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [030](030-order-in-snapshot.md) | `GraphNode.order` in the snapshot payload | done | [008](../decisions/008-within-layer-ordering.md) |
 | [031](031-band-anchor-sort.md) | Bands chain anchors in payload order | done | [008](../decisions/008-within-layer-ordering.md) |
 | [032](032-rationale-source-meta.md) | Snapshot meta reports rationale sources | done | [009](../decisions/009-rationale-fails-loudly.md) |
-| [033](033-misplaced-session-hint.md) | Misplaced-session hint when the transcript sits with the base tree | ready | [009](../decisions/009-rationale-fails-loudly.md) |
+| [033](033-misplaced-session-hint.md) | Misplaced-session hint when the transcript sits with the base tree | done | [009](../decisions/009-rationale-fails-loudly.md) |
 | [034](034-rationale-status-banner.md) | UI banner for rationale source status | ready | [009](../decisions/009-rationale-fails-loudly.md) |

@@ -94,7 +94,8 @@ def _is_git_repo(path: Path) -> bool:
 
 def _serve(base: Path, staged: Path, sidecar: Path | None, transcript: Path | None,
            host: str, port: int) -> None:
-    rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript, staged_root=staged)
+    rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
+                               staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
     app = create_app(service, engine)
