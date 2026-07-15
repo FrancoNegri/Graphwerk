@@ -58,7 +58,7 @@ class GraphService:
     def snapshot(self) -> Snapshot:
         changes = self.builder.build()
         self.rationale.reload(changed_symbols=self._changed_symbols(changes))
-        snap = Snapshot()
+        snap = Snapshot(meta={"rationale": self.rationale.status.to_dict()})
         name_to_ids: dict[str, list[str]] = {}  # simple name -> symbol node ids
         symbol_calls: dict[str, set[str]] = {}  # node id -> called simple names
 

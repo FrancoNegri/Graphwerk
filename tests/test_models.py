@@ -1,4 +1,4 @@
-from graphwerk.models import GraphNode
+from graphwerk.models import GraphNode, Snapshot
 
 
 def test_graph_node_source_stays_internal_and_off_the_wire():
@@ -19,6 +19,12 @@ def test_graph_node_code_round_trips_through_to_dict():
     view = [{"text": "x = 1", "op": "ctx", "line": 1, "spans": []}]
     node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py", code=view)
     assert node.to_dict()["code"] == view
+
+
+def test_snapshot_meta_defaults_empty_and_is_serialized():
+    assert Snapshot().to_dict()["meta"] == {}
+    snapshot = Snapshot(meta={"rationale": {"sidecar_entries": 3}})
+    assert snapshot.to_dict()["meta"] == {"rationale": {"sidecar_entries": 3}}
 
 
 def test_graph_node_order_defaults_to_none_and_is_serialized():

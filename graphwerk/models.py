@@ -83,9 +83,11 @@ class Snapshot:
 
     nodes: list[GraphNode] = field(default_factory=list)
     edges: list[GraphEdge] = field(default_factory=list)
+    meta: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
             "nodes": [n.to_dict() for n in self.nodes],
             "edges": [e.to_dict() for e in self.edges],
+            "meta": self.meta,
         }

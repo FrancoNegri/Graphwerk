@@ -1,6 +1,6 @@
 # 032. Snapshot meta reports rationale sources
 
-Status: ready
+Status: done
 Decision: docs/decisions/009-rationale-fails-loudly.md
 
 ## Goal

@@ -168,6 +168,44 @@ def test_why_for_prefers_sidecar_symbol_then_sidecar_file_then_transcript(
     assert no_sidecar.why_for("payment.py") == "Transcript file why for payment.py."
 
 
+def test_status_reports_loaded_sources_and_entry_counts(tmp_path, staged_root, claude_projects_dir):
+    transcript = claude_projects_dir / "session-a.jsonl"
+    write_transcript(transcript, staged_root, "Refactor the widget", mtime=1000)
+    sidecar = tmp_path / "rationale.json"
+    sidecar.write_text(json.dumps({"foo.py": "Sidecar why"}), encoding="utf-8")
+
+    store = RationaleStore(sidecar_path=sidecar, staged_root=staged_root)
+
+    assert store.status.sidecar_path == str(sidecar)
+    assert store.status.sidecar_entries == 1
+    assert store.status.transcript_path == str(transcript)
+    assert store.status.transcript_entries == 1
+
+
+def test_status_reports_no_transcript_when_project_dir_missing(tmp_path, staged_root, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.status.sidecar_path is None
+    assert store.status.sidecar_entries == 0
+    assert store.status.transcript_path is None
+    assert store.status.transcript_entries == 0
+
+
+def test_status_serializes_to_plain_dict(tmp_path, staged_root, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.status.to_dict() == {
+        "sidecar_path": None,
+        "sidecar_entries": 0,
+        "transcript_path": None,
+        "transcript_entries": 0,
+    }
+
+
 def test_empty_discovery_falls_back_to_sidecar_only(tmp_path, staged_root, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     sidecar = tmp_path / "rationale.json"

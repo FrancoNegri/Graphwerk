@@ -153,6 +153,19 @@ def test_serialized_node_carries_code_but_not_source(tmp_path):
         assert "code" in node
 
 
+def test_snapshot_meta_carries_rationale_status(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+
+    meta = service.snapshot().meta
+    assert meta["rationale"] == {
+        "sidecar_path": None,
+        "sidecar_entries": 0,
+        "transcript_path": None,
+        "transcript_entries": 0,
+    }
+
+
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     service = make_service(tmp_path, {
         "pipeline.py": (

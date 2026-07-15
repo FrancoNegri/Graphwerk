@@ -13,11 +13,31 @@ Two sources, merged (sidecar wins on conflicts):
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 from graphwerk.rationale.attribution import MAX_WHY_LEN, attribute_files, attribute_symbols
 from graphwerk.rationale.discovery import find_latest_transcript
 from graphwerk.rationale.transcript import parse_transcript
+
+
+@dataclass
+class RationaleStatus:
+    """What the last reload() actually found — paths are None unless the
+    source was really loaded, so "no rationale" stays diagnosable."""
+
+    sidecar_path: str | None = None
+    sidecar_entries: int = 0
+    transcript_path: str | None = None
+    transcript_entries: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "sidecar_path": self.sidecar_path,
+            "sidecar_entries": self.sidecar_entries,
+            "transcript_path": self.transcript_path,
+            "transcript_entries": self.transcript_entries,
+        }
 
 
 class RationaleStore:
@@ -28,12 +48,26 @@ class RationaleStore:
         self.staged_root = staged_root
         self._sidecar: dict[str, str] = {}
         self._transcript: dict[str, str] = {}  # rel_path -> latest narration
+        self.status = RationaleStatus()
         self.reload()
 
     def reload(self, changed_symbols: dict[str, list[str]] | None = None) -> None:
-        self._sidecar = self._load_sidecar()
-        self._transcript = self._mine_transcript(self._resolve_transcript_path(),
-                                                 changed_symbols or {})
+        sidecar_entries = self._load_sidecar()
+        self._sidecar = sidecar_entries if sidecar_entries is not None else {}
+        transcript_path = self._usable_transcript_path()
+        self._transcript = self._mine_transcript(transcript_path, changed_symbols or {})
+        self.status = RationaleStatus(
+            sidecar_path=str(self.sidecar_path) if sidecar_entries is not None else None,
+            sidecar_entries=len(self._sidecar),
+            transcript_path=str(transcript_path) if transcript_path else None,
+            transcript_entries=len(self._transcript),
+        )
+
+    def _usable_transcript_path(self) -> Path | None:
+        path = self._resolve_transcript_path()
+        if path and path.exists() and self.staged_root:
+            return path
+        return None
 
     def _resolve_transcript_path(self) -> Path | None:
         if self.transcript_path:
@@ -51,18 +85,20 @@ class RationaleStore:
                     return source[key]
         return None
 
-    def _load_sidecar(self) -> dict[str, str]:
+    def _load_sidecar(self) -> dict[str, str] | None:
+        """None when there is no usable sidecar (missing/unreadable), so the
+        status can tell that apart from a sidecar that loaded zero entries."""
         if not self.sidecar_path or not self.sidecar_path.exists():
-            return {}
+            return None
         try:
             data = json.loads(self.sidecar_path.read_text(encoding="utf-8"))
             return {str(k): str(v) for k, v in data.items()}
         except (json.JSONDecodeError, OSError):
-            return {}
+            return None
 
     def _mine_transcript(self, transcript_path: Path | None,
                          changed_symbols: dict[str, list[str]]) -> dict[str, str]:
-        if not transcript_path or not transcript_path.exists() or not self.staged_root:
+        if not transcript_path:
             return {}
         segments, edits = parse_transcript(transcript_path, self.staged_root)
         rationale: dict[str, str] = {}
