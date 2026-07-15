@@ -113,6 +113,7 @@ class GraphService:
         self._add_call_edges(snap, name_to_ids, symbol_calls)
         self._add_import_edges(snap, changes)
         self._mark_affected(snap)
+        self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
         changed_nodes_exist = any(node.status in CHANGED for node in snap.nodes)
         snap.meta["rationale"]["message"] = self.rationale.status_message(changed_nodes_exist)
@@ -168,3 +169,17 @@ class GraphService:
         for node in snap.nodes:
             if node.id in affected:
                 node.status = Status.AFFECTED
+
+    def _mark_edge_status(self, snap: Snapshot) -> None:
+        """Lets a `calls` edge say whether it leads into changed code, or is
+        the reason its source shows `affected` — same review signal as node
+        color, moved onto the edge (ADR 016)."""
+        status_by_id = {n.id: n.status for n in snap.nodes}
+        for edge in snap.edges:
+            if edge.kind != "calls":
+                continue
+            target_status = status_by_id.get(edge.target)
+            if target_status in CHANGED:
+                edge.status = target_status
+            elif status_by_id.get(edge.source) is Status.AFFECTED and target_status is Status.UNCHANGED:
+                edge.status = Status.AFFECTED

@@ -72,9 +72,15 @@ class GraphEdge:
     source: str
     target: str
     kind: str  # "calls" | "imports"
+    status: Status = Status.UNCHANGED
 
     def to_dict(self) -> dict:
-        return {"source": self.source, "target": self.target, "kind": self.kind}
+        return {
+            "source": self.source,
+            "target": self.target,
+            "kind": self.kind,
+            "status": self.status.value,
+        }
 
 
 @dataclass

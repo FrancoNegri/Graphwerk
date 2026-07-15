@@ -1,6 +1,6 @@
 # 049. `GraphEdge.status` computed for `calls` edges
 
-Status: ready
+Status: done
 Decision: docs/decisions/016-call-edge-status.md
 
 ## Goal

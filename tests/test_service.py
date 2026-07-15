@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from graphwerk.models import Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.service import GraphService, ModuleFileResolver
 
@@ -13,6 +14,13 @@ def write_tree(root: Path, files: dict[str, str]) -> None:
 
 def import_edges(snapshot) -> set[tuple[str, str]]:
     return {(e.source, e.target) for e in snapshot.edges if e.kind == "imports"}
+
+
+def edge_between(snapshot, source: str, target: str, kind: str = "calls"):
+    for edge in snapshot.edges:
+        if edge.source == source and edge.target == target and edge.kind == kind:
+            return edge
+    raise AssertionError(f"no {kind} edge {source} -> {target}")
 
 
 def make_service(tmp_path: Path, files: dict[str, str]) -> GraphService:
@@ -179,6 +187,94 @@ def test_snapshot_meta_message_flags_changes_without_any_rationale_source(tmp_pa
     message = service.snapshot().meta["rationale"]["message"]
     assert message is not None
     assert str(staged) in message
+
+
+def test_calls_edge_into_modified_target_has_modified_status(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"})
+    write_tree(staged, {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::caller", "a.py::target")
+    assert edge.status == Status.MODIFIED
+
+
+def test_calls_edge_into_added_target_has_added_status(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def caller():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def caller():\n    return new_func()\n\ndef new_func():\n    return 2\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::caller", "a.py::new_func")
+    assert edge.status == Status.ADDED
+
+
+def test_calls_edge_into_deleted_target_has_deleted_status(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def gone():\n    return 1\n\ndef caller():\n    return gone()\n"})
+    write_tree(staged, {"a.py": "def caller():\n    return gone()\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::caller", "a.py::gone")
+    assert edge.status == Status.DELETED
+
+
+def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_path):
+    """The edge _mark_affected used to flip its source to AFFECTED still
+    reports the target's real status, not "affected" — target status wins."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"})
+    write_tree(staged, {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    nodes = {n.id: n for n in snapshot.nodes}
+    assert nodes["a.py::caller"].status == Status.AFFECTED
+    edge = edge_between(snapshot, "a.py::caller", "a.py::target")
+    assert edge.status == Status.MODIFIED
+
+
+def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
+        "b.py": "def other():\n    return 1\n",
+    })
+    write_tree(staged, {
+        "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
+        "b.py": "def other():\n    return 2\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::runner", "a.py::helper")
+    assert edge.status == Status.UNCHANGED
+
+
+def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+    })
+    write_tree(staged, {
+        "producer.py": "def f():\n    return 2\n",
+        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
+    assert edge.status == Status.UNCHANGED
 
 
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
