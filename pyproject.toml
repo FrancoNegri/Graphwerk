@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "httpx"]
 
 [tool.setuptools]
 packages = ["graphwerk", "graphwerk.indexing", "graphwerk.staging", "graphwerk.rationale"]

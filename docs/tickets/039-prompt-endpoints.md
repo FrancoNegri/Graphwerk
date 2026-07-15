@@ -1,6 +1,6 @@
 # 039. `/api/prompt` + `/api/session` endpoints and the permissions flag
 
-Status: ready
+Status: done
 Decision: docs/decisions/011-prompt-box-session-kickoff.md
 
 ## Goal

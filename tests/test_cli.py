@@ -24,8 +24,10 @@ def start_harness(monkeypatch):
         def ensure(cls, repo_root, staging_root, branch="graphwerk-staging"):
             calls.append(("ensure", repo_root, staging_root, branch))
 
-    def recording_serve(base, staged, sidecar, transcript, host, port):
-        calls.append(("serve", base, staged, sidecar, transcript, host, port))
+    def recording_serve(base, staged, sidecar, transcript, host, port,
+                        agent_permissions):
+        calls.append(("serve", base, staged, sidecar, transcript, host, port,
+                      agent_permissions))
 
     monkeypatch.setattr(cli, "ShadowWorkspace", RecordingWorkspace)
     monkeypatch.setattr(cli, "_serve", recording_serve)
@@ -67,7 +69,7 @@ def test_start_serves_repo_against_worktree_with_transcript_autodiscovery(git_re
     cli.main(["start", "--repo", str(git_repo), "--host", "0.0.0.0", "--port", "9000"])
 
     staging = git_repo.parent / "myrepo-graphwerk-staging"
-    _, base, staged, sidecar, transcript, host, port = next(
+    _, base, staged, sidecar, transcript, host, port, _ = next(
         call for call in start_harness if call[0] == "serve")
     assert base == git_repo
     assert staged == staging
@@ -98,3 +100,35 @@ def test_start_rejects_non_git_repo(tmp_path, start_harness):
     assert excinfo.value.code not in (0, None)
     assert "not a git repository" in str(excinfo.value)
     assert start_harness == []
+
+
+def serve_call(calls):
+    return next(call for call in calls if call[0] == "serve")
+
+
+def test_start_defaults_agent_permissions_to_accept_edits(git_repo, start_harness):
+    cli.main(["start", "--repo", str(git_repo)])
+
+    assert serve_call(start_harness)[-1] == "acceptEdits"
+
+
+def test_start_passes_agent_permissions_through(git_repo, start_harness):
+    cli.main(["start", "--repo", str(git_repo),
+              "--agent-permissions", "bypassPermissions"])
+
+    assert serve_call(start_harness)[-1] == "bypassPermissions"
+
+
+def test_serve_passes_agent_permissions_through(start_harness, tmp_path):
+    cli.main(["serve", "--base", str(tmp_path / "base"),
+              "--staged", str(tmp_path / "staged"),
+              "--agent-permissions", "plan"])
+
+    assert serve_call(start_harness)[-1] == "plan"
+
+
+def test_serve_defaults_agent_permissions_to_accept_edits(start_harness, tmp_path):
+    cli.main(["serve", "--base", str(tmp_path / "base"),
+              "--staged", str(tmp_path / "staged")])
+
+    assert serve_call(start_harness)[-1] == "acceptEdits"

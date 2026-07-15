@@ -11,12 +11,17 @@ from pydantic import BaseModel
 
 from graphwerk.apply import ApplyEngine
 from graphwerk.service import GraphService
+from graphwerk.session import SessionBusyError, SessionRunner
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 class ApplyRequest(BaseModel):
     path: str
+
+
+class PromptRequest(BaseModel):
+    prompt: str = ""
 
 
 class RejectRequest(BaseModel):
@@ -27,7 +32,8 @@ class RejectRequest(BaseModel):
     comment: str
 
 
-def create_app(service: GraphService, engine: ApplyEngine) -> FastAPI:
+def create_app(service: GraphService, engine: ApplyEngine,
+               runner: SessionRunner) -> FastAPI:
     app = FastAPI(title="graphwerk")
 
     @app.get("/")
@@ -60,6 +66,22 @@ def create_app(service: GraphService, engine: ApplyEngine) -> FastAPI:
             raise HTTPException(status_code=400, detail="comment is required")
         prompt = engine.reject(req.id, req.label or req.id, req.status, req.comment, req.diff)
         return {"prompt": prompt}
+
+    @app.post("/api/prompt")
+    def prompt(req: PromptRequest):
+        if not req.prompt.strip():
+            raise HTTPException(status_code=400, detail="prompt is required")
+        try:
+            started = runner.start(req.prompt)
+        except SessionBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        if started["state"] == "failed":
+            raise HTTPException(status_code=503, detail=started["detail"])
+        return started
+
+    @app.get("/api/session")
+    def session():
+        return runner.status()
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

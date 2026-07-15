@@ -20,6 +20,7 @@ from graphwerk.apply import ApplyEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
 from graphwerk.service import GraphService
+from graphwerk.session import SessionRunner
 from graphwerk.staging import ShadowWorkspace
 
 
@@ -41,6 +42,8 @@ def main(argv: list[str] | None = None) -> None:
     serve.add_argument("--transcript", help="Claude Code session transcript JSONL to mine for 'why'")
     serve.add_argument("--port", type=int, default=8135)
     serve.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 to allow LAN access")
+    serve.add_argument("--agent-permissions", default="acceptEdits",
+                       help="permission mode for sessions spawned via /api/prompt")
 
     start = sub.add_parser("start", help="ensure the staging worktree, print the claude invocation, serve the UI")
     start.add_argument("--repo", default=".", help="git repository under review (default: current directory)")
@@ -48,6 +51,8 @@ def main(argv: list[str] | None = None) -> None:
     start.add_argument("--branch", default="graphwerk-staging", help="branch for the staging worktree")
     start.add_argument("--port", type=int, default=8135)
     start.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 to allow LAN access")
+    start.add_argument("--agent-permissions", default="acceptEdits",
+                       help="permission mode for sessions spawned via /api/prompt")
 
     args = parser.parse_args(argv)
 
@@ -58,14 +63,15 @@ def main(argv: list[str] | None = None) -> None:
         print(f"demo workspace ready:\n  base:   {base}\n  staged: {staged}")
         if args.no_serve:
             return
-        _serve(base, staged, sidecar, None, args.host, args.port)
+        _serve(base, staged, sidecar, None, args.host, args.port, "acceptEdits")
     elif args.command == "start":
         _start(args)
     else:
         base, staged = Path(args.base).resolve(), Path(args.staged).resolve()
         sidecar = Path(args.rationale) if args.rationale else staged / ".graphwerk" / "rationale.json"
         transcript = Path(args.transcript) if args.transcript else None
-        _serve(base, staged, sidecar, transcript, args.host, args.port)
+        _serve(base, staged, sidecar, transcript, args.host, args.port,
+               args.agent_permissions)
 
 
 def _start(args: argparse.Namespace) -> None:
@@ -76,7 +82,8 @@ def _start(args: argparse.Namespace) -> None:
     ShadowWorkspace.ensure(repo, staging, args.branch)
     print(f"staging worktree ready — run the agent there:\n  cd {staging} && claude", flush=True)
     sidecar = staging / ".graphwerk" / "rationale.json"
-    _serve(repo, staging, sidecar, None, args.host, args.port)
+    _serve(repo, staging, sidecar, None, args.host, args.port,
+           args.agent_permissions)
 
 
 def default_staging_path(repo: Path) -> Path:
@@ -93,12 +100,13 @@ def _is_git_repo(path: Path) -> bool:
 
 
 def _serve(base: Path, staged: Path, sidecar: Path | None, transcript: Path | None,
-           host: str, port: int) -> None:
+           host: str, port: int, agent_permissions: str) -> None:
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
                                staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
-    app = create_app(service, engine)
+    runner = SessionRunner(staged, permission_mode=agent_permissions)
+    app = create_app(service, engine, runner)
     shown = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
     print(f"graphwerk review UI: http://{shown}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="warning")

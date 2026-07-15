@@ -50,5 +50,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [036](036-group-in-snapshot.md) | `GraphNode.group` in the snapshot payload | ready | [010](../decisions/010-directory-band-grouping.md) |
 | [037](037-group-tint-legend.md) | Directory tint + legend in the UI | ready | [010](../decisions/010-directory-band-grouping.md) |
 | [038](038-session-runner.md) | SessionRunner: spawn and track one headless agent session | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
-| [039](039-prompt-endpoints.md) | `/api/prompt` + `/api/session` endpoints and the permissions flag | ready | [011](../decisions/011-prompt-box-session-kickoff.md) |
+| [039](039-prompt-endpoints.md) | `/api/prompt` + `/api/session` endpoints and the permissions flag | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [040](040-prompt-box-ui.md) | Prompt box + busy indicator in the UI | ready | [011](../decisions/011-prompt-box-session-kickoff.md) |
