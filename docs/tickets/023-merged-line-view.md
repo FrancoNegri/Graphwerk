@@ -1,6 +1,6 @@
 # 023. Merged line view of base vs staged text
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 ## Goal
