@@ -47,6 +47,7 @@ class GraphNode:
     why: str | None = None
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
+    order: int | None = None  # left-to-right position within the layer; same contract as layer
     source: str | None = None  # full text of the node, changed or not
     code: list | None = None  # merged diff/highlight line view (see codeview.py)
 
@@ -61,6 +62,7 @@ class GraphNode:
             "why": self.why,
             "diff": self.diff,
             "layer": self.layer,
+            "order": self.order,
             "code": self.code,
         }
 

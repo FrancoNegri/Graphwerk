@@ -1,6 +1,6 @@
 # 030. `GraphNode.order` in the snapshot payload
 
-Status: ready
+Status: done
 Decision: docs/decisions/008-within-layer-ordering.md
 
 ## Goal

@@ -21,3 +21,11 @@ def test_graph_node_code_round_trips_through_to_dict():
     assert node.to_dict()["code"] == view
 
 
+def test_graph_node_order_defaults_to_none_and_is_serialized():
+    node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py")
+    assert node.order is None
+    assert node.to_dict()["order"] is None
+    node.order = 3
+    assert node.to_dict()["order"] == 3
+
+

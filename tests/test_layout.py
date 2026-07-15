@@ -159,6 +159,60 @@ def test_classes_and_methods_get_no_layer():
     assert layers["svc.py::Service.helper"] is None
 
 
+def orders_of(nodes: list[GraphNode]) -> dict[str, int | None]:
+    return {node.id: node.order for node in nodes}
+
+
+def test_imported_neighbors_get_nearby_orders_and_unrelated_file_stays_aside():
+    nodes = [
+        file_node("alpha.py"),
+        file_node("beta.py"),
+        file_node("m_uses_beta.py"),
+        file_node("n_uses_alpha.py"),
+        file_node("unrelated.py"),
+    ]
+    edges = [
+        imports("m_uses_beta.py", "beta.py"),
+        imports("n_uses_alpha.py", "alpha.py"),
+    ]
+    assign_layers(nodes, edges)
+    orders = orders_of(nodes)
+    assert orders["n_uses_alpha.py"] == orders["alpha.py"] == 0
+    assert orders["m_uses_beta.py"] == orders["beta.py"] == 1
+    assert orders["unrelated.py"] == 2
+
+
+def test_functions_are_ordered_within_their_own_file_only():
+    nodes = [
+        file_node("solo.py"),
+        function_node("solo.py", "top"),
+        function_node("solo.py", "leaf"),
+        file_node("utils.py"),
+        function_node("utils.py", "aaa_helper"),
+        function_node("utils.py", "zzz_helper"),
+    ]
+    edges = [calls("solo.py::top", "solo.py::leaf")]
+    assign_layers(nodes, edges)
+    orders = orders_of(nodes)
+    assert orders["solo.py::top"] == 0
+    assert orders["solo.py::leaf"] == 0
+    assert orders["utils.py::aaa_helper"] == 0
+    assert orders["utils.py::zzz_helper"] == 1
+
+
+def test_classes_and_methods_get_no_order():
+    nodes = [
+        file_node("svc.py"),
+        class_node("svc.py", "Service"),
+        method_node("svc.py", "Service.run"),
+    ]
+    assign_layers(nodes, [])
+    orders = orders_of(nodes)
+    assert orders["svc.py"] == 0
+    assert orders["svc.py::Service"] is None
+    assert orders["svc.py::Service.run"] is None
+
+
 def test_barycenter_uncrosses_a_two_layer_crossing():
     layer_by_id = {"a.py": 0, "b.py": 0, "c.py": 1, "d.py": 1}
     neighbors_of = {"c.py": {"b.py"}, "d.py": {"a.py"}}

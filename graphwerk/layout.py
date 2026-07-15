@@ -4,7 +4,9 @@ components.
 
 Files get an import-depth layer (a file importing nothing sits in layer 0);
 top-level functions get a call-depth layer scoped to their own file's
-functions. The UI reads ``GraphNode.layer`` and only maps it to layout
+functions. Within each layer, barycenter sweeps assign a left-to-right
+order that pulls cross-layer neighbors close (ADR 008). The UI reads
+``GraphNode.layer``/``GraphNode.order`` and only maps them to layout
 constraints — it never re-derives graph structure (ADR 005).
 """
 
@@ -14,15 +16,28 @@ from graphwerk.models import GraphEdge, GraphNode
 
 
 def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
-    layer_by_id = _file_layers_by_import_depth(nodes, edges)
-    layer_by_id.update(_function_layers_by_call_depth(nodes, edges))
+    layer_by_id: dict[str, int] = {}
+    order_by_id: dict[str, int] = {}
+    for neighbors_of in _layered_adjacencies(nodes, edges):
+        layers = _layers_by_longest_path(neighbors_of)
+        layer_by_id.update(layers)
+        order_by_id.update(_orders_by_barycenter(layers, neighbors_of))
     for node in nodes:
         node.layer = layer_by_id.get(node.id)
+        node.order = order_by_id.get(node.id)
 
 
-def _file_layers_by_import_depth(
+def _layered_adjacencies(
     nodes: list[GraphNode], edges: list[GraphEdge]
-) -> dict[str, int]:
+) -> list[dict[str, set[str]]]:
+    """One independently layered/ordered graph each: files by imports, then
+    every file's top-level functions by intra-file calls (ADR 003)."""
+    return [_import_adjacency(nodes, edges), *_call_adjacencies_by_file(nodes, edges)]
+
+
+def _import_adjacency(
+    nodes: list[GraphNode], edges: list[GraphEdge]
+) -> dict[str, set[str]]:
     imported_files_of: dict[str, set[str]] = {
         node.id: set() for node in nodes if node.kind == "file"
     }
@@ -31,19 +46,19 @@ def _file_layers_by_import_depth(
             continue
         if edge.source != edge.target and edge.source in imported_files_of and edge.target in imported_files_of:
             imported_files_of[edge.source].add(edge.target)
-    return _layers_by_longest_path(imported_files_of)
+    return imported_files_of
 
 
-def _function_layers_by_call_depth(
+def _call_adjacencies_by_file(
     nodes: list[GraphNode], edges: list[GraphEdge]
-) -> dict[str, int]:
+) -> list[dict[str, set[str]]]:
     file_ids = {node.id for node in nodes if node.kind == "file"}
     functions_by_file: dict[str, set[str]] = {}
     for node in nodes:
         if node.kind == "function" and node.parent in file_ids:
             functions_by_file.setdefault(node.parent, set()).add(node.id)
 
-    layers: dict[str, int] = {}
+    adjacencies: list[dict[str, set[str]]] = []
     for function_ids in functions_by_file.values():
         callees_of: dict[str, set[str]] = {fid: set() for fid in function_ids}
         for edge in edges:
@@ -51,8 +66,8 @@ def _function_layers_by_call_depth(
                 continue
             if edge.source in callees_of and edge.target in function_ids:
                 callees_of[edge.source].add(edge.target)
-        layers.update(_layers_by_longest_path(callees_of))
-    return layers
+        adjacencies.append(callees_of)
+    return adjacencies
 
 
 _BARYCENTER_SWEEPS = 4
