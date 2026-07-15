@@ -1,6 +1,6 @@
 # 019. File-level mention attribution
 
-Status: ready
+Status: done
 Decision: docs/decisions/006-rationale-mining-v2.md
 
 ## Goal
