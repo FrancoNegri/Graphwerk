@@ -1,6 +1,6 @@
 # 026. Snapshot attaches a code view to every node
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 Depends on: tickets 024, 025.

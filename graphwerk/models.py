@@ -48,6 +48,7 @@ class GraphNode:
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
     source: str | None = None  # full text of the node, changed or not
+    code: list | None = None  # merged diff/highlight line view (see codeview.py)
 
     def to_dict(self) -> dict:
         return {
@@ -61,6 +62,7 @@ class GraphNode:
             "diff": self.diff,
             "layer": self.layer,
             "source": self.source,
+            "code": self.code,
         }
 
 

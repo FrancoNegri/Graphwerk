@@ -79,6 +79,71 @@ def test_file_nodes_carry_full_source_text(tmp_path):
     assert nodes["a.py"].source == text
 
 
+def test_modified_symbol_code_interleaves_del_lines_with_spans(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def f():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    code = nodes["a.py::f"].code
+    ops = [line["op"] for line in code]
+    assert "del" in ops and "add" in ops and "ctx" in ops
+    assert any(line["spans"] for line in code)
+
+
+def test_unchanged_node_code_is_all_context(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    for node_id in ("a.py", "a.py::f"):
+        code = nodes[node_id].code
+        assert code
+        assert all(line["op"] == "ctx" for line in code)
+
+
+def test_added_file_nodes_code_is_all_added(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    write_tree(staged, {"new.py": "def f():\n    return 1\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    for node_id in ("new.py", "new.py::f"):
+        code = nodes[node_id].code
+        assert code
+        assert all(line["op"] == "add" for line in code)
+
+
+def test_deleted_file_nodes_code_is_all_removed(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"old.py": "def f():\n    return 1\n"})
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    for node_id in ("old.py", "old.py::f"):
+        code = nodes[node_id].code
+        assert code
+        assert all(line["op"] == "del" for line in code)
+
+
+def test_unreadable_file_node_code_is_none(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (base / "junk.py").write_bytes(b"\xff\xfe not utf-8 \xff")
+    (staged / "junk.py").write_bytes(b"\xff\xfe still not utf-8 \xff")
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["junk.py"].code is None
+
+
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     service = make_service(tmp_path, {
         "pipeline.py": (

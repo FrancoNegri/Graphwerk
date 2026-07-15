@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from graphwerk.codeview import build_code_view
 from graphwerk.indexing.walk import iter_python_files
 from graphwerk.layout import assign_layers
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
@@ -12,6 +13,12 @@ from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder
 
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
+
+
+def _code_view(base_text: str | None, staged_text: str | None) -> list | None:
+    if base_text is None and staged_text is None:
+        return None
+    return build_code_view(base_text, staged_text)
 
 
 class ModuleFileResolver:
@@ -68,13 +75,16 @@ class GraphService:
                     why=self.rationale.why_for(rel) if change.status in CHANGED else None,
                     diff=change.diff or None,
                     source=change.source,
+                    code=_code_view(change.base_source, change.staged_source),
                 )
             )
             index = change.staged or change.base
             if index is None:
                 continue
             for qualname, (status, diff) in change.symbols.items():
-                info = index.symbols.get(qualname) or (change.base.symbols.get(qualname) if change.base else None)
+                base_info = change.base.symbols.get(qualname) if change.base else None
+                staged_info = change.staged.symbols.get(qualname) if change.staged else None
+                info = staged_info or base_info
                 if info is None:
                     continue
                 node_id = f"{rel}::{qualname}"
@@ -90,6 +100,10 @@ class GraphService:
                         why=self.rationale.why_for(rel, qualname) if status in CHANGED else None,
                         diff=diff or None,
                         source=info.source,
+                        code=_code_view(
+                            base_info.source if base_info else None,
+                            staged_info.source if staged_info else None,
+                        ),
                     )
                 )
                 simple = qualname.split(".")[-1]
