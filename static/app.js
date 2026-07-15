@@ -22,6 +22,7 @@ const userCollapsedFileIds = new Set();
 const userExpandedFileIds = new Set();
 let changedOnlyView = false;
 let hideTestsView = true;
+let showEdgesView = false;
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -91,6 +92,7 @@ function toElements(data) {
     const target = representativeId(e.target);
     if (!renderedIds.has(source) || !renderedIds.has(target)) continue;
     if (source === target && e.source !== e.target) continue;
+    if (!showEdgesView && (e.kind === "imports" || e.kind === "calls")) continue;
     const id = `${source}->${target}:${e.kind}`;
     if (seenEdgeIds.has(id)) continue;
     seenEdgeIds.add(id);
@@ -156,6 +158,11 @@ function isTestPath(path) {
 
 function setHideTestsView(enabled) {
   hideTestsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowEdgesView(enabled) {
+  showEdgesView = enabled;
   if (graphData) renderGraph(toElements(graphData));
 }
 
@@ -566,6 +573,10 @@ document.getElementById("changed-only").addEventListener("change", (event) => {
 
 document.getElementById("hide-tests").addEventListener("change", (event) => {
   setHideTestsView(event.target.checked);
+});
+
+document.getElementById("show-edges").addEventListener("change", (event) => {
+  setShowEdgesView(event.target.checked);
 });
 
 setInterval(async () => {
