@@ -164,7 +164,21 @@ def test_snapshot_meta_carries_rationale_status(tmp_path, monkeypatch):
         "transcript_path": None,
         "transcript_entries": 0,
         "warning": None,
+        "message": None,
     }
+
+
+def test_snapshot_meta_message_flags_changes_without_any_rationale_source(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def f():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+
+    message = service.snapshot().meta["rationale"]["message"]
+    assert message is not None
+    assert str(staged) in message
 
 
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):

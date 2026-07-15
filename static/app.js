@@ -36,6 +36,7 @@ async function loadGraph() {
   }
   document.getElementById("paths").innerHTML =
     `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
+  renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
 
   const elements = toElements(data);
   if (cy && sameTopology(elements)) {
@@ -514,6 +515,19 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (el.hidden = true), 3000);
 }
+
+// Dismissal is per message: a new server message reopens the banner.
+let dismissedBannerMessage = null;
+function renderBanner(message) {
+  const banner = document.getElementById("banner");
+  banner.hidden = !message || message === dismissedBannerMessage;
+  if (!banner.hidden) document.getElementById("banner-text").textContent = message;
+}
+
+document.getElementById("banner-dismiss").addEventListener("click", () => {
+  dismissedBannerMessage = document.getElementById("banner-text").textContent;
+  document.getElementById("banner").hidden = true;
+});
 
 document.getElementById("changed-only").addEventListener("change", (event) => {
   setChangedOnlyView(event.target.checked);

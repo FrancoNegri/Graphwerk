@@ -114,6 +114,8 @@ class GraphService:
         self._add_import_edges(snap, changes)
         self._mark_affected(snap)
         assign_layers(snap.nodes, snap.edges)
+        changed_nodes_exist = any(node.status in CHANGED for node in snap.nodes)
+        snap.meta["rationale"]["message"] = self.rationale.status_message(changed_nodes_exist)
         return snap
 
     @staticmethod

@@ -267,6 +267,43 @@ def test_no_transcript_anywhere_reports_none_without_warning(
     assert store.status.warning is None
 
 
+def test_status_message_is_the_warning_when_present(
+        staged_root, base_root, claude_projects_dir):
+    write_transcript(base_projects_dir(base_root) / "session-a.jsonl", base_root,
+                     "Edited in the wrong tree", mtime=1000)
+    store = RationaleStore(staged_root=staged_root, base_root=base_root)
+
+    assert store.status_message(changed_nodes_exist=True) == store.status.warning
+    assert store.status_message(changed_nodes_exist=False) == store.status.warning
+
+
+def test_status_message_names_staged_root_when_changes_lack_any_source(
+        tmp_path, staged_root, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    store = RationaleStore(staged_root=staged_root)
+
+    message = store.status_message(changed_nodes_exist=True)
+    assert message is not None
+    assert "No rationale source found" in message
+    assert str(staged_root) in message
+
+
+def test_status_message_is_none_without_changed_nodes(tmp_path, staged_root, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.status_message(changed_nodes_exist=False) is None
+
+
+def test_status_message_is_none_when_a_source_was_loaded(
+        tmp_path, staged_root, claude_projects_dir):
+    write_transcript(claude_projects_dir / "session-a.jsonl", staged_root,
+                     "Refactor the widget", mtime=1000)
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.status_message(changed_nodes_exist=True) is None
+
+
 def test_empty_discovery_falls_back_to_sidecar_only(tmp_path, staged_root, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     sidecar = tmp_path / "rationale.json"

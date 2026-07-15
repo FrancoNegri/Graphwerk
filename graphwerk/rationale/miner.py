@@ -99,6 +99,15 @@ class RationaleStore:
             return find_latest_transcript(self.staged_root)
         return None
 
+    def status_message(self, changed_nodes_exist: bool) -> str | None:
+        """One reviewer-facing line about rationale health; None when all is well."""
+        if self.status.warning:
+            return self.status.warning
+        no_source = self.status.sidecar_entries == 0 and self.status.transcript_entries == 0
+        if changed_nodes_exist and no_source:
+            return f"No rationale source found for {self.staged_root}."
+        return None
+
     def why_for(self, rel_path: str, qualname: str | None = None) -> str | None:
         """Most specific rationale available for a node; sidecar beats transcript."""
         keys = [f"{rel_path}::{qualname}", rel_path] if qualname else [rel_path]

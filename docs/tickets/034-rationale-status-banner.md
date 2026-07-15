@@ -1,6 +1,6 @@
 # 034. UI banner for rationale source status
 
-Status: ready
+Status: done
 Decision: docs/decisions/009-rationale-fails-loudly.md
 
 ## Goal
