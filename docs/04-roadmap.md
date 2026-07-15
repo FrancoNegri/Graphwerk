@@ -30,7 +30,9 @@ Goal: the reject button actually re-prompts the live agent.
 - Agent activity indicator in the UI (idle / working / waiting on permission),
   fed by transcript tailing or hooks.
 - Prompt box in the UI so the whole flow (ask → watch graph fill in → review →
-  apply/reject) happens in one place.
+  apply/reject) happens in one place. *Pulled forward 2026-07-15 (user call):
+  ADR 011, tickets 038-040 — kickoff-only, input box + status, no chat log;
+  reject/resume stays here.*
 
 ## Phase 4 — Apply semantics (the hard problems)
 
