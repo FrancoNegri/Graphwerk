@@ -1,6 +1,6 @@
 # 050. Color `calls` edges by their status
 
-Status: ready
+Status: done
 Decision: docs/decisions/016-call-edge-status.md
 Depends on: docs/tickets/049-call-edge-status-model.md
 

@@ -45,6 +45,9 @@ async function loadGraph() {
       ele.data("status", n.data.status);
       if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
     }
+    for (const e of elements.edges) {
+      cy.getElementById(e.data.id).data("status", e.data.status);
+    }
   } else {
     renderGraph(elements);
   }
@@ -96,7 +99,7 @@ function toElements(data) {
     const id = `${source}->${target}:${e.kind}`;
     if (seenEdgeIds.has(id)) continue;
     seenEdgeIds.add(id);
-    edges.push({ data: { id, source, target, kind: e.kind } });
+    edges.push({ data: { id, source, target, kind: e.kind, status: e.status } });
   }
   return { nodes, edges };
 }
@@ -275,6 +278,13 @@ function renderGraph(elements) {
           "arrow-scale": 0.8,
           "line-color": "#475569",
           "target-arrow-color": "#475569",
+        },
+      },
+      {
+        selector: "edge[kind='calls']",
+        style: {
+          "line-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
+          "target-arrow-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
         },
       },
       {
