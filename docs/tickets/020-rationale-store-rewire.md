@@ -1,6 +1,6 @@
 # 020. RationaleStore mines via parser + attribution
 
-Status: ready
+Status: done
 Decision: docs/decisions/006-rationale-mining-v2.md
 
 ## Goal

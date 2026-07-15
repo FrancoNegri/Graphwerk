@@ -4,9 +4,10 @@ Two sources, merged (sidecar wins on conflicts):
 
 1. Sidecar JSON — ``{"<rel_path>": "...", "<rel_path>::<qualname>": "..."}``.
    Written by the demo scenario; later, a post-hoc summarization pass.
-2. Claude Code session transcript (JSONL) — the assistant narration immediately
-   preceding an Edit/Write tool call is, in practice, the rationale for that
-   edit. Mining it costs zero prompt overhead.
+2. Claude Code session transcript (JSONL) — mention-based attribution over
+   the whole session (ADR 006): the latest segment naming a file is its
+   rationale, falling back to the narration preceding its edit. Mining it
+   costs zero prompt overhead.
 """
 
 from __future__ import annotations
@@ -14,10 +15,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from graphwerk.rationale.attribution import MAX_WHY_LEN, attribute_files
 from graphwerk.rationale.discovery import find_latest_transcript
-
-EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-MAX_WHY_LEN = 700
+from graphwerk.rationale.transcript import parse_transcript
 
 
 class RationaleStore:
@@ -61,35 +61,10 @@ class RationaleStore:
     def _mine_transcript(self, transcript_path: Path | None) -> dict[str, str]:
         if not transcript_path or not transcript_path.exists() or not self.staged_root:
             return {}
+        segments, edits = parse_transcript(transcript_path, self.staged_root)
         rationale: dict[str, str] = {}
-        last_text = ""
-        try:
-            lines = transcript_path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            return {}
-        for line in lines:
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            content = (entry.get("message") or {}).get("content")
-            if not isinstance(content, list):
-                continue
-            for block in content:
-                if not isinstance(block, dict):
-                    continue
-                if block.get("type") == "text" and block.get("text", "").strip():
-                    last_text = block["text"].strip()
-                elif block.get("type") == "tool_use" and block.get("name") in EDIT_TOOLS:
-                    file_path = (block.get("input") or {}).get("file_path")
-                    if file_path and last_text:
-                        rel = self._to_rel(file_path)
-                        if rel:
-                            rationale[rel] = last_text[:MAX_WHY_LEN]
+        for edit in edits:
+            if edit.last_segment_index is not None:
+                rationale[edit.rel_path] = segments[edit.last_segment_index].text[:MAX_WHY_LEN]
+        rationale.update(attribute_files(segments, sorted({edit.rel_path for edit in edits})))
         return rationale
-
-    def _to_rel(self, file_path: str) -> str | None:
-        try:
-            return Path(file_path).resolve().relative_to(self.staged_root.resolve()).as_posix()
-        except ValueError:
-            return None
