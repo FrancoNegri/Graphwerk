@@ -529,6 +529,37 @@ document.getElementById("banner-dismiss").addEventListener("click", () => {
   document.getElementById("banner").hidden = true;
 });
 
+function renderSessionState(session) {
+  const running = session.state === "running";
+  document.getElementById("prompt-input").disabled = running;
+  document.getElementById("prompt-send").disabled = running;
+  document.getElementById("prompt-busy").hidden = !running;
+  const error = document.getElementById("prompt-error");
+  error.hidden = session.state !== "failed";
+  if (session.state === "failed") error.textContent = session.detail;
+}
+
+document.getElementById("prompt-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = document.getElementById("prompt-input");
+  const promptText = input.value.trim();
+  if (!promptText) return;
+  const res = await fetch("/api/prompt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: promptText }),
+  });
+  const data = await res.json();
+  if (res.ok) {
+    input.value = "";
+    renderSessionState(data);
+  } else if (res.status === 409) {
+    renderSessionState({ state: "running" });
+  } else {
+    renderSessionState({ state: "failed", detail: data.detail });
+  }
+});
+
 document.getElementById("changed-only").addEventListener("change", (event) => {
   setChangedOnlyView(event.target.checked);
 });
@@ -542,6 +573,8 @@ setInterval(async () => {
     const res = await fetch("/api/hash");
     const data = await res.json();
     if (data.hash !== currentHash) loadGraph();
+    const sessionRes = await fetch("/api/session");
+    renderSessionState(await sessionRes.json());
   } catch {
     /* server briefly unreachable; keep polling */
   }

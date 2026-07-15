@@ -1,6 +1,6 @@
 # 040. Prompt box + busy indicator in the UI
 
-Status: ready
+Status: done
 Decision: docs/decisions/011-prompt-box-session-kickoff.md
 
 ## Goal
