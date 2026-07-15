@@ -55,6 +55,8 @@ Goal: graduate from file-level apply.
   per-file rationale sat in the session's final summary, which the miner
   ignores. Any redesign (mine the wrap-up summary, attribute per-file
   mentions, summarize) is a `north-star` decision, not a quick fix.
+  *Decided 2026-07-14: ADR 006 (whole-transcript mention attribution,
+  deterministic; summarization stays here as the fallback), tickets 018-021.*
 - Packaging: `pipx install graphwerk`, static assets bundled into the package.
 - Multi-session: several agents staging into one graph, per-session coloring.
 

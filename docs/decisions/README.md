@@ -14,3 +14,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [003](003-symbol-layered-placement.md) | Symbol-level layered placement within an expanded file | proposed |
 | [004](004-always-show-source.md) | Show source for any selected node, not just diffs | proposed |
 | [005](005-server-side-layers.md) | Layer computation moves server-side; the JS layer stays thin | accepted |
+| [006](006-rationale-mining-v2.md) | Rationale mining v2: whole-transcript mention attribution | proposed |

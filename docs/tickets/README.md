@@ -29,3 +29,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [015](015-symbol-layered-placement.md) | Layered placement for symbols within an expanded file | done | [003](../decisions/003-symbol-layered-placement.md) |
 | [016](016-source-in-snapshot.md) | Thread full source text into the snapshot for every node | done | [004](../decisions/004-always-show-source.md) |
 | [017](017-sidebar-fallback-source.md) | Sidebar: render source as fallback code view when a node has no diff | done | [004](../decisions/004-always-show-source.md) |
+| [018](018-transcript-segmentation.md) | Transcript parser: ordered segments + edit events | ready | [006](../decisions/006-rationale-mining-v2.md) |
+| [019](019-file-mention-attribution.md) | File-level mention attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
+| [020](020-rationale-store-rewire.md) | RationaleStore mines via parser + attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
+| [021](021-symbol-mention-attribution.md) | Symbol-level mention attribution | ready | [006](../decisions/006-rationale-mining-v2.md) |
