@@ -16,14 +16,13 @@ let currentHash = null;
 let graphData = null;
 let nodesById = {};
 let selectedId = null;
-// Files default to collapsed when nothing inside needs review; a manual
-// double-click overrides the default for that file until the file goes away.
-const userCollapsedFileIds = new Set();
-const userExpandedFileIds = new Set();
+// Every container (file or class) starts collapsed; a double-click expands
+// it for the session until the node goes away.
+const userExpandedIds = new Set();
 let changedOnlyView = false;
 let hideTestsView = true;
 let showImportsView = false;
-let showCallsView = false;
+let showCallsView = true;
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -31,10 +30,9 @@ async function loadGraph() {
   currentHash = data.hash;
   graphData = data;
   nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
-  for (const overrides of [userCollapsedFileIds, userExpandedFileIds]) {
-    for (const id of [...overrides]) {
-      if (!nodesById[id] || nodesById[id].kind !== "file") overrides.delete(id);
-    }
+  for (const id of [...userExpandedIds]) {
+    const node = nodesById[id];
+    if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
   }
   document.getElementById("paths").innerHTML =
     `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
@@ -59,14 +57,14 @@ async function loadGraph() {
 function toElements(data) {
   const parentOf = new Map(data.nodes.map((n) => [n.id, n.parent]));
   const strongestStatus = strongestDescendantStatusByAncestor(data.nodes, parentOf);
-  const collapsedFileIds = effectiveCollapsedFileIds(data.nodes, strongestStatus);
+  const collapsedContainerIds = effectiveCollapsedContainerIds(data.nodes, parentOf);
 
-  // A node hidden inside a collapsed file is represented by that file node;
-  // everything else represents itself.
+  // A node hidden inside a collapsed container is represented by that
+  // container node; everything else represents itself.
   const representativeId = (id) => {
     let representative = id;
     for (let ancestor = parentOf.get(id); ancestor; ancestor = parentOf.get(ancestor)) {
-      if (collapsedFileIds.has(ancestor)) representative = ancestor;
+      if (collapsedContainerIds.has(ancestor)) representative = ancestor;
     }
     return representative;
   };
@@ -79,7 +77,7 @@ function toElements(data) {
       && (!hideTestsView || !isTestPath(n.path)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
-      if (collapsedFileIds.has(n.id)) {
+      if (collapsedContainerIds.has(n.id)) {
         nodeData.collapsedStatus = strongestStatus.get(n.id) || "unchanged";
       }
       return { data: nodeData };
@@ -118,18 +116,12 @@ function strongestDescendantStatusByAncestor(nodes, parentOf) {
   return strongest;
 }
 
-function fileNeedsReview(file, strongestStatus) {
-  return file.status !== "unchanged"
-    || (strongestStatus.get(file.id) || "unchanged") !== "unchanged";
-}
-
-function effectiveCollapsedFileIds(nodes, strongestStatus) {
+function effectiveCollapsedContainerIds(nodes, parentOf) {
+  const containerIds = new Set([...parentOf.values()].filter(Boolean));
   const collapsed = new Set();
   for (const node of nodes) {
-    if (node.kind !== "file") continue;
-    if (userCollapsedFileIds.has(node.id)) collapsed.add(node.id);
-    else if (userExpandedFileIds.has(node.id)) continue;
-    else if (!fileNeedsReview(node, strongestStatus)) collapsed.add(node.id);
+    if (!containerIds.has(node.id)) continue;
+    if (!userExpandedIds.has(node.id)) collapsed.add(node.id);
   }
   return collapsed;
 }
@@ -173,17 +165,11 @@ function setShowCallsView(enabled) {
   if (graphData) renderGraph(toElements(graphData));
 }
 
-function toggleFileCollapsed(fileId) {
+function toggleContainerCollapsed(containerId) {
   const parentOf = new Map(graphData.nodes.map((n) => [n.id, n.parent]));
-  const strongestStatus = strongestDescendantStatusByAncestor(graphData.nodes, parentOf);
-  const isCollapsed = effectiveCollapsedFileIds(graphData.nodes, strongestStatus).has(fileId);
-  if (isCollapsed) {
-    userCollapsedFileIds.delete(fileId);
-    userExpandedFileIds.add(fileId);
-  } else {
-    userExpandedFileIds.delete(fileId);
-    userCollapsedFileIds.add(fileId);
-  }
+  const isCollapsed = effectiveCollapsedContainerIds(graphData.nodes, parentOf).has(containerId);
+  if (isCollapsed) userExpandedIds.add(containerId);
+  else userExpandedIds.delete(containerId);
   renderGraph(toElements(graphData));
 }
 
@@ -263,7 +249,7 @@ function renderGraph(elements) {
         },
       },
       {
-        selector: "node[kind='file'][collapsedStatus]",
+        selector: "node[collapsedStatus]",
         style: {
           "background-color": (ele) => COLORS[ele.data("collapsedStatus")] || COLORS.unchanged,
           "background-opacity": 1,
@@ -310,7 +296,7 @@ function renderGraph(elements) {
   cy.on("tap", (evt) => {
     if (evt.target === cy) clearDetails();
   });
-  cy.on("dbltap", "node[kind='file']", (evt) => toggleFileCollapsed(evt.target.id()));
+  cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));
 }
 
 function layoutOptions(keepPositions, elements, data) {

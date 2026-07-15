@@ -1,6 +1,6 @@
 # 047. Generalize collapse to every container, always collapsed by default
 
-Status: ready
+Status: done
 Decision: docs/decisions/015-contract-by-default.md
 
 ## Goal

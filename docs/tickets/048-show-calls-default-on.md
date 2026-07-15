@@ -1,6 +1,6 @@
 # 048. `show-calls` defaults to on
 
-Status: ready
+Status: done
 Decision: docs/decisions/015-contract-by-default.md
 
 ## Goal
