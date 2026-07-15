@@ -38,5 +38,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [024](024-code-view-builder.md) | Code view builder: merged lines + highlight spans | done | [007](../decisions/007-sidebar-code-view.md) |
 | [025](025-filechange-both-texts.md) | FileChange carries base and staged full text | done | [007](../decisions/007-sidebar-code-view.md) |
 | [026](026-snapshot-code-view.md) | Snapshot attaches a code view to every node | done | [007](../decisions/007-sidebar-code-view.md) |
-| [027](027-sidebar-code-render.md) | Sidebar renders the unified code view | ready | [007](../decisions/007-sidebar-code-view.md) |
+| [027](027-sidebar-code-render.md) | Sidebar renders the unified code view | done | [007](../decisions/007-sidebar-code-view.md) |
 | [028](028-drop-source-payload.md) | Drop the redundant source field from the node payload | ready | [007](../decisions/007-sidebar-code-view.md) |

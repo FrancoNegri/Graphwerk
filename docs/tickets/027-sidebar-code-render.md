@@ -1,6 +1,6 @@
 # 027. Sidebar renders the unified code view
 
-Status: ready
+Status: done
 Decision: docs/decisions/007-sidebar-code-view.md
 
 Depends on: ticket 026.

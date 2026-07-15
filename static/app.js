@@ -411,14 +411,10 @@ function showDetails(node) {
   whySection.hidden = !node.why;
   if (node.why) document.getElementById("d-why").textContent = node.why;
 
-  const diffSection = document.getElementById("diff-section");
-  diffSection.hidden = !node.diff;
-  if (node.diff) document.getElementById("d-diff").innerHTML = renderDiff(node.diff);
-
-  const sourceSection = document.getElementById("source-section");
-  const showSource = !node.diff && Boolean(node.source);
-  sourceSection.hidden = !showSource;
-  if (showSource) document.getElementById("d-source").textContent = node.source;
+  const codeSection = document.getElementById("code-section");
+  const hasCode = Array.isArray(node.code) && node.code.length > 0;
+  codeSection.hidden = !hasCode;
+  if (hasCode) document.getElementById("d-code").innerHTML = renderCode(node.code);
 
   const changed = ["modified", "added", "deleted"].includes(node.status);
   const applyBtn = document.getElementById("btn-apply");
@@ -472,15 +468,22 @@ async function rejectNode(node) {
   }
 }
 
-function renderDiff(diff) {
-  return diff
-    .split("\n")
-    .map((line) => {
-      const cls = line.startsWith("+") ? "add" : line.startsWith("-") ? "del"
-        : line.startsWith("@@") ? "hunk" : "ctx";
-      return `<span class="${cls}">${esc(line)}</span>`;
-    })
-    .join("\n");
+function renderCode(lines) {
+  const rows = lines.map((line) =>
+    `<div class="row ${line.op}"><span class="ln">${line.line}</span><span class="lt">${renderLineText(line) || " "}</span></div>`
+  );
+  return `<div class="lines">${rows.join("")}</div>`;
+}
+
+function renderLineText(line) {
+  let html = "";
+  let cursor = 0;
+  for (const [start, end, cls] of line.spans) {
+    html += esc(line.text.slice(cursor, start));
+    html += `<span class="${cls}">${esc(line.text.slice(start, end))}</span>`;
+    cursor = end;
+  }
+  return html + esc(line.text.slice(cursor));
 }
 
 function esc(text) {
