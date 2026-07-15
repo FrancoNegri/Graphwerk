@@ -476,10 +476,30 @@ function showEdgeCalls(edge) {
   document.getElementById("placeholder").hidden = true;
   document.getElementById("details").hidden = true;
   document.getElementById("edge-calls").hidden = false;
-  document.getElementById("d-calls-list").innerHTML = edge
-    .data("calls")
+  const calls = edge.data("calls");
+  document.getElementById("d-calls-list").innerHTML = calls
     .map(({ source, target }) => `<li>${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}</li>`)
     .join("");
+  document.getElementById("d-calls-code").innerHTML = uniqueCallNodeIds(calls)
+    .map((id) => nodesById[id])
+    .filter((node) => node && Array.isArray(node.code) && node.code.length > 0)
+    .map((node) => `<section><h3>${esc(qualifiedLabel(node.id))}</h3><div class="code">${renderCode(node.code)}</div></section>`)
+    .join("");
+}
+
+// First-seen order, deduped: a symbol appearing as source/target of several
+// collapsed calls (e.g. one class collapsing onto its caller) gets one panel.
+function uniqueCallNodeIds(calls) {
+  const seen = new Set();
+  const ids = [];
+  for (const { source, target } of calls) {
+    for (const id of [source, target]) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 async function applyFile(path) {

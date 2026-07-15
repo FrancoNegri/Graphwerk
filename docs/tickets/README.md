@@ -63,3 +63,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [049](049-call-edge-status-model.md) | `GraphEdge.status` computed for `calls` edges | ready | [016](../decisions/016-call-edge-status.md) |
 | [050](050-color-call-edges-by-status.md) | Color `calls` edges by their status | ready | [016](../decisions/016-call-edge-status.md) |
 | [051](051-click-edge-lists-underlying-calls.md) | Clicking a `calls` edge lists the calls it collapsed | ready | [016](../decisions/016-call-edge-status.md) |
+| [052](052-edge-calls-show-code.md) | Edge-calls panel renders caller/callee code | done | [017](../decisions/017-edge-calls-show-code.md) |

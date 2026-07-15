@@ -25,3 +25,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [014](014-split-imports-calls-toggle.md) | Split the combined edge toggle into independent imports/calls checkboxes | proposed |
 | [015](015-contract-by-default.md) | Contract every container by default; show calls out of the box | proposed |
 | [016](016-call-edge-status.md) | Color call edges by status; list what a collapsed edge represents | proposed |
+| [017](017-edge-calls-show-code.md) | Clicking a calls edge shows caller/callee code, not just labels | proposed |
