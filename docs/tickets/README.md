@@ -69,3 +69,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [055](055-cache-file-index-by-fingerprint.md) | Cache parsed `FileIndex` per file by mtime/size fingerprint | done | [019](../decisions/019-snapshot-recompute-caching.md) |
 | [056](056-cache-code-view-by-content.md) | Cache per-node code view by content identity | done | [019](../decisions/019-snapshot-recompute-caching.md) |
 | [057](057-loadgraph-in-flight-guard.md) | Guard `loadGraph()` against overlapping in-flight calls | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
+| [058](058-wheel-zoom-feel.md) | Tune wheel-zoom sensitivity and bounds | ready | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
+| [059](059-hover-reveal-unchanged-edges.md) | Hide unchanged-status edges by default; reveal on node hover | ready | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |

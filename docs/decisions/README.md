@@ -28,3 +28,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [017](017-edge-calls-show-code.md) | Clicking a calls edge shows caller/callee code, not just labels | proposed |
 | [018](018-orthogonal-edge-routing.md) | Orthogonal (taxi) edge routing; defer bespoke hub treatment until judged with directory grouping | rejected |
 | [019](019-snapshot-recompute-caching.md) | Cache repeated snapshot recomputation (indexing + code view) | accepted |
+| [020](020-edge-hover-reveal-and-zoom-feel.md) | Hide unchanged edges behind hover reveal; tune wheel-zoom feel | proposed |
