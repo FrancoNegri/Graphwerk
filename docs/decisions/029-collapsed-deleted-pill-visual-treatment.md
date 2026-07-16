@@ -1,4 +1,4 @@
-# 029. Collapsed deleted-status containers keep the faded/dashed treatment
+# 029. Deleted status gets a distinct hue, and keeps the faded/dashed treatment when collapsed
 
 Status: proposed
 Date: 2026-07-16
@@ -46,13 +46,27 @@ in the rendering layer rather than the differ/indexer.
 
 ## Decision
 
-Extend the existing dashed-border / reduced-opacity "ghost" treatment to
-collapsed containers whose `collapsedStatus` is `deleted`, not only nodes
-whose raw `status` is `deleted`. This is a client-side, view-only fix
-(collapse/expand state is inherently client state — the same reasoning
-that already puts `strongestDescendantStatusByAncestor` in `app.js` rather
-than the backend, per the established view-logic-in-JS split, ADR
-013/014/015) with no backend change and no new dependency.
+Two complementary fixes, both purely in `COLORS`/styles in `static/app.js`:
+
+1. **Give `deleted` a hue distinct from `unchanged`** instead of a shade of
+   the same slate (`deleted: #64748b` → a muted warm grey, e.g. `#78716c`
+   stone-500, vs. `unchanged`'s cool slate `#475569`) — so the two are
+   distinguishable by color alone, not just by the dashed cue below.
+2. **Extend the existing dashed-border / reduced-opacity "ghost" treatment**
+   to collapsed containers whose `collapsedStatus` is `deleted`, not only
+   nodes whose raw `status` is `deleted` — reinforces the distinction and
+   keeps collapsed/expanded rendering consistent.
+
+Both are client-side, view-only (collapse/expand state is inherently
+client state — the same reasoning that already puts
+`strongestDescendantStatusByAncestor` in `app.js` rather than the backend,
+per the established view-logic-in-JS split, ADR 013/014/015), with no
+backend change and no new dependency.
+
+*Amended 2026-07-16:* originally this ADR scoped the hue change out
+(narrower fix only, see rejected alternative below) — reversed after the
+same dogfooding session flagged the remaining slate-on-slate similarity as
+still confusing even before the dashed-treatment fix ships.
 
 ## Alternatives considered
 
@@ -65,19 +79,18 @@ than the backend, per the established view-logic-in-JS split, ADR
   pill; folding in the file's own status would repaint nearly every edited
   file red, discarding exactly the nuance `collapsedStatus` exists to
   provide.
-- **Give `deleted` a hue-distinct color instead of a shade of slate** (e.g.
-  muted purple) — would also fix the confusion, and is a reasonable
-  complementary change, but it alters the existing look of *every*
-  uncollapsed deleted node too, which isn't broken today (the dashed/faded
-  treatment already reads fine there). The narrower fix — making the
-  existing convention apply consistently at the collapsed level — is lower
-  risk and directly addresses the reported gap.
+- **Dashed treatment only, keep `deleted` as a shade of slate** — the
+  original scope of this ADR; superseded per the amendment above once the
+  same slate-vs-slate confusion was flagged as worth fixing on its own,
+  independent of the collapsed-pill bug.
 
 ## Consequences
 
 - Collapsed files/classes that were mostly gutted (a common shape for
   AI-driven "extract to new file" refactors) read unmistakably as "stuff
   left here," instead of blending into "untouched."
+- `deleted` reads as visually distinct from `unchanged` everywhere in the
+  graph (collapsed or not), not only via the dashed cue.
 - Purely visual; no change to what `collapsedStatus` computes, so the
   blue/red/amber nuance for other collapse shapes is untouched.
 
@@ -92,5 +105,6 @@ than the backend, per the established view-logic-in-JS split, ADR
   hard problem #1 generalized to cross-file symbol identity) but is not
   the cause of the reported color complaint, and isn't resolved here. File
   as its own ticket if/when it becomes disruptive to review.
-- Changing the `deleted`/`unchanged` color palette generally.
 - Any change to how `collapsedStatus` is ranked/aggregated.
+- Palette changes to `modified`/`added`/`affected` — only `deleted` was
+  reported as confusable.
