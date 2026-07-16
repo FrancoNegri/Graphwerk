@@ -293,11 +293,11 @@ def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     })
     snapshot = service.snapshot()
     layers = {n.id: n.layer for n in snapshot.nodes}
-    assert layers["pipeline.py"] == 0
-    assert layers["main.py"] == 1
-    assert layers["pipeline.py::load"] == 0
+    assert layers["main.py"] == 0
+    assert layers["pipeline.py"] == 1
+    assert layers["pipeline.py::report"] == 0
     assert layers["pipeline.py::parse"] == 1
-    assert layers["pipeline.py::report"] == 2
+    assert layers["pipeline.py::load"] == 2
     assert all("layer" in n.to_dict() for n in snapshot.nodes)
 
 

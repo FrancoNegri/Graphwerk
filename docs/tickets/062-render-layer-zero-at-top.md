@@ -1,6 +1,6 @@
 # 062. Render layer 0 at the top of the graph
 
-Status: ready
+Status: done
 Decision: docs/decisions/022-entry-points-anchor-top-layer.md
 Depends on: docs/tickets/061-layer-from-entry-points.md
 

@@ -1,6 +1,6 @@
 # 061. Layer by longest path from entry points, not to leaves
 
-Status: ready
+Status: done
 Decision: docs/decisions/022-entry-points-anchor-top-layer.md
 
 ## Goal

@@ -1,10 +1,12 @@
-"""Layer assignment for graph nodes: longest-path depth over the graph's
-edges, with cycles collapsed into one shared layer via strongly connected
-components.
+"""Layer assignment for graph nodes: longest-path depth from each root over
+the graph's edges, with cycles collapsed into one shared layer via strongly
+connected components.
 
-Files get an import-depth layer (a file importing nothing sits in layer 0);
-top-level functions get a call-depth layer scoped to their own file's
-functions. Within each layer, barycenter sweeps assign a left-to-right
+Files get an import-depth layer (a file nothing imports sits in layer 0,
+same as every other root, regardless of how deep its own dependency tree
+descends — ADR 022); top-level functions get a call-depth layer scoped to
+their own file's functions, anchored the same way on functions nothing
+calls. Within each layer, barycenter sweeps assign a left-to-right
 order that pulls cross-layer neighbors close (ADR 008). For the file band
 only, that order is then re-sorted so files sharing a top-level directory
 sit contiguously, group order following the mean barycenter position of its
@@ -204,12 +206,14 @@ def _layers_by_longest_path(neighbors_of: dict[str, set[str]]) -> dict[str, int]
             if source != target:
                 neighbor_components[source].add(target)
 
-    # Tarjan emits components in reverse topological order, so everything a
-    # component points at already has its layer by the time we reach it.
+    # Tarjan emits components in reverse topological order, so a root (no
+    # incoming edges from outside the component) is emitted last. Walking
+    # that order backward means, by the time we reach a component, every
+    # component that points at it has already pushed its layer forward.
     component_layer = [0] * component_count
-    for component in range(component_count):
+    for component in reversed(range(component_count)):
         for neighbor in neighbor_components[component]:
-            component_layer[component] = max(component_layer[component], component_layer[neighbor] + 1)
+            component_layer[neighbor] = max(component_layer[neighbor], component_layer[component] + 1)
 
     return {node: component_layer[component_of[node]] for node in neighbors_of}
 

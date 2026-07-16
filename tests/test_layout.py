@@ -41,7 +41,7 @@ def test_files_layered_by_import_depth():
     nodes = [file_node("a.py"), file_node("b.py"), file_node("c.py")]
     edges = [imports("a.py", "b.py"), imports("b.py", "c.py")]
     assign_layers(nodes, edges)
-    assert layers_of(nodes) == {"c.py": 0, "b.py": 1, "a.py": 2}
+    assert layers_of(nodes) == {"a.py": 0, "b.py": 1, "c.py": 2}
 
 
 def test_file_importing_nothing_is_layer_zero():
@@ -59,7 +59,22 @@ def test_diamond_import_takes_longest_path():
         imports("a.py", "d.py"),
     ]
     assign_layers(nodes, edges)
-    assert layers_of(nodes)["a.py"] == 3
+    layers = layers_of(nodes)
+    assert layers["a.py"] == 0
+    assert layers["d.py"] == 3
+
+
+def test_unrelated_entry_points_land_at_layer_zero_despite_differing_depths():
+    nodes = [file_node(rel) for rel in ("shallow_entry.py", "deep_entry.py", "mid.py", "leaf.py")]
+    edges = [
+        imports("shallow_entry.py", "leaf.py"),
+        imports("deep_entry.py", "mid.py"),
+        imports("mid.py", "leaf.py"),
+    ]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["shallow_entry.py"] == 0
+    assert layers["deep_entry.py"] == 0
 
 
 def test_import_cycle_collapses_into_one_shared_layer():
@@ -71,8 +86,8 @@ def test_import_cycle_collapses_into_one_shared_layer():
     ]
     assign_layers(nodes, edges)
     layers = layers_of(nodes)
-    assert layers["x.py"] == layers["y.py"] == 1
-    assert layers["base.py"] == 0
+    assert layers["x.py"] == layers["y.py"] == 0
+    assert layers["base.py"] == 1
 
 
 def test_functions_layered_by_intra_file_call_depth():
@@ -88,9 +103,9 @@ def test_functions_layered_by_intra_file_call_depth():
     ]
     assign_layers(nodes, edges)
     layers = layers_of(nodes)
-    assert layers["flow.py::leaf"] == 0
+    assert layers["flow.py::top"] == 0
     assert layers["flow.py::middle"] == 1
-    assert layers["flow.py::top"] == 2
+    assert layers["flow.py::leaf"] == 2
 
 
 def test_cross_file_calls_do_not_affect_symbol_layers():
@@ -121,8 +136,8 @@ def test_mutual_recursion_shares_a_layer_and_caller_sits_above():
     ]
     assign_layers(nodes, edges)
     layers = layers_of(nodes)
-    assert layers["rec.py::ping"] == layers["rec.py::pong"] == 0
-    assert layers["rec.py::driver"] == 1
+    assert layers["rec.py::driver"] == 0
+    assert layers["rec.py::ping"] == layers["rec.py::pong"] == 1
 
 
 def test_self_recursion_gets_a_layer_without_crashing():
@@ -177,8 +192,8 @@ def test_imported_neighbors_get_nearby_orders_and_unrelated_file_stays_aside():
     ]
     assign_layers(nodes, edges)
     orders = orders_of(nodes)
-    assert orders["n_uses_alpha.py"] == orders["alpha.py"] == 0
-    assert orders["m_uses_beta.py"] == orders["beta.py"] == 1
+    assert orders["m_uses_beta.py"] == orders["beta.py"] == 0
+    assert orders["n_uses_alpha.py"] == orders["alpha.py"] == 1
     assert orders["unrelated.py"] == 2
 
 

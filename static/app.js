@@ -457,18 +457,18 @@ function anchorsSortedByOrder(entriesByLayer) {
   return anchorsByLayer;
 }
 
-// Deeper layers (entry points, callers) render above what they depend on;
-// one representative per layer pair suffices vertically since
+// Layer 0 (entry points, callers) renders above what it depends on; one
+// representative per layer pair suffices vertically since
 // alignmentConstraint already ties every member of a layer to one band.
 // Members of a layer chain left-to-right with a minimum gap so same-band
 // nodes don't crowd — alignment only fixes their shared y, not spacing.
 function appendBandConstraints(anchorsByLayer, verticalGap, alignments, relativePlacements) {
   if (anchorsByLayer.size < 2) return;
-  const layersDeepestFirst = [...anchorsByLayer.keys()].sort((a, b) => b - a);
-  for (let i = 0; i < layersDeepestFirst.length - 1; i++) {
+  const layersTopFirst = [...anchorsByLayer.keys()].sort((a, b) => a - b);
+  for (let i = 0; i < layersTopFirst.length - 1; i++) {
     relativePlacements.push({
-      top: anchorsByLayer.get(layersDeepestFirst[i])[0],
-      bottom: anchorsByLayer.get(layersDeepestFirst[i + 1])[0],
+      top: anchorsByLayer.get(layersTopFirst[i])[0],
+      bottom: anchorsByLayer.get(layersTopFirst[i + 1])[0],
       gap: verticalGap,
     });
   }
