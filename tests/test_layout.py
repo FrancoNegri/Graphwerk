@@ -1,4 +1,10 @@
-from graphwerk.layout import _grouped_by_directory, _orders_by_barycenter, assign_layers, group_for_path
+from graphwerk.layout import (
+    _grouped_by_directory,
+    _is_test_path,
+    _orders_by_barycenter,
+    assign_layers,
+    group_for_path,
+)
 from graphwerk.models import GraphEdge, GraphNode
 
 
@@ -88,6 +94,30 @@ def test_import_cycle_collapses_into_one_shared_layer():
     layers = layers_of(nodes)
     assert layers["x.py"] == layers["y.py"] == 0
     assert layers["base.py"] == 1
+
+
+def test_import_chain_through_noise_filtered_file_keeps_true_depth():
+    nodes = [file_node("a.py"), file_node("c.py")]
+    edges = [imports("a.py", "b.py"), imports("b.py", "c.py")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["a.py"] == 0
+    assert layers["c.py"] == 2
+
+
+def test_import_from_test_file_does_not_demote_the_importee():
+    nodes = [file_node("app.py"), file_node("tests/test_app.py")]
+    edges = [imports("tests/test_app.py", "app.py")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["app.py"] == 0
+    assert layers["tests/test_app.py"] == 0
+
+
+def test_is_test_path_matches_tests_segment_or_test_filename():
+    assert _is_test_path("tests/foo.py")
+    assert _is_test_path("pkg/test_bar.py")
+    assert not _is_test_path("pkg/app.py")
 
 
 def test_functions_layered_by_intra_file_call_depth():

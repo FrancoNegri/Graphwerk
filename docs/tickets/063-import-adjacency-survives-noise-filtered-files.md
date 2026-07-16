@@ -1,6 +1,6 @@
 # 063. Import adjacency survives noise-filtered intermediate files
 
-Status: ready
+Status: done
 Decision: docs/decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md
 
 ## Goal

@@ -67,6 +67,19 @@ def _layered_adjacencies(
     ]
 
 
+_TEST_PATH_SEGMENTS = {"tests", "test"}
+
+
+def _is_test_path(path: str) -> bool:
+    """A file counts as a test file by pytest's own discovery convention:
+    a tests/test-named path segment, or a test_*.py/*_test.py filename."""
+    filename = path.rpartition("/")[2]
+    if filename.startswith("test_") or filename.endswith("_test.py"):
+        return True
+    segments = path.split("/")[:-1]
+    return any(segment in _TEST_PATH_SEGMENTS for segment in segments)
+
+
 def _import_adjacency(
     nodes: list[GraphNode], edges: list[GraphEdge]
 ) -> dict[str, set[str]]:
@@ -74,10 +87,13 @@ def _import_adjacency(
         node.id: set() for node in nodes if node.kind == "file"
     }
     for edge in edges:
-        if edge.kind != "imports":
+        if edge.kind != "imports" or edge.source == edge.target:
             continue
-        if edge.source != edge.target and edge.source in imported_files_of and edge.target in imported_files_of:
-            imported_files_of[edge.source].add(edge.target)
+        if _is_test_path(edge.source):
+            continue
+        imported_files_of.setdefault(edge.source, set())
+        imported_files_of.setdefault(edge.target, set())
+        imported_files_of[edge.source].add(edge.target)
     return imported_files_of
 
 
@@ -149,7 +165,7 @@ def _grouped_by_directory(
     for layer_nodes in nodes_by_layer.values():
         members_by_group: dict[str, list[str]] = {}
         for node_id in layer_nodes:
-            members_by_group.setdefault(group_by_id[node_id], []).append(node_id)
+            members_by_group.setdefault(group_by_id.get(node_id, node_id), []).append(node_id)
         ordered_groups = sorted(
             members_by_group.values(),
             key=lambda members: sum(order_by_id[m] for m in members) / len(members),
