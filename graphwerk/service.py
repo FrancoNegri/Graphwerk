@@ -70,6 +70,7 @@ class GraphService:
         for rel, change in changes.items():
             if change.status is Status.UNCHANGED and not change.symbols:
                 continue  # e.g. empty __init__.py — pure noise in the graph
+            why = self.rationale.why_for(rel) if change.status in CHANGED else None
             snap.nodes.append(
                 GraphNode(
                     id=rel,
@@ -77,7 +78,8 @@ class GraphService:
                     kind="file",
                     path=rel,
                     status=change.status,
-                    why=self.rationale.why_for(rel) if change.status in CHANGED else None,
+                    why=why,
+                    why_confident=self.rationale.confident_for(rel) if why is not None else None,
                     diff=change.diff or None,
                     source=change.source,
                     code=self._code_view(change.base_source, change.staged_source),
@@ -94,6 +96,7 @@ class GraphService:
                     continue
                 node_id = f"{rel}::{qualname}"
                 parent = f"{rel}::{qualname.split('.')[0]}" if "." in qualname else rel
+                symbol_why = self.rationale.why_for(rel, qualname) if status in CHANGED else None
                 snap.nodes.append(
                     GraphNode(
                         id=node_id,
@@ -102,7 +105,9 @@ class GraphService:
                         path=rel,
                         status=status,
                         parent=parent,
-                        why=self.rationale.why_for(rel, qualname) if status in CHANGED else None,
+                        why=symbol_why,
+                        why_confident=self.rationale.confident_for(rel, qualname)
+                        if symbol_why is not None else None,
                         diff=diff or None,
                         source=info.source,
                         code=self._code_view(

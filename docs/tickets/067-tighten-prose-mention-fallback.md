@@ -1,6 +1,6 @@
 # 067. Tighten the prose-mention fallback
 
-Status: ready
+Status: done
 Decision: docs/decisions/025-rationale-mention-confidence.md
 
 ## Goal
@@ -42,3 +42,19 @@ without breaking genuine exact-filename mentions.
 - The guidance bullet parser (ticket 066), which this fallback only
   applies behind.
 - Confidence tracking (ticket 068).
+
+## Addendum
+
+The initial implementation only tightened `attribute_files`/`_file_mentioned`.
+Re-verifying against a fresh dogfood run (agendabot `webhook.py` split,
+session `faf3bf05`) reproduced the same qualified-reference bug one layer
+down: `attribute_symbols` still matched a bare symbol name reached only
+through a qualified dotted path (a monkeypatch string quoting the *old*
+import path, `` `agendabot.webhook._load_business` ``), misattributing
+`src/agendabot/webhook.py::_load_business` to an unrelated bullet about a
+different file. Fixed by excluding dot-preceded matches in
+`_symbol_mentioned` — except when the preceding dot is the symbol's own
+`Class.method` qualifier (an early draft excluded those too and broke
+`Gateway.charge`-style guidance bullets, the same mistake ADR 025 already
+flagged once for the file-level fix). Regression test:
+`test_symbol_reached_only_through_a_qualified_dotted_path_is_not_a_mention`.

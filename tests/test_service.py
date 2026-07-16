@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from graphwerk.models import Status
@@ -187,6 +188,73 @@ def test_snapshot_meta_message_flags_changes_without_any_rationale_source(tmp_pa
     message = service.snapshot().meta["rationale"]["message"]
     assert message is not None
     assert str(staged) in message
+
+
+def write_transcript(path: Path, entries: list) -> None:
+    path.write_text("\n".join(json.dumps(entry) for entry in entries) + "\n", encoding="utf-8")
+
+
+def assistant_entry(*blocks) -> dict:
+    return {"type": "assistant", "message": {"role": "assistant", "content": list(blocks)}}
+
+
+def text_block(text: str) -> dict:
+    return {"type": "text", "text": text}
+
+
+def edit_block(file_path: Path) -> dict:
+    return {"type": "tool_use", "name": "Edit", "input": {"file_path": str(file_path)}}
+
+
+def test_snapshot_marks_low_confidence_why_from_proximity_fallback(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"business.py": "def core():\n    return 1\n", "deps.py": "def helper():\n    return 1\n"})
+    write_tree(staged, {"business.py": "def core():\n    return 2\n", "deps.py": "def helper():\n    return 2\n"})
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [
+        assistant_entry(
+            text_block("Now building the business logic module."),
+            edit_block(staged / "business.py"),
+            edit_block(staged / "deps.py"),
+        ),
+        assistant_entry(text_block("Final: `business.py` implements the core rules.")),
+    ])
+    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
+    service = GraphService(base, staged, rationale)
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["business.py"].why_confident is True
+    assert nodes["deps.py"].why_confident is False
+
+
+def test_snapshot_symbol_node_carries_why_confidence(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"business.py": "def core():\n    return 1\n"})
+    write_tree(staged, {"business.py": "def core():\n    return 2\n"})
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [
+        assistant_entry(
+            text_block("Working on it."),
+            edit_block(staged / "business.py"),
+        ),
+        assistant_entry(text_block("Final: `core` now returns the updated value.")),
+    ])
+    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
+    service = GraphService(base, staged, rationale)
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["business.py::core"].why_confident is True
+
+
+def test_unchanged_node_has_no_why_confidence(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["a.py"].why_confident is None
 
 
 def test_calls_edge_into_modified_target_has_modified_status(tmp_path):

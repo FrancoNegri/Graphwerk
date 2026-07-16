@@ -16,9 +16,25 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from graphwerk.rationale.attribution import MAX_WHY_LEN, attribute_files, attribute_symbols
+from graphwerk.rationale.attribution import (
+    MAX_WHY_LEN,
+    attribute_files,
+    attribute_guidance_bullets,
+    attribute_symbols,
+)
 from graphwerk.rationale.discovery import find_latest_transcript
 from graphwerk.rationale.transcript import parse_transcript
+
+
+@dataclass(frozen=True)
+class RationaleEntry:
+    """One transcript-mined rationale, tagged with how it was found — a
+    guidance bullet or explicit prose mention names the file/symbol
+    directly (confident); the proximity fallback is just the nearest
+    preceding narration, possibly about something else entirely."""
+
+    text: str
+    confident: bool
 
 
 @dataclass
@@ -50,7 +66,7 @@ class RationaleStore:
         self.staged_root = staged_root
         self.base_root = base_root
         self._sidecar: dict[str, str] = {}
-        self._transcript: dict[str, str] = {}  # rel_path -> latest narration
+        self._transcript: dict[str, RationaleEntry] = {}  # rel_path -> latest narration
         self.status = RationaleStatus()
         self.reload()
 
@@ -110,12 +126,34 @@ class RationaleStore:
 
     def why_for(self, rel_path: str, qualname: str | None = None) -> str | None:
         """Most specific rationale available for a node; sidecar beats transcript."""
-        keys = [f"{rel_path}::{qualname}", rel_path] if qualname else [rel_path]
-        for source in (self._sidecar, self._transcript):
-            for key in keys:
-                if source.get(key):
-                    return source[key]
+        keys = self._lookup_keys(rel_path, qualname)
+        for key in keys:
+            if self._sidecar.get(key):
+                return self._sidecar[key]
+        for key in keys:
+            entry = self._transcript.get(key)
+            if entry:
+                return entry.text
         return None
+
+    def confident_for(self, rel_path: str, qualname: str | None = None) -> bool:
+        """Whether the text why_for returns came from an explicit source
+        (sidecar, a guidance bullet, or a prose mention) rather than the
+        proximity fallback (nearest preceding narration, possibly about a
+        different file entirely)."""
+        keys = self._lookup_keys(rel_path, qualname)
+        for key in keys:
+            if self._sidecar.get(key):
+                return True
+        for key in keys:
+            entry = self._transcript.get(key)
+            if entry:
+                return entry.confident
+        return True
+
+    @staticmethod
+    def _lookup_keys(rel_path: str, qualname: str | None) -> list[str]:
+        return [f"{rel_path}::{qualname}", rel_path] if qualname else [rel_path]
 
     def _load_sidecar(self) -> dict[str, str] | None:
         """None when there is no usable sidecar (missing/unreadable), so the
@@ -129,14 +167,21 @@ class RationaleStore:
             return None
 
     def _mine_transcript(self, transcript_path: Path | None,
-                         changed_symbols: dict[str, list[str]]) -> dict[str, str]:
+                         changed_symbols: dict[str, list[str]]) -> dict[str, RationaleEntry]:
         if not transcript_path:
             return {}
         segments, edits = parse_transcript(transcript_path, self.staged_root)
-        rationale: dict[str, str] = {}
+        rationale: dict[str, RationaleEntry] = {}
         for edit in edits:
             if edit.last_segment_index is not None:
-                rationale[edit.rel_path] = segments[edit.last_segment_index].text[:MAX_WHY_LEN]
-        rationale.update(attribute_files(segments, sorted({edit.rel_path for edit in edits})))
-        rationale.update(attribute_symbols(segments, changed_symbols))
+                text = segments[edit.last_segment_index].text[:MAX_WHY_LEN]
+                rationale[edit.rel_path] = RationaleEntry(text=text, confident=False)
+        for key, text in attribute_files(segments, sorted({edit.rel_path for edit in edits})).items():
+            rationale[key] = RationaleEntry(text=text, confident=True)
+        for key, text in attribute_symbols(segments, changed_symbols).items():
+            rationale[key] = RationaleEntry(text=text, confident=True)
+        # Highest priority (ADR 025): a dedicated guidance bullet always wins,
+        # even over a later prose segment that merely repeats the filename.
+        for key, text in attribute_guidance_bullets(segments, changed_symbols).items():
+            rationale[key] = RationaleEntry(text=text, confident=True)
         return rationale

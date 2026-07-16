@@ -1,6 +1,6 @@
 # 069. UI marker for low-confidence rationale
 
-Status: ready
+Status: done
 Decision: docs/decisions/025-rationale-mention-confidence.md
 
 ## Goal

@@ -45,6 +45,7 @@ class GraphNode:
     status: Status = Status.UNCHANGED
     parent: str | None = None  # file node id for symbols, class node id for methods
     why: str | None = None
+    why_confident: bool | None = None  # False: proximity fallback, not a real mention
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
     order: int | None = None  # left-to-right position within the layer; same contract as layer
@@ -61,6 +62,7 @@ class GraphNode:
             "status": self.status.value,
             "parent": self.parent,
             "why": self.why,
+            "why_confident": self.why_confident,
             "diff": self.diff,
             "layer": self.layer,
             "order": self.order,

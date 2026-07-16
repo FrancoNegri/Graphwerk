@@ -180,6 +180,15 @@ section h3 {
   font-size: 13px;
 }
 
+.why-confidence {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+}
+.why-confidence[hidden] { display: none; }
+
 .calls-list { list-style: none; padding: 0; font-size: 13px; }
 .calls-list li { padding: 4px 0; border-bottom: 1px solid var(--border); }
 .calls-list li:last-child { border-bottom: none; }

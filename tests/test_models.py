@@ -43,3 +43,11 @@ def test_graph_node_group_defaults_to_none_and_is_serialized():
     assert node.to_dict()["group"] == "src"
 
 
+def test_graph_node_why_confident_defaults_to_none_and_is_serialized():
+    node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py")
+    assert node.why_confident is None
+    assert node.to_dict()["why_confident"] is None
+    node.why_confident = False
+    assert node.to_dict()["why_confident"] is False
+
+

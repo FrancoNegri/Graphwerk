@@ -1,6 +1,6 @@
 # 068. Track and expose rationale confidence per node
 
-Status: ready
+Status: done
 Decision: docs/decisions/025-rationale-mention-confidence.md
 
 ## Goal

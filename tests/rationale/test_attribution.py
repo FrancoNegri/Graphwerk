@@ -1,4 +1,9 @@
-from graphwerk.rationale.attribution import attribute_files, attribute_symbols
+from graphwerk.rationale.attribution import (
+    attribute_files,
+    attribute_guidance_bullets,
+    attribute_symbols,
+    parse_guidance_bullet,
+)
 from graphwerk.rationale.transcript import Segment
 
 
@@ -23,14 +28,14 @@ def test_bullet_summary_attributes_each_file_to_its_own_line():
 
 def test_latest_mention_wins():
     parsed = segments(
-        "I'll start by touching miner.py to fix the bug.",
+        "I'll start by touching `miner.py` to fix the bug.",
         "Some unrelated narration.",
-        "Wrapping up: miner.py now dedupes entries before writing.",
+        "Wrapping up: `miner.py` now dedupes entries before writing.",
     )
 
     result = attribute_files(parsed, ["miner.py"])
 
-    assert result["miner.py"] == "Wrapping up: miner.py now dedupes entries before writing."
+    assert result["miner.py"] == "Wrapping up: `miner.py` now dedupes entries before writing."
 
 
 def test_stem_matches_as_a_distinct_token_not_a_substring():
@@ -46,7 +51,7 @@ def test_stem_matches_as_a_distinct_token_not_a_substring():
 
 
 def test_unmentioned_files_are_absent():
-    parsed = segments("Only talked about cli.py here.")
+    parsed = segments("Only talked about `cli.py` here.")
 
     result = attribute_files(parsed, ["cli.py", "models.py"])
 
@@ -93,7 +98,99 @@ def test_same_name_in_two_files_needs_a_file_mention_to_count():
 def test_rationale_is_truncated_to_max_why_len():
     from graphwerk.rationale.attribution import MAX_WHY_LEN
 
-    long_text = "cli.py " + "x" * (MAX_WHY_LEN * 2)
+    long_text = "`cli.py` " + "x" * (MAX_WHY_LEN * 2)
     result = attribute_files(segments(long_text), ["cli.py"])
 
     assert len(result["cli.py"]) == MAX_WHY_LEN
+
+
+def test_guidance_bullet_parses_path_symbols_and_reason():
+    bullet = parse_guidance_bullet(
+        "- `pkg/webhook.py` (`handle`, `Gateway.charge`): wires the two together"
+    )
+
+    assert bullet.rel_path == "pkg/webhook.py"
+    assert bullet.symbols == ("handle", "Gateway.charge")
+    assert bullet.reason == "wires the two together"
+
+
+def test_guidance_bullet_without_symbols_still_parses():
+    bullet = parse_guidance_bullet("- `cli.py`: added the --version flag")
+
+    assert bullet.rel_path == "cli.py"
+    assert bullet.symbols == ()
+    assert bullet.reason == "added the --version flag"
+
+
+def test_non_bullet_segment_does_not_parse():
+    assert parse_guidance_bullet("Let me touch cli.py next.") is None
+    assert parse_guidance_bullet("cli.py: added the --version flag") is None
+
+
+def test_attribute_guidance_bullets_gives_each_file_its_own_reason():
+    parsed = segments(
+        "- `cli.py`: added the --version flag",
+        "- `pkg/models.py`: new order field",
+    )
+
+    result = attribute_guidance_bullets(parsed, {})
+
+    assert result == {
+        "cli.py": "added the --version flag",
+        "pkg/models.py": "new order field",
+    }
+
+
+def test_attribute_guidance_bullets_assigns_reason_to_listed_symbols():
+    parsed = segments("- `pkg/payment.py` (`Gateway.charge`): now retries three times")
+
+    result = attribute_guidance_bullets(parsed, {"pkg/payment.py": ["Gateway.charge", "Gateway.refund"]})
+
+    assert result == {
+        "pkg/payment.py": "now retries three times",
+        "pkg/payment.py::Gateway.charge": "now retries three times",
+    }
+
+
+def test_attribute_guidance_bullets_ignores_prose_segments():
+    parsed = segments("Just some narration mentioning cli.py in passing.")
+
+    assert attribute_guidance_bullets(parsed, {}) == {}
+
+
+def test_qualified_reference_through_bare_stem_is_excluded():
+    parsed = segments("Patched `business_cache._load_business` in the test suite.")
+
+    assert attribute_files(parsed, ["business_cache.py"]) == {}
+
+
+def test_full_filename_mention_still_attributes_despite_stem_dot_letters_shape():
+    parsed = segments("Reference: `webhook.py`.")
+
+    assert attribute_files(parsed, ["webhook.py"]) == {
+        "webhook.py": "Reference: `webhook.py`.",
+    }
+
+
+def test_unquoted_common_word_does_not_collide_with_file_stem():
+    parsed = segments("the various conversation helpers are still re-exported")
+
+    assert attribute_files(parsed, ["conversation.py"]) == {}
+
+
+def test_qualified_reference_exclusion_does_not_apply_to_full_path_alternative():
+    parsed = segments("See `src/agendabot/webhook.py` for the wiring.")
+
+    assert attribute_files(parsed, ["src/agendabot/webhook.py"]) == {
+        "src/agendabot/webhook.py": "See `src/agendabot/webhook.py` for the wiring.",
+    }
+
+
+def test_symbol_reached_only_through_a_qualified_dotted_path_is_not_a_mention():
+    parsed = segments(
+        "kept the accessor here because tests do "
+        '`monkeypatch.setattr("pkg.webhook._load_business", ...)`'
+    )
+    changed = {"pkg/webhook.py": ["_load_business"], "pkg/business.py": ["_load_business"]}
+
+    assert attribute_symbols(parsed, changed) == {}

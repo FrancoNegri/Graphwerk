@@ -99,8 +99,77 @@ def test_dogfood_shape_yields_distinct_per_file_whys(staged_root, claude_project
 
     store = RationaleStore(staged_root=staged_root)
 
-    assert store.why_for("cli.py") == "- `cli.py`: added the --version flag"
-    assert store.why_for("models.py") == "- `models.py`: new order field"
+    assert store.why_for("cli.py") == "added the --version flag"
+    assert store.why_for("models.py") == "new order field"
+
+
+def test_guidance_bullet_survives_a_later_trailing_mention(staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Making the requested changes."),
+            edit_block(staged_root / "business_cache.py"),
+            edit_block(staged_root / "webhook.py"),
+        ),
+        assistant_entry(text_block(
+            "Summary:\n"
+            "- `business_cache.py`: the per-phone TTL cache in front of `_load_business`\n"
+            "- `webhook.py`: now just the FastAPI app, /health, and /webhook/twilio\n"
+            "\n"
+            "Compatibility note: `business_cache._load_business` and webhook.py "
+            "still expose their old signatures for existing callers."
+        )),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.why_for("business_cache.py") == \
+        "the per-phone TTL cache in front of `_load_business`"
+    assert store.why_for("webhook.py") == \
+        "now just the FastAPI app, /health, and /webhook/twilio"
+
+
+def test_proximity_fallback_is_low_confidence_but_explicit_mention_is_high(
+        staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Now building the business logic module."),
+            edit_block(staged_root / "business.py"),
+            edit_block(staged_root / "deps.py"),
+        ),
+        assistant_entry(text_block("Final: `business.py` implements the core rules.")),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.why_for("business.py") == "Final: `business.py` implements the core rules."
+    assert store.confident_for("business.py") is True
+
+    assert store.why_for("deps.py") == "Now building the business logic module."
+    assert store.confident_for("deps.py") is False
+
+
+def test_guidance_bullet_is_high_confidence(staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Working on it."),
+            edit_block(staged_root / "cli.py"),
+        ),
+        assistant_entry(text_block("- `cli.py`: added the --version flag")),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.confident_for("cli.py") is True
+
+
+def test_sidecar_rationale_is_always_high_confidence(tmp_path, staged_root, claude_projects_dir):
+    sidecar = tmp_path / "rationale.json"
+    sidecar.write_text(json.dumps({"foo.py": "Sidecar why"}), encoding="utf-8")
+
+    store = RationaleStore(sidecar_path=sidecar, staged_root=staged_root)
+
+    assert store.why_for("foo.py") == "Sidecar why"
+    assert store.confident_for("foo.py") is True
 
 
 def test_unmentioned_file_falls_back_to_preceding_narration(staged_root, claude_projects_dir):
@@ -125,7 +194,7 @@ def test_symbol_mention_beats_file_why_while_siblings_keep_it(staged_root, claud
         ),
         assistant_entry(text_block(
             "Summary:\n"
-            "- payment.py: validation and retries\n"
+            "- `payment.py`: validation and retries\n"
             "- charge now retries three times"
         )),
     ])
@@ -134,7 +203,7 @@ def test_symbol_mention_beats_file_why_while_siblings_keep_it(staged_root, claud
     store.reload(changed_symbols={"payment.py": ["Gateway.charge", "Gateway.refund"]})
 
     assert store.why_for("payment.py", "Gateway.charge") == "- charge now retries three times"
-    assert store.why_for("payment.py", "Gateway.refund") == "- payment.py: validation and retries"
+    assert store.why_for("payment.py", "Gateway.refund") == "validation and retries"
 
 
 def test_why_for_prefers_sidecar_symbol_then_sidecar_file_then_transcript(

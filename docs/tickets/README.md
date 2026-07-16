@@ -77,7 +77,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [063](063-import-adjacency-survives-noise-filtered-files.md) | Import adjacency survives noise-filtered intermediate files | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
 | [064](064-exclude-test-file-edges-from-layering.md) | Exclude test-file edges from import layering | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
 | [065](065-extract-nested-imports.md) | Collect imports from the whole file, skipping TYPE_CHECKING blocks | done | [024](../decisions/024-extract-nested-imports.md) |
-| [066](066-parse-guidance-bullets.md) | Parse the guidance bullet format as the primary rationale source | ready | [025](../decisions/025-rationale-mention-confidence.md) |
-| [067](067-tighten-prose-mention-fallback.md) | Tighten the prose-mention fallback (qualified refs, backtick-quoting) | ready | [025](../decisions/025-rationale-mention-confidence.md) |
-| [068](068-rationale-confidence-flag.md) | Track and expose rationale confidence per node | ready | [025](../decisions/025-rationale-mention-confidence.md) |
-| [069](069-ui-low-confidence-why-marker.md) | UI marker for low-confidence rationale | ready | [025](../decisions/025-rationale-mention-confidence.md) |
+| [066](066-parse-guidance-bullets.md) | Parse the guidance bullet format as the primary rationale source | done | [025](../decisions/025-rationale-mention-confidence.md) |
+| [067](067-tighten-prose-mention-fallback.md) | Tighten the prose-mention fallback (qualified refs, backtick-quoting) | done | [025](../decisions/025-rationale-mention-confidence.md) |
+| [068](068-rationale-confidence-flag.md) | Track and expose rationale confidence per node | done | [025](../decisions/025-rationale-mention-confidence.md) |
+| [069](069-ui-low-confidence-why-marker.md) | UI marker for low-confidence rationale | done | [025](../decisions/025-rationale-mention-confidence.md) |

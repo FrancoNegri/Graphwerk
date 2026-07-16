@@ -515,6 +515,7 @@ function showDetails(node) {
   const whySection = document.getElementById("why-section");
   whySection.hidden = !node.why;
   if (node.why) document.getElementById("d-why").textContent = node.why;
+  document.getElementById("d-why-confidence").hidden = node.why_confident !== false;
 
   const codeSection = document.getElementById("code-section");
   const hasCode = Array.isArray(node.code) && node.code.length > 0;

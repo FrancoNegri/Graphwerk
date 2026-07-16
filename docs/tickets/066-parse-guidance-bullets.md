@@ -1,6 +1,6 @@
 # 066. Parse the guidance bullet format as the primary rationale source
 
-Status: ready
+Status: done
 Decision: docs/decisions/025-rationale-mention-confidence.md
 
 ## Goal
