@@ -1,6 +1,6 @@
 # 045. Fix unbounded overlap in the hash/session polling loop
 
-Status: ready
+Status: done
 Decision: docs/decisions/011-prompt-box-session-kickoff.md
 
 ## Goal

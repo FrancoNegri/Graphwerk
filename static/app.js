@@ -677,7 +677,9 @@ document.getElementById("show-calls").addEventListener("change", (event) => {
   setShowCallsView(event.target.checked);
 });
 
-setInterval(async () => {
+const POLL_INTERVAL_MS = 1500;
+
+async function pollHashAndSession() {
   try {
     const res = await fetch("/api/hash");
     const data = await res.json();
@@ -686,8 +688,12 @@ setInterval(async () => {
     renderSessionState(await sessionRes.json());
   } catch {
     /* server briefly unreachable; keep polling */
+  } finally {
+    setTimeout(pollHashAndSession, POLL_INTERVAL_MS);
   }
-}, 1500);
+}
+
+setTimeout(pollHashAndSession, POLL_INTERVAL_MS);
 
 
 loadGraph();
