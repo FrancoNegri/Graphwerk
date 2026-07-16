@@ -18,10 +18,21 @@ from __future__ import annotations
 from graphwerk.models import GraphEdge, GraphNode
 
 
+_WRAPPER_DIRECTORY_NAMES = {"src", "lib"}
+
+
 def group_for_path(path: str) -> str:
-    """Top-level directory of a file path; "." for repo-root files."""
+    """Top-level directory of a file path; "." for repo-root files. A
+    generic wrapper directory (src/lib) is skipped in favor of the next
+    segment, so src-layout packages group by package name instead of
+    collapsing into one indistinguishable "src" (ADR 021)."""
     directory = path.rpartition("/")[0]
-    return directory.split("/")[0] if directory else "."
+    if not directory:
+        return "."
+    segments = directory.split("/")
+    if segments[0] in _WRAPPER_DIRECTORY_NAMES and len(segments) > 1:
+        return segments[1]
+    return segments[0]
 
 
 def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:

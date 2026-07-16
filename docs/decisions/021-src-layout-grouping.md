@@ -1,6 +1,6 @@
 # 021. Skip generic wrapper directories when grouping files by top-level directory
 
-Status: proposed
+Status: accepted
 Date: 2026-07-16
 
 ## Context

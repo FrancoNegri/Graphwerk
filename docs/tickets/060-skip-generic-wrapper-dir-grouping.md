@@ -1,6 +1,6 @@
 # 060. Skip generic wrapper directories in file grouping
 
-Status: ready
+Status: done
 Decision: docs/decisions/021-src-layout-grouping.md
 
 ## Goal

@@ -308,9 +308,27 @@ def test_function_bands_are_unaffected_by_directory_grouping():
 
 
 def test_group_for_path_is_top_level_directory_or_root_sentinel():
-    assert group_for_path("src/pkg/store.py") == "src"
     assert group_for_path("tests/test_store.py") == "tests"
     assert group_for_path("readme_helper.py") == "."
+
+
+def test_group_for_path_skips_wrapper_directory_and_uses_package_name():
+    assert group_for_path("src/agendabot/bsp/models.py") == "agendabot"
+    assert group_for_path("src/agendabot/webhook.py") == "agendabot"
+    assert group_for_path("lib/pkg/mod.py") == "pkg"
+
+
+def test_group_for_path_leaves_non_wrapper_top_level_directories_alone():
+    assert group_for_path("tests/bsp/test_twilio.py") == "tests"
+    assert group_for_path("scripts/chat.py") == "scripts"
+
+
+def test_group_for_path_only_a_directory_segment_triggers_the_skip():
+    assert group_for_path("src.py") == "."
+
+
+def test_group_for_path_falls_back_to_wrapper_name_with_no_next_segment():
+    assert group_for_path("src/only.py") == "src"
 
 
 def groups_of(nodes: list[GraphNode]) -> dict[str, str | None]:

@@ -311,6 +311,16 @@ def test_snapshot_file_nodes_report_their_top_level_directory_as_group(tmp_path)
     assert groups == {"shop/checkout.py": "shop", "shop/cart.py": "shop"}
 
 
+def test_snapshot_file_nodes_skip_src_wrapper_directory_in_group(tmp_path):
+    service = make_service(tmp_path, {
+        "src/pkg/store.py": "def save():\n    pass\n",
+        "src/pkg/webhook.py": "from pkg.store import save\n\ndef handle():\n    save()\n",
+    })
+    snapshot = service.snapshot()
+    groups = {n.id: n.group for n in snapshot.nodes if n.kind == "file"}
+    assert groups == {"src/pkg/store.py": "pkg", "src/pkg/webhook.py": "pkg"}
+
+
 def spy_on_build_code_view(monkeypatch) -> list[tuple[str | None, str | None]]:
     """Records each (base_text, staged_text) pair build_code_view is called with."""
     import graphwerk.service as service_module
