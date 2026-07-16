@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import Iterator
 
 from graphwerk.indexing.walk import iter_python_files
 from graphwerk.models import FileIndex, SymbolInfo
@@ -27,10 +28,12 @@ class PythonAstExtractor:
 
         lines = source.splitlines(keepends=True)
 
-        for node in tree.body:
+        for node in _iter_executable_nodes(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 index.imports |= _imported_modules(node)
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 index.symbols[node.name] = _symbol(node, node.name, "function", lines)
             elif isinstance(node, ast.ClassDef):
                 index.symbols[node.name] = _symbol(node, node.name, "class", lines)
@@ -69,6 +72,27 @@ def _imported_modules(node: ast.Import | ast.ImportFrom) -> set[str]:
     if isinstance(node, ast.Import):
         return {alias.name for alias in node.names}
     return {node.module} if node.module else set()
+
+
+def _iter_executable_nodes(node: ast.AST) -> Iterator[ast.AST]:
+    """Walk the whole tree, skipping the body of `if TYPE_CHECKING:` blocks
+    (that code never runs) while still descending into everything else,
+    including their `else` branches."""
+    yield node
+    if isinstance(node, ast.If) and _is_type_checking_guard(node.test):
+        for child in node.orelse:
+            yield from _iter_executable_nodes(child)
+    else:
+        for child in ast.iter_child_nodes(node):
+            yield from _iter_executable_nodes(child)
+
+
+def _is_type_checking_guard(test: ast.expr) -> bool:
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    if isinstance(test, ast.Attribute):
+        return test.attr == "TYPE_CHECKING"
+    return False
 
 
 def index_tree(root: Path) -> dict[str, FileIndex]:

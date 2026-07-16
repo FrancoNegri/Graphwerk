@@ -1,6 +1,6 @@
 # 065. Collect imports from the whole file, skipping TYPE_CHECKING blocks
 
-Status: ready
+Status: done
 Decision: docs/decisions/024-extract-nested-imports.md
 
 ## Goal
