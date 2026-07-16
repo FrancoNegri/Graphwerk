@@ -74,3 +74,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [060](060-skip-generic-wrapper-dir-grouping.md) | Skip generic wrapper directories in file grouping | ready | [021](../decisions/021-src-layout-grouping.md) |
 | [061](061-layer-from-entry-points.md) | Layer by longest path from entry points, not to leaves | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
 | [062](062-render-layer-zero-at-top.md) | Render layer 0 at the top of the graph | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
+| [063](063-import-adjacency-survives-noise-filtered-files.md) | Import adjacency survives noise-filtered intermediate files | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
+| [064](064-exclude-test-file-edges-from-layering.md) | Exclude test-file edges from import layering | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
