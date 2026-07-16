@@ -1,6 +1,6 @@
 # 037. Directory tint + legend in the UI
 
-Status: ready
+Status: done
 Decision: docs/decisions/010-directory-band-grouping.md
 
 ## Goal

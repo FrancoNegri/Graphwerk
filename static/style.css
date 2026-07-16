@@ -44,6 +44,8 @@ header {
 .dot.affected { background: var(--affected); }
 .dot.unchanged { background: var(--unchanged); }
 
+#group-legend[hidden] { display: none; }
+
 .view-toggle {
   display: flex;
   align-items: center;

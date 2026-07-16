@@ -11,6 +11,14 @@ const COLORS = {
 
 const STATUS_RANK = ["modified", "added", "deleted", "affected", "unchanged"];
 
+// Muted, dark-theme-friendly fills for the directory tint (ADR 010) — kept
+// visually distinct from the saturated status colors above, which stay on
+// borders.
+const GROUP_TINT_PALETTE = [
+  "#4c1d95", "#164e63", "#7c2d12", "#365314",
+  "#831843", "#1e3a8a", "#78350f", "#134e4a",
+];
+
 let cy = null;
 let currentHash = null;
 let graphData = null;
@@ -23,6 +31,8 @@ let changedOnlyView = false;
 let hideTestsView = true;
 let showImportsView = false;
 let showCallsView = true;
+// group -> tint color, assigned in first-seen payload order (ADR 010).
+let groupTints = new Map();
 
 async function loadGraph() {
   const res = await fetch("/api/graph");
@@ -38,11 +48,15 @@ async function loadGraph() {
     `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
   renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
 
+  groupTints = buildGroupTints(data.nodes);
+  renderGroupLegend(groupTints);
+
   const elements = toElements(data);
   if (cy && sameTopology(elements)) {
     for (const n of elements.nodes) {
       const ele = cy.getElementById(n.data.id);
       ele.data("status", n.data.status);
+      if (n.data.group != null) ele.data("group", n.data.group);
       if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
     }
     for (const e of elements.edges) {
@@ -82,6 +96,7 @@ function toElements(data) {
       && (!hideTestsView || !isTestPath(n.path)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
+      if (n.group != null) nodeData.group = n.group;
       if (collapsedContainerIds.has(n.id)) {
         nodeData.collapsedStatus = strongestStatus.get(n.id) || "unchanged";
       }
@@ -248,7 +263,7 @@ function renderGraph(elements) {
           "text-valign": "top",
           "text-margin-y": -6,
           "font-size": 12,
-          "background-color": "#1e293b",
+          "background-color": (ele) => tintFor(ele.data("group")),
           "background-opacity": 0.6,
           "border-width": 2,
           "border-color": (ele) => COLORS[ele.data("status")] || "#334155",
@@ -267,6 +282,16 @@ function renderGraph(elements) {
           width: 130,
           "text-wrap": "ellipsis",
           "text-max-width": 120,
+        },
+      },
+      {
+        // Collapsed file chips keep the tint as their fill; status moves
+        // fully onto the border (widened since the fill no longer carries it).
+        selector: "node[collapsedStatus][kind='file']",
+        style: {
+          "background-color": (ele) => tintFor(ele.data("group")),
+          "background-opacity": 0.7,
+          "border-width": 2.5,
         },
       },
       {
@@ -568,6 +593,28 @@ function toast(msg) {
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (el.hidden = true), 3000);
+}
+
+function buildGroupTints(nodes) {
+  const tints = new Map();
+  for (const node of nodes) {
+    if (node.kind !== "file" || node.group == null || tints.has(node.group)) continue;
+    tints.set(node.group, GROUP_TINT_PALETTE[tints.size % GROUP_TINT_PALETTE.length]);
+  }
+  return tints;
+}
+
+function tintFor(group) {
+  return groupTints.get(group) || "#1e293b";
+}
+
+// Single-package repos and the demo (one group) stay visually unchanged.
+function renderGroupLegend(tints) {
+  const legend = document.getElementById("group-legend");
+  legend.hidden = tints.size < 2;
+  legend.innerHTML = [...tints.entries()]
+    .map(([group, color]) => `<span><i class="dot" style="background:${color}"></i>${esc(group)}</span>`)
+    .join("");
 }
 
 // Dismissal is per message: a new server message reopens the banner.
