@@ -184,9 +184,14 @@ class GraphService:
                 node.status = Status.AFFECTED
 
     def _mark_edge_status(self, snap: Snapshot) -> None:
-        """Lets a `calls` edge say whether it leads into changed code, or is
-        the reason its source shows `affected` — same review signal as node
-        color, moved onto the edge (ADR 016)."""
+        """Lets a `calls` edge say whether it leads into changed code — same
+        review signal as node color, moved onto the edge (ADR 016). A call
+        into unchanged code stays `unchanged` even when its source is
+        `affected` via some *other* call: `affected` only ever describes the
+        edge that itself targets changed code, and that edge already gets
+        the target's real status below, so no edge is ever "affected" —
+        an unrelated call from an affected node carries no information about
+        the change itself."""
         status_by_id = {n.id: n.status for n in snap.nodes}
         for edge in snap.edges:
             if edge.kind != "calls":
@@ -194,5 +199,3 @@ class GraphService:
             target_status = status_by_id.get(edge.target)
             if target_status in CHANGED:
                 edge.status = target_status
-            elif status_by_id.get(edge.source) is Status.AFFECTED and target_status is Status.UNCHANGED:
-                edge.status = Status.AFFECTED

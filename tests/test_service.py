@@ -379,6 +379,36 @@ def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path)
     assert edge.status == Status.UNCHANGED
 
 
+def test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_status(tmp_path):
+    """A caller becomes AFFECTED via its call to a modified target; a
+    different, unrelated call it also makes must not borrow that label —
+    only the call that actually leads into changed code should."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "a.py": (
+            "def target():\n    return 1\n\n"
+            "def unrelated():\n    return 1\n\n"
+            "def caller():\n    target()\n    return unrelated()\n"
+        ),
+    })
+    write_tree(staged, {
+        "a.py": (
+            "def target():\n    return 2\n\n"
+            "def unrelated():\n    return 1\n\n"
+            "def caller():\n    target()\n    return unrelated()\n"
+        ),
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    nodes = {n.id: n for n in snapshot.nodes}
+    assert nodes["a.py::caller"].status == Status.AFFECTED
+
+    edge = edge_between(snapshot, "a.py::caller", "a.py::unrelated")
+    assert edge.status == Status.UNCHANGED
+
+
 def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

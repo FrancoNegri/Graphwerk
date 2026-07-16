@@ -207,6 +207,7 @@ section h3 {
   font-size: 13px;
   cursor: pointer;
 }
+.call-pair summary .chip { margin-right: 8px; }
 .call-pair summary:hover { background: rgba(148, 163, 184, 0.08); }
 .call-pair[open] summary { border-bottom: 1px solid var(--border); }
 .call-pair section { padding: 10px 12px; }

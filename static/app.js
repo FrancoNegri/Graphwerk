@@ -11,6 +11,11 @@ const COLORS = {
 
 const STATUS_RANK = ["modified", "added", "deleted", "affected", "unchanged"];
 
+function statusRank(status) {
+  const rank = STATUS_RANK.indexOf(status);
+  return rank === -1 ? STATUS_RANK.length : rank;
+}
+
 // Muted, dark-theme-friendly fills for the directory tint (ADR 010) — kept
 // visually distinct from the saturated status colors above, which stay on
 // borders.
@@ -134,21 +139,17 @@ function toElements(data) {
       edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] } };
       edgesById.set(id, edge);
     }
-    edge.data.calls.push({ source: e.source, target: e.target });
+    edge.data.calls.push({ source: e.source, target: e.target, status: e.status });
   }
   return { nodes, edges: [...edgesById.values()] };
 }
 
 function strongestDescendantStatusByAncestor(nodes, parentOf) {
-  const rankOf = (status) => {
-    const rank = STATUS_RANK.indexOf(status);
-    return rank === -1 ? STATUS_RANK.length : rank;
-  };
   const strongest = new Map();
   for (const node of nodes) {
     for (let ancestor = parentOf.get(node.id); ancestor; ancestor = parentOf.get(ancestor)) {
       const current = strongest.get(ancestor) || "unchanged";
-      if (rankOf(node.status) < rankOf(current)) strongest.set(ancestor, node.status);
+      if (statusRank(node.status) < statusRank(current)) strongest.set(ancestor, node.status);
     }
   }
   return strongest;
@@ -580,9 +581,14 @@ function showEdgeCalls(edge) {
 
 // One closed-by-default <details> per call pair: the summary is the label,
 // the body is that pair's code — no separate deduped code block, so a pair
-// you open is always the pair whose code you see (ADR 028).
-function renderCallPair({ source, target }) {
-  const summary = `${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}`;
+// you open is always the pair whose code you see (ADR 028). The status badge
+// reads the edge's own precomputed status (ADR 016) rather than the nodes'
+// status — a source can be "affected" overall via some *other* call while
+// this specific pair is genuinely unchanged, and the badge must reflect this
+// pair, not the whole node.
+function renderCallPair({ source, target, status }) {
+  const badge = `<span class="chip ${status}">${status}</span>`;
+  const summary = `${badge} ${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}`;
   const body = [source, target]
     .map((id) => nodesById[id])
     .filter((node) => node && Array.isArray(node.code) && node.code.length > 0)
