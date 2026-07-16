@@ -1,6 +1,6 @@
 # 041. Session guidance text + round-trip attribution test
 
-Status: ready
+Status: done
 Decision: docs/decisions/012-rationale-session-guidance.md
 
 ## Goal
