@@ -1,6 +1,6 @@
 # 059. Hide unchanged-status edges by default; reveal on node hover
 
-Status: ready
+Status: done
 Decision: docs/decisions/020-edge-hover-reveal-and-zoom-feel.md
 
 ## Goal

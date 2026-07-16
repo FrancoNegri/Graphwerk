@@ -34,6 +34,9 @@ let showImportsView = false;
 let showCallsView = true;
 // group -> tint color, assigned in first-seen payload order (ADR 010).
 let groupTints = new Map();
+// Edges kept visible by a click, independent of hover; cleared by tapping
+// empty canvas (mirrors clearDetails' existing selection-reset gesture).
+const pinnedEdgeIds = new Set();
 
 async function loadGraph() {
   if (loadGraphInFlight) return;
@@ -202,6 +205,26 @@ function toggleContainerCollapsed(containerId) {
   renderGraph(toElements(graphData));
 }
 
+function pinEdges(edgeCollection) {
+  edgeCollection.forEach((edge) => pinnedEdgeIds.add(edge.id()));
+  edgeCollection.addClass("pinned");
+}
+
+function unpinAllEdges() {
+  pinnedEdgeIds.clear();
+  cy.edges().removeClass("pinned");
+}
+
+// Classes don't survive renderGraph's destroy/recreate; reapply after a
+// rebuild and drop ids for edges that no longer exist in the new graph.
+function applyPinnedEdges() {
+  for (const id of [...pinnedEdgeIds]) {
+    const edge = cy.getElementById(id);
+    if (edge.empty()) pinnedEdgeIds.delete(id);
+    else edge.addClass("pinned");
+  }
+}
+
 function sameTopology(elements) {
   const wanted = new Set([
     ...elements.nodes.map((n) => n.data.id),
@@ -233,7 +256,9 @@ function renderGraph(elements) {
   cy = cytoscape({
     container: document.getElementById("cy"),
     elements,
-    wheelSensitivity: 0.3,
+    wheelSensitivity: 5,
+    minZoom: 0.15,
+    maxZoom: 3,
     style: [
       {
         selector: "node",
@@ -327,6 +352,15 @@ function renderGraph(elements) {
         selector: "edge[kind='imports']",
         style: { "line-style": "dashed", "line-color": "#334155", "target-arrow-color": "#334155" },
       },
+      {
+        // Unchanged edges (all imports edges, most calls edges) are clutter,
+        // not review signal — hidden by default, revealed per-node on hover
+        // (ADR 020). Class selectors outrank data selectors in Cytoscape's
+        // specificity order, so .revealed wins over this rule while active.
+        selector: "edge[status='unchanged']",
+        style: { display: "none" },
+      },
+      { selector: "edge.revealed, edge.pinned", style: { display: "element" } },
       { selector: "node:selected", style: { "border-color": "#f8fafc", "border-width": 3 } },
     ],
     layout: layoutOptions(previousPositions.size > 0, elements, graphData),
@@ -338,12 +372,20 @@ function renderGraph(elements) {
   cy.on("tap", "node", (evt) => {
     selectedId = evt.target.id();
     showDetails(nodesById[selectedId]);
+    pinEdges(evt.target.connectedEdges());
   });
+  cy.on("tap", "edge", (evt) => pinEdges(evt.target));
   cy.on("tap", "edge[kind='calls']", (evt) => showEdgeCalls(evt.target));
   cy.on("tap", (evt) => {
-    if (evt.target === cy) clearDetails();
+    if (evt.target === cy) {
+      clearDetails();
+      unpinAllEdges();
+    }
   });
   cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));
+  cy.on("mouseover", "node", (evt) => evt.target.connectedEdges().addClass("revealed"));
+  cy.on("mouseout", "node", (evt) => evt.target.connectedEdges().removeClass("revealed"));
+  applyPinnedEdges();
 }
 
 function layoutOptions(keepPositions, elements, data) {

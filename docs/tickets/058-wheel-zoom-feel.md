@@ -1,6 +1,6 @@
 # 058. Tune wheel-zoom sensitivity and bounds
 
-Status: ready
+Status: done
 Decision: docs/decisions/020-edge-hover-reveal-and-zoom-feel.md
 
 ## Goal
