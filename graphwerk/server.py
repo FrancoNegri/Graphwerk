@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.gzip import GZipMiddleware
 
 from graphwerk.apply import ApplyEngine
 from graphwerk.service import GraphService
@@ -35,6 +36,7 @@ class RejectRequest(BaseModel):
 def create_app(service: GraphService, engine: ApplyEngine,
                runner: SessionRunner) -> FastAPI:
     app = FastAPI(title="graphwerk")
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.get("/")
     def home():
@@ -42,12 +44,15 @@ def create_app(service: GraphService, engine: ApplyEngine,
 
     @app.get("/api/graph")
     def graph():
-        return {
+        # to_dict() already yields plain str/int/float/bool/None/list/dict —
+        # returning JSONResponse directly skips FastAPI's jsonable_encoder
+        # pass, which otherwise dominates response time on large graphs.
+        return JSONResponse({
             "base": str(service.base_root),
             "staged": str(service.staged_root),
             "hash": service.state_hash(),
             **service.snapshot().to_dict(),
-        }
+        })
 
     @app.get("/api/hash")
     def state_hash():
