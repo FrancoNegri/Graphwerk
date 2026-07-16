@@ -21,6 +21,7 @@ const GROUP_TINT_PALETTE = [
 
 let cy = null;
 let currentHash = null;
+let loadGraphInFlight = false;
 let graphData = null;
 let nodesById = {};
 let selectedId = null;
@@ -35,41 +36,47 @@ let showCallsView = true;
 let groupTints = new Map();
 
 async function loadGraph() {
-  const res = await fetch("/api/graph");
-  const data = await res.json();
-  currentHash = data.hash;
-  graphData = data;
-  nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
-  for (const id of [...userExpandedIds]) {
-    const node = nodesById[id];
-    if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
-  }
-  document.getElementById("paths").innerHTML =
-    `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
-  renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
-
-  groupTints = buildGroupTints(data.nodes);
-  renderGroupLegend(groupTints);
-
-  const elements = toElements(data);
-  if (cy && sameTopology(elements)) {
-    for (const n of elements.nodes) {
-      const ele = cy.getElementById(n.data.id);
-      ele.data("status", n.data.status);
-      if (n.data.group != null) ele.data("group", n.data.group);
-      if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
+  if (loadGraphInFlight) return;
+  loadGraphInFlight = true;
+  try {
+    const res = await fetch("/api/graph");
+    const data = await res.json();
+    currentHash = data.hash;
+    graphData = data;
+    nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
+    for (const id of [...userExpandedIds]) {
+      const node = nodesById[id];
+      if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
     }
-    for (const e of elements.edges) {
-      const ele = cy.getElementById(e.data.id);
-      ele.data("status", e.data.status);
-      ele.data("calls", e.data.calls);
+    document.getElementById("paths").innerHTML =
+      `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
+    renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
+
+    groupTints = buildGroupTints(data.nodes);
+    renderGroupLegend(groupTints);
+
+    const elements = toElements(data);
+    if (cy && sameTopology(elements)) {
+      for (const n of elements.nodes) {
+        const ele = cy.getElementById(n.data.id);
+        ele.data("status", n.data.status);
+        if (n.data.group != null) ele.data("group", n.data.group);
+        if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
+      }
+      for (const e of elements.edges) {
+        const ele = cy.getElementById(e.data.id);
+        ele.data("status", e.data.status);
+        ele.data("calls", e.data.calls);
+      }
+    } else {
+      renderGraph(elements);
     }
-  } else {
-    renderGraph(elements);
-  }
-  if (selectedId) {
-    if (nodesById[selectedId]) showDetails(nodesById[selectedId]);
-    else clearDetails();
+    if (selectedId) {
+      if (nodesById[selectedId]) showDetails(nodesById[selectedId]);
+      else clearDetails();
+    }
+  } finally {
+    loadGraphInFlight = false;
   }
 }
 
