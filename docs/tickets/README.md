@@ -71,3 +71,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [057](057-loadgraph-in-flight-guard.md) | Guard `loadGraph()` against overlapping in-flight calls | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [058](058-wheel-zoom-feel.md) | Tune wheel-zoom sensitivity and bounds | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
 | [059](059-hover-reveal-unchanged-edges.md) | Hide unchanged-status edges by default; reveal on node hover | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
+| [060](060-skip-generic-wrapper-dir-grouping.md) | Skip generic wrapper directories in file grouping | ready | [021](../decisions/021-src-layout-grouping.md) |
