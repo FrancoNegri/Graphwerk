@@ -16,10 +16,12 @@ class SessionRunner:
     """Owns at most one `claude -p` child process and its outcome."""
 
     def __init__(self, staged_root: Path, claude_cmd: str = "claude",
-                 permission_mode: str = "acceptEdits") -> None:
+                 permission_mode: str = "acceptEdits",
+                 system_prompt: str = "") -> None:
         self.staged_root = Path(staged_root)
         self.claude_cmd = claude_cmd
         self.permission_mode = permission_mode
+        self.system_prompt = system_prompt
         self._child: subprocess.Popen | None = None
         self._child_output = None
         self._state = "idle"
@@ -32,6 +34,8 @@ class SessionRunner:
         command = [self.claude_cmd, "-p", prompt,
                    "--output-format", "json",
                    "--permission-mode", self.permission_mode]
+        if self.system_prompt:
+            command += ["--append-system-prompt", self.system_prompt]
         self._child_output = tempfile.TemporaryFile()
         try:
             self._child = subprocess.Popen(command, cwd=self.staged_root,

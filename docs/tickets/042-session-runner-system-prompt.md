@@ -1,6 +1,6 @@
 # 042. `SessionRunner` gains a `system_prompt` parameter
 
-Status: ready
+Status: done
 Decision: docs/decisions/012-rationale-session-guidance.md
 
 ## Goal

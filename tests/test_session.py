@@ -63,6 +63,34 @@ def test_child_runs_in_staged_root_with_headless_flags(staged_root, tmp_path):
                              "--permission-mode bypassPermissions")
 
 
+def test_system_prompt_appends_flag_when_set(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                               'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub),
+                           system_prompt="follow the guidance")
+
+    runner.start("do the thing")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p do the thing --output-format json --permission-mode acceptEdits "
+        "--append-system-prompt follow the guidance")
+
+
+def test_no_system_prompt_leaves_command_unchanged(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                               'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("do the thing")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p do the thing --output-format json --permission-mode acceptEdits")
+
+
 def test_start_while_running_raises_busy(staged_root, tmp_path):
     release = tmp_path / "release"
     stub = make_stub(tmp_path, f'while [ ! -e {release} ]; do sleep 0.02; done\n'
