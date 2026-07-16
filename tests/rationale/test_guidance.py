@@ -9,7 +9,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from graphwerk.rationale.attribution import attribute_files, attribute_symbols
+from graphwerk.rationale.attribution import (
+    attribute_files,
+    attribute_guidance_bullets,
+    attribute_symbols,
+)
 from graphwerk.rationale.guidance import SESSION_GUIDANCE
 from graphwerk.rationale.transcript import parse_transcript
 
@@ -63,3 +67,33 @@ def test_session_guidance_format_yields_distinct_per_file_and_symbol_rationale(t
     assert symbols["billing/gateway.py::Gateway.charge"] == files["billing/gateway.py"]
     assert symbols["cli.py::main"] == files["cli.py"]
     assert symbols["billing/gateway.py::Gateway.charge"] != symbols["cli.py::main"]
+
+
+def test_session_guidance_deletion_shape_is_parsed_and_attributed(tmp_path):
+    staged_root = tmp_path / "staged"
+    staged_root.mkdir()
+    transcript_path = tmp_path / "session.jsonl"
+
+    write_transcript(transcript_path, [
+        assistant_entry(text_block(
+            SESSION_GUIDANCE + "\n\n"
+            "- `old/legacy.py`: removed — replaced by the package added above"
+        )),
+    ])
+
+    segments, _ = parse_transcript(transcript_path, staged_root)
+    result = attribute_guidance_bullets(segments, {})
+
+    assert result["old/legacy.py"] == "removed — replaced by the package added above"
+
+
+def test_session_guidance_has_a_labeled_describes_vs_justifies_contrast():
+    describes_line = next(
+        line for line in SESSION_GUIDANCE.splitlines() if "describes only" in line
+    )
+    justifies_line = next(
+        line for line in SESSION_GUIDANCE.splitlines() if line.startswith("- justifies")
+    )
+
+    assert "path/to/file.py" in describes_line and "path/to/file.py" in justifies_line
+    assert describes_line != justifies_line

@@ -21,6 +21,7 @@ from graphwerk.rationale.attribution import (
     attribute_files,
     attribute_guidance_bullets,
     attribute_symbols,
+    reason_justifies,
 )
 from graphwerk.rationale.discovery import find_latest_transcript
 from graphwerk.rationale.transcript import parse_transcript
@@ -31,10 +32,15 @@ class RationaleEntry:
     """One transcript-mined rationale, tagged with how it was found — a
     guidance bullet or explicit prose mention names the file/symbol
     directly (confident); the proximity fallback is just the nearest
-    preceding narration, possibly about something else entirely."""
+    preceding narration, possibly about something else entirely.
+
+    ``justifies`` (ADR 027) is only meaningful when ``confident`` is True —
+    it's None for the proximity fallback, where content-quality flagging
+    doesn't apply on top of the existing low-confidence marker."""
 
     text: str
     confident: bool
+    justifies: bool | None = None
 
 
 @dataclass
@@ -136,6 +142,22 @@ class RationaleStore:
                 return entry.text
         return None
 
+    def justifies_for(self, rel_path: str, qualname: str | None = None) -> bool | None:
+        """Whether the rationale text argues for the change rather than
+        merely describing the code (ADR 027) — None when there's no
+        confident why to evaluate (no source at all, or the proximity
+        fallback, which is already flagged low-confidence for a different
+        reason)."""
+        keys = self._lookup_keys(rel_path, qualname)
+        for key in keys:
+            if self._sidecar.get(key):
+                return reason_justifies(self._sidecar[key])
+        for key in keys:
+            entry = self._transcript.get(key)
+            if entry:
+                return entry.justifies
+        return None
+
     def confident_for(self, rel_path: str, qualname: str | None = None) -> bool:
         """Whether the text why_for returns came from an explicit source
         (sidecar, a guidance bullet, or a prose mention) rather than the
@@ -177,11 +199,11 @@ class RationaleStore:
                 text = segments[edit.last_segment_index].text[:MAX_WHY_LEN]
                 rationale[edit.rel_path] = RationaleEntry(text=text, confident=False)
         for key, text in attribute_files(segments, sorted({edit.rel_path for edit in edits})).items():
-            rationale[key] = RationaleEntry(text=text, confident=True)
+            rationale[key] = RationaleEntry(text=text, confident=True, justifies=reason_justifies(text))
         for key, text in attribute_symbols(segments, changed_symbols).items():
-            rationale[key] = RationaleEntry(text=text, confident=True)
+            rationale[key] = RationaleEntry(text=text, confident=True, justifies=reason_justifies(text))
         # Highest priority (ADR 025): a dedicated guidance bullet always wins,
         # even over a later prose segment that merely repeats the filename.
         for key, text in attribute_guidance_bullets(segments, changed_symbols).items():
-            rationale[key] = RationaleEntry(text=text, confident=True)
+            rationale[key] = RationaleEntry(text=text, confident=True, justifies=reason_justifies(text))
         return rationale

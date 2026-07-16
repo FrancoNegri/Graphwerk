@@ -1,6 +1,6 @@
 # 070. Extend SESSION_GUIDANCE to cover deleted files
 
-Status: ready
+Status: done
 Decision: docs/decisions/026-rationale-for-deleted-files.md
 
 ## Goal

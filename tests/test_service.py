@@ -257,6 +257,58 @@ def test_unchanged_node_has_no_why_confidence(tmp_path):
     assert nodes["a.py"].why_confident is None
 
 
+def test_snapshot_marks_describes_only_why_from_a_guidance_bullet(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"deps.py": "def helper():\n    return 1\n"})
+    write_tree(staged, {"deps.py": "def helper():\n    return 2\n"})
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [
+        assistant_entry(
+            text_block("Working on it."),
+            edit_block(staged / "deps.py"),
+        ),
+        assistant_entry(text_block("- `deps.py`: FastAPI dependency-injection providers.")),
+    ])
+    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
+    service = GraphService(base, staged, rationale)
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["deps.py"].why_justifies is False
+
+
+def test_snapshot_marks_justifying_why_from_a_guidance_bullet(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"flags.py": "def helper():\n    return 1\n"})
+    write_tree(staged, {"flags.py": "def helper():\n    return 2\n"})
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [
+        assistant_entry(
+            text_block("Working on it."),
+            edit_block(staged / "flags.py"),
+        ),
+        assistant_entry(text_block(
+            "- `flags.py`: shared env-derived flags, split out since several "
+            "other modules need them."
+        )),
+    ])
+    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
+    service = GraphService(base, staged, rationale)
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["flags.py"].why_justifies is True
+
+
+def test_unchanged_node_has_no_why_justifies(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+    nodes = {n.id: n for n in service.snapshot().nodes}
+
+    assert nodes["a.py"].why_justifies is None
+
+
 def test_calls_edge_into_modified_target_has_modified_status(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

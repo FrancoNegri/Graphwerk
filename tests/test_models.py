@@ -51,3 +51,11 @@ def test_graph_node_why_confident_defaults_to_none_and_is_serialized():
     assert node.to_dict()["why_confident"] is False
 
 
+def test_graph_node_why_justifies_defaults_to_none_and_is_serialized():
+    node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py")
+    assert node.why_justifies is None
+    assert node.to_dict()["why_justifies"] is None
+    node.why_justifies = False
+    assert node.to_dict()["why_justifies"] is False
+
+

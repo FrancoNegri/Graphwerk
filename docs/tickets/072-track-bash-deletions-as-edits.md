@@ -1,6 +1,6 @@
 # 072. Track Bash-performed file deletions as transcript edit events
 
-Status: ready
+Status: done
 Decision: docs/decisions/026-rationale-for-deleted-files.md
 
 ## Goal

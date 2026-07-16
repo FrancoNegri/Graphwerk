@@ -111,6 +111,84 @@ def test_malformed_lines_and_out_of_root_paths_are_skipped(tmp_path, staged_root
     assert [edit.rel_path for edit in edits] == ["foo.py"]
 
 
+def bash_block(command: str) -> dict:
+    return {"type": "tool_use", "name": "Bash", "input": {"command": command}}
+
+
+def test_git_rm_bash_call_becomes_an_edit_event(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(
+            text_block("Removing the old module."),
+            bash_block(f"git rm {staged_root / 'old.py'}"),
+        ),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [(edit.rel_path, edit.last_segment_index) for edit in edits] == [("old.py", 0)]
+
+
+def test_plain_rm_bash_call_becomes_an_edit_event(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(
+            text_block("Removing the old module."),
+            bash_block(f"rm {staged_root / 'old.py'}"),
+        ),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [(edit.rel_path, edit.last_segment_index) for edit in edits] == [("old.py", 0)]
+
+
+def test_git_rm_with_multiple_paths_emits_an_event_per_path(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(
+            bash_block(f"git rm {staged_root / 'a.py'} {staged_root / 'b.py'}"),
+        ),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert {edit.rel_path for edit in edits} == {"a.py", "b.py"}
+
+
+def test_bash_call_unrelated_to_rm_produces_no_edit_event(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(bash_block("pytest -q")),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert edits == []
+
+
+def test_bash_deleted_file_is_eligible_for_prose_mention_attribution(tmp_path, staged_root):
+    """Reproduces ADR 026's third gap: a deletion narrated only in prose (no
+    dedicated bullet at all) still gets attributed, because the `git rm` call
+    now enters `rel_paths` the same as an Edit/Write-touched file."""
+    from graphwerk.rationale.attribution import attribute_files
+
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(
+            bash_block(f"git rm {staged_root / 'old.py'}"),
+        ),
+        assistant_entry(text_block(
+            "Removed `old.py` since its logic moved into the new package."
+        )),
+    ])
+
+    segments, edits = parse_transcript(transcript, staged_root)
+    result = attribute_files(segments, sorted({edit.rel_path for edit in edits}))
+
+    assert result["old.py"] == "Removed `old.py` since its logic moved into the new package."
+
+
 def test_non_assistant_entries_and_other_tools_are_ignored(tmp_path, staged_root):
     transcript = tmp_path / "session.jsonl"
     write_jsonl(transcript, [

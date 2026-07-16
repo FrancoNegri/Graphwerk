@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _LIST_LINE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
+_RM_COMMAND = re.compile(r"^(?:git\s+rm|rm)\s+(?P<args>.+)$")
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
@@ -57,7 +58,30 @@ def parse_transcript(path: Path, staged_root: Path) -> tuple[list[Segment], list
                 if rel_path:
                     last_index = len(segments) - 1 if segments else None
                     edits.append(EditEvent(rel_path=rel_path, last_segment_index=last_index))
+            elif block.get("type") == "tool_use" and block.get("name") == "Bash":
+                command = (block.get("input") or {}).get("command")
+                if isinstance(command, str):
+                    last_index = len(segments) - 1 if segments else None
+                    for rel_path in _bash_deleted_rel_paths(command, staged_root):
+                        edits.append(EditEvent(rel_path=rel_path, last_segment_index=last_index))
     return segments, edits
+
+
+def _bash_deleted_rel_paths(command: str, staged_root: Path) -> list[str]:
+    """`git rm`/`rm` (ADR 026) are the two deletion shapes observed in
+    dogfooding — deliberately not a general shell-command parser (quoting,
+    subshells, aliases would make that open-ended and fragile)."""
+    match = _RM_COMMAND.match(command.strip())
+    if not match:
+        return []
+    rel_paths = []
+    for token in match.group("args").split():
+        if token.startswith("-"):
+            continue
+        rel_path = _to_staged_rel(token, staged_root) if Path(token).is_absolute() else token
+        if rel_path:
+            rel_paths.append(rel_path)
+    return rel_paths
 
 
 def _to_staged_rel(file_path: str | None, staged_root: Path) -> str | None:

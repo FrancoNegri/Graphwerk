@@ -80,6 +80,7 @@ class GraphService:
                     status=change.status,
                     why=why,
                     why_confident=self.rationale.confident_for(rel) if why is not None else None,
+                    why_justifies=self.rationale.justifies_for(rel) if why is not None else None,
                     diff=change.diff or None,
                     source=change.source,
                     code=self._code_view(change.base_source, change.staged_source),
@@ -107,6 +108,8 @@ class GraphService:
                         parent=parent,
                         why=symbol_why,
                         why_confident=self.rationale.confident_for(rel, qualname)
+                        if symbol_why is not None else None,
+                        why_justifies=self.rationale.justifies_for(rel, qualname)
                         if symbol_why is not None else None,
                         diff=diff or None,
                         source=info.source,

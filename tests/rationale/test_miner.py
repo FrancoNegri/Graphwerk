@@ -162,6 +162,61 @@ def test_guidance_bullet_is_high_confidence(staged_root, claude_projects_dir):
     assert store.confident_for("cli.py") is True
 
 
+def test_guidance_bullet_justifies_flag_reflects_connective_presence(staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Working on it."),
+            edit_block(staged_root / "deps.py"),
+            edit_block(staged_root / "flags.py"),
+        ),
+        assistant_entry(text_block(
+            "- `deps.py`: FastAPI dependency-injection providers.\n"
+            "- `flags.py`: shared env-derived flags, split out since several "
+            "other modules need them."
+        )),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.justifies_for("deps.py") is False
+    assert store.justifies_for("flags.py") is True
+
+
+def test_proximity_fallback_has_no_justifies_verdict(staged_root, claude_projects_dir):
+    write_entries(claude_projects_dir / "session-a.jsonl", [
+        assistant_entry(
+            text_block("Now building the business logic module."),
+            edit_block(staged_root / "business.py"),
+            edit_block(staged_root / "deps.py"),
+        ),
+        assistant_entry(text_block("Final: `business.py` implements the core rules.")),
+    ])
+
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.confident_for("deps.py") is False
+    assert store.justifies_for("deps.py") is None
+
+
+def test_justifies_for_is_none_when_there_is_no_rationale_at_all(staged_root, claude_projects_dir):
+    store = RationaleStore(staged_root=staged_root)
+
+    assert store.justifies_for("nope.py") is None
+
+
+def test_sidecar_justifies_flag_uses_the_same_heuristic(tmp_path, staged_root, claude_projects_dir):
+    sidecar = tmp_path / "rationale.json"
+    sidecar.write_text(json.dumps({
+        "describes.py": "loading/DB-sync concern.",
+        "justifies.py": "isolated since callers need retries without caching noise.",
+    }), encoding="utf-8")
+
+    store = RationaleStore(sidecar_path=sidecar, staged_root=staged_root)
+
+    assert store.justifies_for("describes.py") is False
+    assert store.justifies_for("justifies.py") is True
+
+
 def test_sidecar_rationale_is_always_high_confidence(tmp_path, staged_root, claude_projects_dir):
     sidecar = tmp_path / "rationale.json"
     sidecar.write_text(json.dumps({"foo.py": "Sidecar why"}), encoding="utf-8")

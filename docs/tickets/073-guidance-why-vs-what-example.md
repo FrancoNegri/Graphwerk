@@ -1,6 +1,6 @@
 # 073. Sharpen SESSION_GUIDANCE with a why-vs-what contrastive example
 
-Status: ready
+Status: done
 Decision: docs/decisions/027-rationale-must-justify-not-describe.md
 
 ## Goal

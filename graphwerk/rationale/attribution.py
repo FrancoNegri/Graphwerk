@@ -17,7 +17,27 @@ MAX_WHY_LEN = 700
 _GUIDANCE_BULLET = re.compile(
     r"^[-*]\s*`(?P<path>[^`]+)`\s*(?:\((?P<symbols>[^)]*)\))?\s*:\s*(?P<reason>.+)$"
 )
+_DELETION_BULLET = re.compile(
+    r"^[-*]\s*`(?P<path>[^`]+)`\s*(?:→|->)\s*removed\b\s*(?P<rest>.*)$",
+    re.IGNORECASE,
+)
 _BACKTICKED = re.compile(r"`([^`]+)`")
+
+_JUSTIFYING_CONNECTIVES = (
+    "because", "since", "so that", "so it", "in order to", "to avoid",
+    "given that", "which lets", "which allows",
+)
+_JUSTIFYING_PATTERN = re.compile(
+    r"\b(?:" + "|".join(re.escape(c) for c in _JUSTIFYING_CONNECTIVES) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def reason_justifies(reason: str) -> bool:
+    """A cheap heuristic (ADR 027): a reason with no causal/justifying
+    connective is very likely describing the code rather than arguing for
+    the change. Imprecise by design — a nudge, not a judgment."""
+    return bool(_JUSTIFYING_PATTERN.search(reason))
 
 
 @dataclass(frozen=True)
@@ -41,6 +61,20 @@ def parse_guidance_bullet(text: str) -> GuidanceBullet | None:
     )
 
 
+def parse_deletion_bullet(text: str) -> GuidanceBullet | None:
+    """Fallback shape for a deleted file (ADR 026): `` `path` → removed (...) ``.
+    Only tried where the primary colon shape (`parse_guidance_bullet`)
+    doesn't match, so a cooperative session that follows `SESSION_GUIDANCE`
+    exactly is unaffected."""
+    match = _DELETION_BULLET.match(text.strip())
+    if not match:
+        return None
+    reason = match.group("rest").strip().rstrip(".").strip()
+    if reason.startswith("(") and reason.endswith(")"):
+        reason = reason[1:-1].strip()
+    return GuidanceBullet(rel_path=match.group("path"), symbols=(), reason=reason or "removed")
+
+
 def attribute_guidance_bullets(segments: list[Segment],
                                symbols_by_file: dict[str, list[str]]) -> dict[str, str]:
     """Highest-priority rationale source (ADR 025): a segment in the guidance
@@ -48,7 +82,7 @@ def attribute_guidance_bullets(segments: list[Segment],
     only repeats the filename in passing can't shadow it."""
     rationale: dict[str, str] = {}
     for segment in segments:
-        bullet = parse_guidance_bullet(segment.text)
+        bullet = parse_guidance_bullet(segment.text) or parse_deletion_bullet(segment.text)
         if not bullet:
             continue
         rationale[bullet.rel_path] = bullet.reason

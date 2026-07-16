@@ -1,6 +1,6 @@
 # 071. Recognize a deletion-shaped guidance bullet as a fallback
 
-Status: ready
+Status: done
 Decision: docs/decisions/026-rationale-for-deleted-files.md
 
 ## Goal

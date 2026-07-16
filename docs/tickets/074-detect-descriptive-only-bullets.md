@@ -1,6 +1,6 @@
 # 074. Detect purely-descriptive guidance bullets
 
-Status: ready
+Status: done
 Decision: docs/decisions/027-rationale-must-justify-not-describe.md
 
 ## Goal

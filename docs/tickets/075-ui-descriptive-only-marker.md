@@ -1,6 +1,6 @@
 # 075. UI marker for describes-only rationale
 
-Status: ready
+Status: done
 Decision: docs/decisions/027-rationale-must-justify-not-describe.md
 
 ## Goal

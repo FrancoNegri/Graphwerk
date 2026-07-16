@@ -3,6 +3,7 @@ from graphwerk.rationale.attribution import (
     attribute_guidance_bullets,
     attribute_symbols,
     parse_guidance_bullet,
+    reason_justifies,
 )
 from graphwerk.rationale.transcript import Segment
 
@@ -194,3 +195,67 @@ def test_symbol_reached_only_through_a_qualified_dotted_path_is_not_a_mention():
     changed = {"pkg/webhook.py": ["_load_business"], "pkg/business.py": ["_load_business"]}
 
     assert attribute_symbols(parsed, changed) == {}
+
+
+def test_deletion_bullet_fallback_reproduces_dogfood_case():
+    parsed = segments(
+        "- `src/agendabot/webhook.py` → removed (converted to the package above; "
+        "`agendabot.webhook:app` and all existing imports/monkeypatches keep "
+        "working unchanged)."
+    )
+
+    result = attribute_guidance_bullets(parsed, {})
+
+    assert result["src/agendabot/webhook.py"] == (
+        "converted to the package above; `agendabot.webhook:app` and all "
+        "existing imports/monkeypatches keep working unchanged"
+    )
+
+
+def test_deletion_bullet_fallback_is_not_tried_when_colon_shape_matches():
+    parsed = segments("- `old.py`: removed — superseded by new.py")
+
+    result = attribute_guidance_bullets(parsed, {})
+
+    assert result["old.py"] == "removed — superseded by new.py"
+
+
+def test_deletion_bullet_without_symbols_arg_still_parses():
+    from graphwerk.rationale.attribution import parse_deletion_bullet
+
+    bullet = parse_deletion_bullet("- `old.py` → removed (no longer needed).")
+
+    assert bullet.rel_path == "old.py"
+    assert bullet.symbols == ()
+    assert bullet.reason == "no longer needed"
+
+
+def test_non_deletion_segment_does_not_parse_as_deletion_bullet():
+    from graphwerk.rationale.attribution import parse_deletion_bullet
+
+    assert parse_deletion_bullet("Let me touch cli.py next.") is None
+    assert parse_deletion_bullet("- `cli.py`: added the --version flag") is None
+
+
+def test_reason_justifies_dogfood_regression_cases():
+    assert reason_justifies("FastAPI dependency-injection providers.") is False
+    assert reason_justifies(
+        "shared env-derived flags, split out since several other modules need them."
+    ) is True
+
+
+def test_reason_justifies_recognizes_each_connective_case_insensitively():
+    connectives = [
+        "because", "since", "so that", "so it", "in order to", "to avoid",
+        "given that", "which lets", "which allows",
+    ]
+    for connective in connectives:
+        assert reason_justifies(f"did this {connective.upper()} it matters") is True
+
+
+def test_reason_justifies_is_false_without_any_connective():
+    assert reason_justifies("builds ConversationContext from state/business/time.") is False
+
+
+def test_reason_justifies_does_not_match_connective_as_a_substring():
+    assert reason_justifies("the science fiction module was untouched") is False

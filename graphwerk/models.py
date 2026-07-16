@@ -46,6 +46,7 @@ class GraphNode:
     parent: str | None = None  # file node id for symbols, class node id for methods
     why: str | None = None
     why_confident: bool | None = None  # False: proximity fallback, not a real mention
+    why_justifies: bool | None = None  # False: describes the code rather than arguing for the change
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
     order: int | None = None  # left-to-right position within the layer; same contract as layer
@@ -63,6 +64,7 @@ class GraphNode:
             "parent": self.parent,
             "why": self.why,
             "why_confident": self.why_confident,
+            "why_justifies": self.why_justifies,
             "diff": self.diff,
             "layer": self.layer,
             "order": self.order,
