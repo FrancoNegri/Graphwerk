@@ -1,6 +1,6 @@
 # 035. Directory-grouped within-band ordering
 
-Status: ready
+Status: done
 Decision: docs/decisions/010-directory-band-grouping.md
 
 ## Goal

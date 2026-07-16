@@ -46,7 +46,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [032](032-rationale-source-meta.md) | Snapshot meta reports rationale sources | done | [009](../decisions/009-rationale-fails-loudly.md) |
 | [033](033-misplaced-session-hint.md) | Misplaced-session hint when the transcript sits with the base tree | done | [009](../decisions/009-rationale-fails-loudly.md) |
 | [034](034-rationale-status-banner.md) | UI banner for rationale source status | done | [009](../decisions/009-rationale-fails-loudly.md) |
-| [035](035-grouped-band-ordering.md) | Directory-grouped within-band ordering | ready | [010](../decisions/010-directory-band-grouping.md) |
+| [035](035-grouped-band-ordering.md) | Directory-grouped within-band ordering | done | [010](../decisions/010-directory-band-grouping.md) |
 | [036](036-group-in-snapshot.md) | `GraphNode.group` in the snapshot payload | ready | [010](../decisions/010-directory-band-grouping.md) |
 | [037](037-group-tint-legend.md) | Directory tint + legend in the UI | ready | [010](../decisions/010-directory-band-grouping.md) |
 | [038](038-session-runner.md) | SessionRunner: spawn and track one headless agent session | done | [011](../decisions/011-prompt-box-session-kickoff.md) |

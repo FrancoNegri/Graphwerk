@@ -5,9 +5,12 @@ components.
 Files get an import-depth layer (a file importing nothing sits in layer 0);
 top-level functions get a call-depth layer scoped to their own file's
 functions. Within each layer, barycenter sweeps assign a left-to-right
-order that pulls cross-layer neighbors close (ADR 008). The UI reads
-``GraphNode.layer``/``GraphNode.order`` and only maps them to layout
-constraints — it never re-derives graph structure (ADR 005).
+order that pulls cross-layer neighbors close (ADR 008). For the file band
+only, that order is then re-sorted so files sharing a top-level directory
+sit contiguously, group order following the mean barycenter position of its
+members (ADR 010). The UI reads ``GraphNode.layer``/``GraphNode.order`` and
+only maps them to layout constraints — it never re-derives graph structure
+(ADR 005).
 """
 
 from __future__ import annotations
@@ -15,13 +18,23 @@ from __future__ import annotations
 from graphwerk.models import GraphEdge, GraphNode
 
 
+def group_for_path(path: str) -> str:
+    """Top-level directory of a file path; "." for repo-root files."""
+    directory = path.rpartition("/")[0]
+    return directory.split("/")[0] if directory else "."
+
+
 def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
+    group_by_id = {node.id: group_for_path(node.path) for node in nodes if node.kind == "file"}
     layer_by_id: dict[str, int] = {}
     order_by_id: dict[str, int] = {}
-    for neighbors_of in _layered_adjacencies(nodes, edges):
+    for is_file_graph, neighbors_of in _layered_adjacencies(nodes, edges):
         layers = _layers_by_longest_path(neighbors_of)
         layer_by_id.update(layers)
-        order_by_id.update(_orders_by_barycenter(layers, neighbors_of))
+        orders = _orders_by_barycenter(layers, neighbors_of)
+        if is_file_graph:
+            orders = _grouped_by_directory(orders, layers, group_by_id)
+        order_by_id.update(orders)
     for node in nodes:
         node.layer = layer_by_id.get(node.id)
         node.order = order_by_id.get(node.id)
@@ -29,10 +42,15 @@ def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
 
 def _layered_adjacencies(
     nodes: list[GraphNode], edges: list[GraphEdge]
-) -> list[dict[str, set[str]]]:
+) -> list[tuple[bool, dict[str, set[str]]]]:
     """One independently layered/ordered graph each: files by imports, then
-    every file's top-level functions by intra-file calls (ADR 003)."""
-    return [_import_adjacency(nodes, edges), *_call_adjacencies_by_file(nodes, edges)]
+    every file's top-level functions by intra-file calls (ADR 003). Each
+    entry is tagged with whether it's the file graph, the only one directory
+    grouping (ADR 010) applies to."""
+    return [
+        (True, _import_adjacency(nodes, edges)),
+        *((False, adjacency) for adjacency in _call_adjacencies_by_file(nodes, edges)),
+    ]
 
 
 def _import_adjacency(
@@ -99,6 +117,35 @@ def _orders_by_barycenter(
             layer_nodes.sort(key=barycenter.__getitem__)
             position.update({node: index for index, node in enumerate(layer_nodes)})
     return position
+
+
+def _grouped_by_directory(
+    order_by_id: dict[str, int],
+    layer_by_id: dict[str, int],
+    group_by_id: dict[str, str],
+) -> dict[str, int]:
+    """Re-sorts each layer so files sharing a top-level directory sit
+    contiguously; group order follows the mean barycenter position of its
+    members, members keeping their barycenter order within the group (ADR 010)."""
+    nodes_by_layer: dict[int, list[str]] = {}
+    for node_id in sorted(order_by_id, key=order_by_id.get):
+        nodes_by_layer.setdefault(layer_by_id[node_id], []).append(node_id)
+
+    grouped_order: dict[str, int] = {}
+    for layer_nodes in nodes_by_layer.values():
+        members_by_group: dict[str, list[str]] = {}
+        for node_id in layer_nodes:
+            members_by_group.setdefault(group_by_id[node_id], []).append(node_id)
+        ordered_groups = sorted(
+            members_by_group.values(),
+            key=lambda members: sum(order_by_id[m] for m in members) / len(members),
+        )
+        position = 0
+        for members in ordered_groups:
+            for node_id in members:
+                grouped_order[node_id] = position
+                position += 1
+    return grouped_order
 
 
 def _undirected_adjacency(

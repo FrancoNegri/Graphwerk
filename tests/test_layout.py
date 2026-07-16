@@ -1,4 +1,4 @@
-from graphwerk.layout import _orders_by_barycenter, assign_layers
+from graphwerk.layout import _grouped_by_directory, _orders_by_barycenter, assign_layers
 from graphwerk.models import GraphEdge, GraphNode
 
 
@@ -254,3 +254,74 @@ def test_node_to_dict_carries_layer():
     assert node.to_dict()["layer"] is None
     node.layer = 2
     assert node.to_dict()["layer"] == 2
+
+
+def test_files_sharing_a_directory_sit_contiguously_after_grouping():
+    # Barycenter interleaves these (positions 0,1,2,3 = src/a, tests/test_a,
+    # src/b, tests/test_b); grouping should pull the two src files and the
+    # two tests files each into a contiguous run.
+    order_by_id = {"src/a.py": 0, "tests/test_a.py": 1, "src/b.py": 2, "tests/test_b.py": 3}
+    layer_by_id = {node: 0 for node in order_by_id}
+    group_by_id = {
+        "src/a.py": "src",
+        "tests/test_a.py": "tests",
+        "src/b.py": "src",
+        "tests/test_b.py": "tests",
+    }
+    grouped = _grouped_by_directory(order_by_id, layer_by_id, group_by_id)
+    src_positions = {grouped["src/a.py"], grouped["src/b.py"]}
+    test_positions = {grouped["tests/test_a.py"], grouped["tests/test_b.py"]}
+    assert max(src_positions) < min(test_positions) or max(test_positions) < min(src_positions)
+    # members keep their barycenter order within the group
+    assert grouped["src/a.py"] < grouped["src/b.py"]
+    assert grouped["tests/test_a.py"] < grouped["tests/test_b.py"]
+
+
+def test_group_order_follows_mean_barycenter_position_of_members():
+    # src's members average to barycenter position 0 (both land at 0 in
+    # their own layer since nothing separates them); tests' single member
+    # sits at barycenter position 1. Group order should follow: src first.
+    order_by_id = {"src/a.py": 0, "src/b.py": 0, "tests/test_a.py": 1}
+    layer_by_id = {"src/a.py": 0, "src/b.py": 0, "tests/test_a.py": 0}
+    group_by_id = {"src/a.py": "src", "src/b.py": "src", "tests/test_a.py": "tests"}
+    grouped = _grouped_by_directory(order_by_id, layer_by_id, group_by_id)
+    assert grouped["src/a.py"] < grouped["tests/test_a.py"]
+    assert grouped["src/b.py"] < grouped["tests/test_a.py"]
+
+
+def test_function_bands_are_unaffected_by_directory_grouping():
+    flat = [
+        file_node("flow.py"),
+        function_node("flow.py", "top"),
+        function_node("flow.py", "leaf"),
+    ]
+    nested = [
+        file_node("src/pkg/flow.py"),
+        function_node("src/pkg/flow.py", "top"),
+        function_node("src/pkg/flow.py", "leaf"),
+    ]
+    edges_for = lambda rel: [calls(f"{rel}::top", f"{rel}::leaf")]
+    assign_layers(flat, edges_for("flow.py"))
+    assign_layers(nested, edges_for("src/pkg/flow.py"))
+    assert orders_of(flat)["flow.py::top"] == orders_of(nested)["src/pkg/flow.py::top"]
+    assert orders_of(flat)["flow.py::leaf"] == orders_of(nested)["src/pkg/flow.py::leaf"]
+
+
+def test_grouping_is_deterministic_across_runs():
+    def build():
+        return [
+            file_node("src/a.py"),
+            file_node("tests/test_b.py"),
+            file_node("src/b.py"),
+            file_node("tests/test_a.py"),
+        ]
+
+    edges = [
+        imports("tests/test_a.py", "src/a.py"),
+        imports("tests/test_b.py", "src/b.py"),
+    ]
+    first = build()
+    assign_layers(first, edges)
+    second = build()
+    assign_layers(second, edges)
+    assert orders_of(first) == orders_of(second)
