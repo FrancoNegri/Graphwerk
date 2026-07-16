@@ -1,6 +1,6 @@
 # 036. `GraphNode.group` in the snapshot payload
 
-Status: ready
+Status: done
 Decision: docs/decisions/010-directory-band-grouping.md
 
 ## Goal

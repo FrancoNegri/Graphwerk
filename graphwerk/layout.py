@@ -38,6 +38,7 @@ def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
     for node in nodes:
         node.layer = layer_by_id.get(node.id)
         node.order = order_by_id.get(node.id)
+        node.group = group_by_id.get(node.id)
 
 
 def _layered_adjacencies(

@@ -48,6 +48,7 @@ class GraphNode:
     diff: str | None = None
     layer: int | None = None  # layout band; files and top-level functions only
     order: int | None = None  # left-to-right position within the layer; same contract as layer
+    group: str | None = None  # top-level directory of path; files only, None for symbols
     source: str | None = None  # full text of the node, changed or not
     code: list | None = None  # merged diff/highlight line view (see codeview.py)
 
@@ -63,6 +64,7 @@ class GraphNode:
             "diff": self.diff,
             "layer": self.layer,
             "order": self.order,
+            "group": self.group,
             "code": self.code,
         }
 

@@ -299,3 +299,13 @@ def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     assert layers["pipeline.py::parse"] == 1
     assert layers["pipeline.py::report"] == 2
     assert all("layer" in n.to_dict() for n in snapshot.nodes)
+
+
+def test_snapshot_file_nodes_report_their_top_level_directory_as_group(tmp_path):
+    service = make_service(tmp_path, {
+        "shop/checkout.py": "def pay():\n    pass\n",
+        "shop/cart.py": "def add():\n    pass\n",
+    })
+    snapshot = service.snapshot()
+    groups = {n.id: n.group for n in snapshot.nodes if n.kind == "file"}
+    assert groups == {"shop/checkout.py": "shop", "shop/cart.py": "shop"}

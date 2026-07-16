@@ -1,4 +1,4 @@
-from graphwerk.layout import _grouped_by_directory, _orders_by_barycenter, assign_layers
+from graphwerk.layout import _grouped_by_directory, _orders_by_barycenter, assign_layers, group_for_path
 from graphwerk.models import GraphEdge, GraphNode
 
 
@@ -305,6 +305,29 @@ def test_function_bands_are_unaffected_by_directory_grouping():
     assign_layers(nested, edges_for("src/pkg/flow.py"))
     assert orders_of(flat)["flow.py::top"] == orders_of(nested)["src/pkg/flow.py::top"]
     assert orders_of(flat)["flow.py::leaf"] == orders_of(nested)["src/pkg/flow.py::leaf"]
+
+
+def test_group_for_path_is_top_level_directory_or_root_sentinel():
+    assert group_for_path("src/pkg/store.py") == "src"
+    assert group_for_path("tests/test_store.py") == "tests"
+    assert group_for_path("readme_helper.py") == "."
+
+
+def groups_of(nodes: list[GraphNode]) -> dict[str, str | None]:
+    return {node.id: node.group for node in nodes}
+
+
+def test_assign_layers_sets_group_on_file_nodes_and_none_on_symbols():
+    nodes = [
+        file_node("src/a.py"),
+        file_node("b.py"),
+        function_node("src/a.py", "helper"),
+    ]
+    assign_layers(nodes, [])
+    groups = groups_of(nodes)
+    assert groups["src/a.py"] == "src"
+    assert groups["b.py"] == "."
+    assert groups["src/a.py::helper"] is None
 
 
 def test_grouping_is_deterministic_across_runs():
