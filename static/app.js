@@ -25,6 +25,12 @@ let loadGraphInFlight = false;
 let graphData = null;
 let nodesById = {};
 let selectedId = null;
+// Which edge-calls panel is open, mirroring selectedId for nodes — lets the
+// code-mode toggle re-render whichever panel (node or edge) is current.
+let selectedEdgeId = null;
+// "full" (code + changes, today's default) or "changes-only" — a shared
+// filter applied wherever renderCode is called (ADR 028).
+let codeDisplayMode = "full";
 // Every container (file or class) starts collapsed; a double-click expands
 // it for the session until the node goes away.
 const userExpandedIds = new Set();
@@ -195,6 +201,18 @@ function setShowImportsView(enabled) {
 function setShowCallsView(enabled) {
   showCallsView = enabled;
   if (graphData) renderGraph(toElements(graphData));
+}
+
+// Re-renders whichever panel is currently open so the toggle takes effect
+// immediately, without the reviewer having to reselect a node or edge.
+function setCodeDisplayMode(mode) {
+  codeDisplayMode = mode;
+  if (selectedId && nodesById[selectedId]) {
+    showDetails(nodesById[selectedId]);
+  } else if (selectedEdgeId && cy) {
+    const edge = cy.getElementById(selectedEdgeId);
+    if (!edge.empty()) showEdgeCalls(edge);
+  }
 }
 
 function toggleContainerCollapsed(containerId) {
@@ -500,6 +518,7 @@ function simpleConstraintAnchors(nodes) {
 
 function showDetails(node) {
   if (!node) return;
+  selectedEdgeId = null;
   document.getElementById("placeholder").hidden = true;
   document.getElementById("edge-calls").hidden = true;
   const details = document.getElementById("details");
@@ -516,6 +535,7 @@ function showDetails(node) {
   whySection.hidden = !node.why;
   if (node.why) document.getElementById("d-why").textContent = node.why;
   document.getElementById("d-why-confidence").hidden = node.why_confident !== false;
+  document.getElementById("d-why-justifies").hidden = node.why_justifies !== false;
 
   const codeSection = document.getElementById("code-section");
   const hasCode = Array.isArray(node.code) && node.code.length > 0;
@@ -535,6 +555,7 @@ function showDetails(node) {
 
 function clearDetails() {
   selectedId = null;
+  selectedEdgeId = null;
   document.getElementById("placeholder").hidden = false;
   document.getElementById("details").hidden = true;
   document.getElementById("edge-calls").hidden = true;
@@ -548,33 +569,26 @@ function qualifiedLabel(nodeId) {
 }
 
 function showEdgeCalls(edge) {
+  selectedId = null;
+  selectedEdgeId = edge.id();
   document.getElementById("placeholder").hidden = true;
   document.getElementById("details").hidden = true;
   document.getElementById("edge-calls").hidden = false;
   const calls = edge.data("calls");
-  document.getElementById("d-calls-list").innerHTML = calls
-    .map(({ source, target }) => `<li>${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}</li>`)
-    .join("");
-  document.getElementById("d-calls-code").innerHTML = uniqueCallNodeIds(calls)
+  document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("");
+}
+
+// One closed-by-default <details> per call pair: the summary is the label,
+// the body is that pair's code — no separate deduped code block, so a pair
+// you open is always the pair whose code you see (ADR 028).
+function renderCallPair({ source, target }) {
+  const summary = `${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}`;
+  const body = [source, target]
     .map((id) => nodesById[id])
     .filter((node) => node && Array.isArray(node.code) && node.code.length > 0)
     .map((node) => `<section><h3>${esc(qualifiedLabel(node.id))}</h3><div class="code">${renderCode(node.code)}</div></section>`)
     .join("");
-}
-
-// First-seen order, deduped: a symbol appearing as source/target of several
-// collapsed calls (e.g. one class collapsing onto its caller) gets one panel.
-function uniqueCallNodeIds(calls) {
-  const seen = new Set();
-  const ids = [];
-  for (const { source, target } of calls) {
-    for (const id of [source, target]) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      ids.push(id);
-    }
-  }
-  return ids;
+  return `<details class="call-pair"><summary>${summary}</summary>${body}</details>`;
 }
 
 async function applyFile(path) {
@@ -613,10 +627,19 @@ async function rejectNode(node) {
 }
 
 function renderCode(lines) {
-  const rows = lines.map((line) =>
+  const rows = codeModeLines(lines).map((line) =>
     `<div class="row ${line.op}"><span class="ln">${line.line}</span><span class="lt">${renderLineText(line) || " "}</span></div>`
   );
   return `<div class="lines">${rows.join("")}</div>`;
+}
+
+// "changes-only" strips context lines; a panel that would go empty (a
+// genuinely unchanged node, all-context by construction) falls back to the
+// full view instead of rendering nothing.
+function codeModeLines(lines) {
+  if (codeDisplayMode !== "changes-only") return lines;
+  const changed = lines.filter((line) => line.op === "add" || line.op === "del");
+  return changed.length > 0 ? changed : lines;
 }
 
 function renderLineText(line) {
@@ -725,6 +748,12 @@ document.getElementById("show-imports").addEventListener("change", (event) => {
 
 document.getElementById("show-calls").addEventListener("change", (event) => {
   setShowCallsView(event.target.checked);
+});
+
+document.querySelectorAll('#code-mode-toggle input[name="code-mode"]').forEach((input) => {
+  input.addEventListener("change", (event) => {
+    if (event.target.checked) setCodeDisplayMode(event.target.value);
+  });
 });
 
 const POLL_INTERVAL_MS = 1500;

@@ -36,3 +36,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [025](025-rationale-mention-confidence.md) | Rationale attribution: prefer the guidance bullet format, tighten the prose fallback, mark confidence | proposed |
 | [026](026-rationale-for-deleted-files.md) | Rationale for deleted files | proposed |
 | [027](027-rationale-must-justify-not-describe.md) | Rationale bullets must justify, not just describe | proposed |
+| [028](028-edge-calls-dropdowns-and-code-mode-toggle.md) | Collapsible per-call dropdowns; a sidebar toggle for code+changes vs. changes-only | proposed |

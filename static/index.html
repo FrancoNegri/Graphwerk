@@ -51,6 +51,10 @@
   <main>
     <div id="cy"></div>
     <aside id="sidebar">
+      <div id="code-mode-toggle">
+        <label class="view-toggle"><input type="radio" name="code-mode" value="full" checked> code + changes</label>
+        <label class="view-toggle"><input type="radio" name="code-mode" value="changes-only"> changes only</label>
+      </div>
       <div id="placeholder" class="placeholder">
         Select a node to review its staged change.<br><br>
         Files are boxes; classes and functions live inside them.
@@ -66,6 +70,7 @@
           <h3>Why this change</h3>
           <div id="d-why" class="why"></div>
           <span id="d-why-confidence" class="why-confidence" hidden>unconfirmed — nearest narration, not a direct mention</span>
+          <span id="d-why-justifies" class="why-confidence" hidden>may only describe the code, not justify the change</span>
         </section>
         <section id="code-section" hidden>
           <h3>Code</h3>
@@ -87,8 +92,7 @@
       </div>
       <div id="edge-calls" hidden>
         <h2>Calls collapsed onto this edge</h2>
-        <ul id="d-calls-list" class="calls-list"></ul>
-        <div id="d-calls-code"></div>
+        <div id="d-calls"></div>
       </div>
     </aside>
   </main>

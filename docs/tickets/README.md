@@ -81,9 +81,11 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [067](067-tighten-prose-mention-fallback.md) | Tighten the prose-mention fallback (qualified refs, backtick-quoting) | done | [025](../decisions/025-rationale-mention-confidence.md) |
 | [068](068-rationale-confidence-flag.md) | Track and expose rationale confidence per node | done | [025](../decisions/025-rationale-mention-confidence.md) |
 | [069](069-ui-low-confidence-why-marker.md) | UI marker for low-confidence rationale | done | [025](../decisions/025-rationale-mention-confidence.md) |
-| [070](070-guidance-covers-deletions.md) | Extend SESSION_GUIDANCE to cover deleted files | ready | [026](../decisions/026-rationale-for-deleted-files.md) |
-| [071](071-deletion-shaped-bullet-fallback.md) | Recognize a deletion-shaped guidance bullet as a fallback | ready | [026](../decisions/026-rationale-for-deleted-files.md) |
-| [072](072-track-bash-deletions-as-edits.md) | Track Bash-performed file deletions as transcript edit events | ready | [026](../decisions/026-rationale-for-deleted-files.md) |
-| [073](073-guidance-why-vs-what-example.md) | Sharpen SESSION_GUIDANCE with a why-vs-what contrastive example | ready | [027](../decisions/027-rationale-must-justify-not-describe.md) |
-| [074](074-detect-descriptive-only-bullets.md) | Detect purely-descriptive guidance bullets | ready | [027](../decisions/027-rationale-must-justify-not-describe.md) |
-| [075](075-ui-descriptive-only-marker.md) | UI marker for describes-only rationale | ready | [027](../decisions/027-rationale-must-justify-not-describe.md) |
+| [070](070-guidance-covers-deletions.md) | Extend SESSION_GUIDANCE to cover deleted files | done | [026](../decisions/026-rationale-for-deleted-files.md) |
+| [071](071-deletion-shaped-bullet-fallback.md) | Recognize a deletion-shaped guidance bullet as a fallback | done | [026](../decisions/026-rationale-for-deleted-files.md) |
+| [072](072-track-bash-deletions-as-edits.md) | Track Bash-performed file deletions as transcript edit events | done | [026](../decisions/026-rationale-for-deleted-files.md) |
+| [073](073-guidance-why-vs-what-example.md) | Sharpen SESSION_GUIDANCE with a why-vs-what contrastive example | done | [027](../decisions/027-rationale-must-justify-not-describe.md) |
+| [074](074-detect-descriptive-only-bullets.md) | Detect purely-descriptive guidance bullets | done | [027](../decisions/027-rationale-must-justify-not-describe.md) |
+| [075](075-ui-descriptive-only-marker.md) | UI marker for describes-only rationale | done | [027](../decisions/027-rationale-must-justify-not-describe.md) |
+| [076](076-edge-calls-collapsible-dropdowns.md) | Fuse each edge-calls pair into a collapsed dropdown | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
+| [077](077-code-display-mode-toggle.md) | Sidebar toggle: code + changes vs. changes only | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
