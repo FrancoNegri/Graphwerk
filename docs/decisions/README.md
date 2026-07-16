@@ -26,3 +26,5 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [015](015-contract-by-default.md) | Contract every container by default; show calls out of the box | proposed |
 | [016](016-call-edge-status.md) | Color call edges by status; list what a collapsed edge represents | proposed |
 | [017](017-edge-calls-show-code.md) | Clicking a calls edge shows caller/callee code, not just labels | proposed |
+| [018](018-orthogonal-edge-routing.md) | Orthogonal (taxi) edge routing; defer bespoke hub treatment until judged with directory grouping | rejected |
+| [019](019-snapshot-recompute-caching.md) | Cache repeated snapshot recomputation (indexing + code view) | accepted |

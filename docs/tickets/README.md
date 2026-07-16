@@ -58,9 +58,13 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [044](044-show-deps-calls-toggle.md) | "show deps + calls" edge visibility toggle | done | [013](../decisions/013-graph-edge-visibility-toggle.md) |
 | [045](045-fix-polling-loop-overlap.md) | Fix unbounded overlap in the hash/session polling loop | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [046](046-split-imports-calls-toggle.md) | Split "show deps + calls" into independent imports/calls toggles | done | [014](../decisions/014-split-imports-calls-toggle.md) |
-| [047](047-generalize-container-collapse.md) | Generalize collapse to every container, always collapsed by default | ready | [015](../decisions/015-contract-by-default.md) |
-| [048](048-show-calls-default-on.md) | `show-calls` defaults to on | ready | [015](../decisions/015-contract-by-default.md) |
+| [047](047-generalize-container-collapse.md) | Generalize collapse to every container, always collapsed by default | done | [015](../decisions/015-contract-by-default.md) |
+| [048](048-show-calls-default-on.md) | `show-calls` defaults to on | done | [015](../decisions/015-contract-by-default.md) |
 | [049](049-call-edge-status-model.md) | `GraphEdge.status` computed for `calls` edges | ready | [016](../decisions/016-call-edge-status.md) |
-| [050](050-color-call-edges-by-status.md) | Color `calls` edges by their status | ready | [016](../decisions/016-call-edge-status.md) |
-| [051](051-click-edge-lists-underlying-calls.md) | Clicking a `calls` edge lists the calls it collapsed | ready | [016](../decisions/016-call-edge-status.md) |
+| [050](050-color-call-edges-by-status.md) | Color `calls` edges by their status | done | [016](../decisions/016-call-edge-status.md) |
+| [051](051-click-edge-lists-underlying-calls.md) | Clicking a `calls` edge lists the calls it collapsed | done | [016](../decisions/016-call-edge-status.md) |
 | [052](052-edge-calls-show-code.md) | Edge-calls panel renders caller/callee code | done | [017](../decisions/017-edge-calls-show-code.md) |
+| [053](053-taxi-edge-routing.md) | Orthogonal (taxi) routing for calls/imports edges | rejected | [018](../decisions/018-orthogonal-edge-routing.md) |
+| [054](054-relative-import-level.md) | Relative imports resolve using their dot-level, not a bare module name | ready | [001](../decisions/001-phase-2-real-session.md) |
+| [055](055-cache-file-index-by-fingerprint.md) | Cache parsed `FileIndex` per file by mtime/size fingerprint | done | [019](../decisions/019-snapshot-recompute-caching.md) |
+| [056](056-cache-code-view-by-content.md) | Cache per-node code view by content identity | done | [019](../decisions/019-snapshot-recompute-caching.md) |

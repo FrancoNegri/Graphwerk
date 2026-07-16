@@ -15,12 +15,6 @@ from graphwerk.staging import ChangeSetBuilder
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 
 
-def _code_view(base_text: str | None, staged_text: str | None) -> list | None:
-    if base_text is None and staged_text is None:
-        return None
-    return build_code_view(base_text, staged_text)
-
-
 class ModuleFileResolver:
     """Maps imported module names to repo files, tolerating src/-style
     package roots by matching dotted-path suffixes ("pkg.store" finds
@@ -54,6 +48,17 @@ class GraphService:
         self.staged_root = staged_root
         self.rationale = rationale
         self.builder = ChangeSetBuilder(base_root, staged_root)
+        # (base_text, staged_text) -> code view; unbounded for the process
+        # lifetime (ADR 019, out of scope: eviction/memory bounds).
+        self._code_view_cache: dict[tuple[str | None, str | None], list | None] = {}
+
+    def _code_view(self, base_text: str | None, staged_text: str | None) -> list | None:
+        if base_text is None and staged_text is None:
+            return None
+        key = (base_text, staged_text)
+        if key not in self._code_view_cache:
+            self._code_view_cache[key] = build_code_view(base_text, staged_text)
+        return self._code_view_cache[key]
 
     def snapshot(self) -> Snapshot:
         changes = self.builder.build()
@@ -75,7 +80,7 @@ class GraphService:
                     why=self.rationale.why_for(rel) if change.status in CHANGED else None,
                     diff=change.diff or None,
                     source=change.source,
-                    code=_code_view(change.base_source, change.staged_source),
+                    code=self._code_view(change.base_source, change.staged_source),
                 )
             )
             index = change.staged or change.base
@@ -100,7 +105,7 @@ class GraphService:
                         why=self.rationale.why_for(rel, qualname) if status in CHANGED else None,
                         diff=diff or None,
                         source=info.source,
-                        code=_code_view(
+                        code=self._code_view(
                             base_info.source if base_info else None,
                             staged_info.source if staged_info else None,
                         ),

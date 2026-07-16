@@ -10,7 +10,8 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
-from graphwerk.indexing.python_ast import index_tree
+from graphwerk.indexing.python_ast import PythonAstExtractor
+from graphwerk.indexing.walk import file_fingerprint, iter_python_files
 from graphwerk.models import FileIndex, Status
 
 
@@ -40,10 +41,14 @@ class ChangeSetBuilder:
     def __init__(self, base_root: Path, staged_root: Path):
         self.base_root = base_root
         self.staged_root = staged_root
+        self._extractor = PythonAstExtractor()
+        # (root, rel_path, mtime_ns, size) -> FileIndex; unbounded for the
+        # process lifetime (ADR 019, out of scope: eviction/memory bounds).
+        self._index_cache: dict[tuple[str, str, int, int], FileIndex] = {}
 
     def build(self) -> dict[str, FileChange]:
-        base_files = index_tree(self.base_root)
-        staged_files = index_tree(self.staged_root)
+        base_files = self._index_tree(self.base_root)
+        staged_files = self._index_tree(self.staged_root)
         changes: dict[str, FileChange] = {}
 
         for rel in sorted(set(base_files) | set(staged_files)):
@@ -83,6 +88,18 @@ class ChangeSetBuilder:
             change.staged_source = staged_text
             changes[rel] = change
         return changes
+
+    def _index_tree(self, root: Path) -> dict[str, FileIndex]:
+        indexed: dict[str, FileIndex] = {}
+        for path, rel in iter_python_files(root):
+            mtime_ns, size = file_fingerprint(path)
+            key = (str(root), rel, mtime_ns, size)
+            cached = self._index_cache.get(key)
+            if cached is None:
+                cached = self._extractor.extract(path, rel)
+                self._index_cache[key] = cached
+            indexed[rel] = cached
+        return indexed
 
     def _symbol_diff(self, base: FileIndex | None, staged: FileIndex | None, qualname: str) -> str:
         base_src = base.symbols[qualname].source if base and qualname in base.symbols else ""

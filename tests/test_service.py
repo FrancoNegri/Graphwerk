@@ -309,3 +309,47 @@ def test_snapshot_file_nodes_report_their_top_level_directory_as_group(tmp_path)
     snapshot = service.snapshot()
     groups = {n.id: n.group for n in snapshot.nodes if n.kind == "file"}
     assert groups == {"shop/checkout.py": "shop", "shop/cart.py": "shop"}
+
+
+def spy_on_build_code_view(monkeypatch) -> list[tuple[str | None, str | None]]:
+    """Records each (base_text, staged_text) pair build_code_view is called with."""
+    import graphwerk.service as service_module
+
+    calls: list[tuple[str | None, str | None]] = []
+    original = service_module.build_code_view
+
+    def wrapped(base_text, staged_text):
+        calls.append((base_text, staged_text))
+        return original(base_text, staged_text)
+
+    monkeypatch.setattr(service_module, "build_code_view", wrapped)
+    return calls
+
+
+def test_second_snapshot_call_recomputes_no_code_views(tmp_path, monkeypatch):
+    service = make_service(tmp_path, {
+        "a.py": "def f():\n    return 1\n",
+        "b.py": "def g():\n    return 1\n",
+    })
+    service.snapshot()
+
+    calls = spy_on_build_code_view(monkeypatch)
+    service.snapshot()
+
+    assert calls == []
+
+
+def test_touching_one_files_text_recomputes_only_its_code_views(tmp_path, monkeypatch):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    service.snapshot()
+
+    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    calls = spy_on_build_code_view(monkeypatch)
+    service.snapshot()
+
+    assert ("def f():\n    return 1\n", "def f():\n    return 2\n") in calls
+    assert not any("def g" in (base_text or "") or "def g" in (staged_text or "") for base_text, staged_text in calls)

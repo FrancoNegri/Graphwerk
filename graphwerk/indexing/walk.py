@@ -23,6 +23,14 @@ IGNORED_DIRS = {
 }
 
 
+def file_fingerprint(path: Path) -> tuple[int, int]:
+    """(mtime_ns, size) identity used to detect whether a file's content may
+    have changed without reading it — same idiom GraphService.state_hash()
+    uses for its whole-tree digest."""
+    stat = path.stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
 def iter_python_files(root: Path):
     """Yield (abs_path, rel_path) for indexable .py files under root."""
     rel_paths = _git_listed_python_files(root)

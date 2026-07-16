@@ -1,6 +1,20 @@
 from pathlib import Path
 
+from graphwerk.indexing.python_ast import PythonAstExtractor
 from graphwerk.staging import ChangeSetBuilder
+
+
+def spy_on_extract(monkeypatch) -> list[str]:
+    """Records each rel_path PythonAstExtractor.extract is called for."""
+    calls: list[str] = []
+    original = PythonAstExtractor.extract
+
+    def wrapped(self, file_path, rel_path):
+        calls.append(rel_path)
+        return original(self, file_path, rel_path)
+
+    monkeypatch.setattr(PythonAstExtractor, "extract", wrapped)
+    return calls
 
 
 def build_changes(tmp_path: Path, base: dict[str, str], staged: dict[str, str]):
@@ -77,3 +91,39 @@ def test_undecodable_file_yields_none_sources_without_raising(tmp_path):
     assert change.base_source is None
     assert change.staged_source is None
     assert change.source is None
+
+
+def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatch):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    for root in (base, staged):
+        root.mkdir()
+        (root / "a.py").write_text("def f():\n    return 1\n")
+
+    calls = spy_on_extract(monkeypatch)
+    builder = ChangeSetBuilder(base, staged)
+    builder.build()
+    calls.clear()
+
+    builder.build()
+
+    assert calls == []
+
+
+def test_touching_one_file_reparses_only_that_file(tmp_path, monkeypatch):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    for root in (base, staged):
+        root.mkdir()
+        (root / "a.py").write_text("def f():\n    return 1\n")
+        (root / "b.py").write_text("def g():\n    return 1\n")
+
+    calls = spy_on_extract(monkeypatch)
+    builder = ChangeSetBuilder(base, staged)
+    builder.build()
+    calls.clear()
+
+    (staged / "a.py").write_text("def f():\n    return 1\n    # a longer body now\n")
+    builder.build()
+
+    assert calls == ["a.py"]
