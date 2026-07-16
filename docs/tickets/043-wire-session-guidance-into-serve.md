@@ -1,6 +1,6 @@
 # 043. Wire `SESSION_GUIDANCE` into `cli._serve`'s `SessionRunner`
 
-Status: ready
+Status: done
 Decision: docs/decisions/012-rationale-session-guidance.md
 
 ## Goal

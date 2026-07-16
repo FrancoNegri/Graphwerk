@@ -18,6 +18,7 @@ import uvicorn
 from graphwerk import __version__
 from graphwerk.apply import ApplyEngine
 from graphwerk.rationale import RationaleStore
+from graphwerk.rationale.guidance import SESSION_GUIDANCE
 from graphwerk.server import create_app
 from graphwerk.service import GraphService
 from graphwerk.session import SessionRunner
@@ -105,7 +106,8 @@ def _serve(base: Path, staged: Path, sidecar: Path | None, transcript: Path | No
                                staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
-    runner = SessionRunner(staged, permission_mode=agent_permissions)
+    runner = SessionRunner(staged, permission_mode=agent_permissions,
+                           system_prompt=SESSION_GUIDANCE)
     app = create_app(service, engine, runner)
     shown = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
     print(f"graphwerk review UI: http://{shown}:{port}")
