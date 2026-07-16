@@ -32,3 +32,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [021](021-src-layout-grouping.md) | Skip generic wrapper directories when grouping files by top-level directory | proposed |
 | [022](022-entry-points-anchor-top-layer.md) | Layer from entry points downward, not from leaves upward | proposed |
 | [023](023-import-adjacency-drops-noise-filtered-and-test-edges.md) | Import adjacency must survive noise-filtered nodes and ignore test-sourced edges | proposed |
+| [024](024-extract-nested-imports.md) | Extract imports from the whole file, not just the top level | proposed |

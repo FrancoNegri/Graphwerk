@@ -76,3 +76,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [062](062-render-layer-zero-at-top.md) | Render layer 0 at the top of the graph | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
 | [063](063-import-adjacency-survives-noise-filtered-files.md) | Import adjacency survives noise-filtered intermediate files | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
 | [064](064-exclude-test-file-edges-from-layering.md) | Exclude test-file edges from import layering | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
+| [065](065-extract-nested-imports.md) | Collect imports from the whole file, skipping TYPE_CHECKING blocks | ready | [024](../decisions/024-extract-nested-imports.md) |
