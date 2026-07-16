@@ -72,3 +72,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [058](058-wheel-zoom-feel.md) | Tune wheel-zoom sensitivity and bounds | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
 | [059](059-hover-reveal-unchanged-edges.md) | Hide unchanged-status edges by default; reveal on node hover | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
 | [060](060-skip-generic-wrapper-dir-grouping.md) | Skip generic wrapper directories in file grouping | ready | [021](../decisions/021-src-layout-grouping.md) |
+| [061](061-layer-from-entry-points.md) | Layer by longest path from entry points, not to leaves | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
+| [062](062-render-layer-zero-at-top.md) | Render layer 0 at the top of the graph | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |

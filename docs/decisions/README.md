@@ -30,3 +30,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [019](019-snapshot-recompute-caching.md) | Cache repeated snapshot recomputation (indexing + code view) | accepted |
 | [020](020-edge-hover-reveal-and-zoom-feel.md) | Hide unchanged edges behind hover reveal; tune wheel-zoom feel | proposed |
 | [021](021-src-layout-grouping.md) | Skip generic wrapper directories when grouping files by top-level directory | proposed |
+| [022](022-entry-points-anchor-top-layer.md) | Layer from entry points downward, not from leaves upward | proposed |
