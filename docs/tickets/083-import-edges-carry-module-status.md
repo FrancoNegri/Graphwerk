@@ -1,6 +1,6 @@
 # 083. Import edges carry per-module status and the responsible module name
 
-Status: ready
+Status: done
 Decision: docs/decisions/033-import-edge-status-and-pertinent-import-inspection.md
 
 ## Goal

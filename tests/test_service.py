@@ -475,6 +475,44 @@ def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_pat
     assert edge.status == Status.UNCHANGED
 
 
+def test_imports_edge_for_added_import_has_added_status_and_module(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "def g():\n    return 1\n",
+    })
+    write_tree(staged, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
+    assert edge.status == Status.ADDED
+    assert edge.module == "producer"
+
+
+def test_imports_edge_for_removed_import_still_appears_with_deleted_status(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+    })
+    write_tree(staged, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "def g():\n    return 1\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
+    assert edge.status == Status.DELETED
+    assert edge.module == "producer"
+
+
 def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     service = make_service(tmp_path, {
         "pipeline.py": (

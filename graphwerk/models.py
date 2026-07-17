@@ -79,6 +79,7 @@ class GraphEdge:
     target: str
     kind: str  # "calls" | "imports"
     status: Status = Status.UNCHANGED
+    module: str | None = None  # imports-kind only: the module name responsible for the edge
 
     def to_dict(self) -> dict:
         return {
@@ -86,6 +87,7 @@ class GraphEdge:
             "target": self.target,
             "kind": self.kind,
             "status": self.status.value,
+            "module": self.module,
         }
 
 

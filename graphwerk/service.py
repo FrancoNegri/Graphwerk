@@ -177,13 +177,14 @@ class GraphService:
     def _add_import_edges(self, snap: Snapshot, changes: dict) -> None:
         resolver = ModuleFileResolver(changes)
         for rel, change in changes.items():
-            index = change.staged or change.base
-            if index is None:
-                continue
-            for module in index.imports:
+            base_index, staged_index = change.base, change.staged
+            all_modules = (base_index.imports if base_index else set()) | (
+                staged_index.imports if staged_index else set()
+            )
+            for module in all_modules:
                 target = resolver.resolve(module)
                 if target and target != rel:
-                    snap.edges.append(GraphEdge(rel, target, "imports"))
+                    snap.edges.append(GraphEdge(rel, target, "imports", change.imports[module], module))
 
     def _mark_affected(self, snap: Snapshot) -> None:
         """Yellow ring: unchanged symbols that call into changed ones (human blast radius)."""
