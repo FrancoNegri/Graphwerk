@@ -89,4 +89,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [075](075-ui-descriptive-only-marker.md) | UI marker for describes-only rationale | done | [027](../decisions/027-rationale-must-justify-not-describe.md) |
 | [076](076-edge-calls-collapsible-dropdowns.md) | Fuse each edge-calls pair into a collapsed dropdown | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
 | [077](077-code-display-mode-toggle.md) | Sidebar toggle: code + changes vs. changes only | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
-| [078](078-collapsed-deleted-pill-dashed-treatment.md) | Collapsed deleted-status pills keep the dashed/faded look | ready | [029](../decisions/029-collapsed-deleted-pill-visual-treatment.md) |
+| [078](078-collapsed-deleted-pill-dashed-treatment.md) | Collapsed deleted-status pills keep the dashed/faded look (hue superseded by 030: red, not stone) | ready | [029](../decisions/029-collapsed-deleted-pill-visual-treatment.md) |
+| [079](079-modified-status-turns-green.md) | `modified` status turns green | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
+| [080](080-decouple-prompt-error-color.md) | Decouple `#prompt-error` from the status palette | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |

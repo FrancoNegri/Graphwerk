@@ -3,6 +3,13 @@
 Status: proposed
 Date: 2026-07-16
 
+*Superseded in part by [ADR 030](030-status-palette-modified-green-deleted-red.md):*
+the choice of *which* hue `deleted` gets (stone grey, chosen below
+specifically to avoid clashing with `modified`'s red) no longer holds once
+`modified` stops being red — ADR 030 reassigns `deleted` to red instead.
+The dashed-border/reduced-opacity treatment decided here is unaffected and
+still stands.
+
 ## Context
 
 Dogfooding report: in the agendabot staging graph, `src/agendabot/webhook.py`

@@ -19,7 +19,7 @@ The graph app then treats the *delta between the worktree and the developer's br
 
 1. **Watch** the worktree for file changes (fs events).
 2. **Diff** worktree vs. base branch.
-3. **Map hunks to symbols** with tree-sitter → each changed class/function becomes a colored node (red = modified, blue = new, grey = deleted, yellow = affected caller).
+3. **Map hunks to symbols** with tree-sitter → each changed class/function becomes a colored node (green = modified, blue = new, red = deleted, yellow = affected caller; ADR 030).
 4. **Apply** = cherry-pick that node's hunks into the developer's working tree.
 
 Same UX as the original idea; the agent never knows the staging layer exists.

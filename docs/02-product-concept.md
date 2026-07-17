@@ -7,7 +7,7 @@ A developer tool that inverts how AI-generated code changes are reviewed.
 1. The app starts, reads a codebase, and renders it as an interactive graph (files, classes, functions; import and call edges).
 2. The developer runs Claude Code and asks for a feature as usual.
 3. Claude generates changes — but instead of landing directly in the working tree, they land in a **staging layer** connected to the graph app.
-4. The graph updates live: **modified symbols in red, new ones in blue, deleted in grey**.
+4. The graph updates live: **modified symbols in green, new ones in blue, deleted in red** (ADR 030).
 5. Each changed file/class carries a **"why" explanation** — the rationale for the change, captured from the agent — shown when the node is selected.
 6. The developer reviews at their own pace, applying changes **node by node** as they see fit.
 7. If a change looks wrong, the developer can reject that node with a comment, which **re-triggers just that part of the prompt** in the same Claude session.

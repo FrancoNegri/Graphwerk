@@ -4,11 +4,12 @@
   --border: #334155;
   --text: #e2e8f0;
   --muted: #94a3b8;
-  --modified: #ef4444;
+  --modified: #22c55e;
   --added: #3b82f6;
-  --deleted: #64748b;
+  --deleted: #ef4444;
   --affected: #f59e0b;
   --unchanged: #475569;
+  --danger: #ef4444;
 }
 
 * { box-sizing: border-box; margin: 0; }
@@ -107,7 +108,7 @@ header {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-#prompt-error { font-size: 12px; color: var(--modified); }
+#prompt-error { font-size: 12px; color: var(--danger); }
 
 #banner {
   display: flex;

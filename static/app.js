@@ -2,9 +2,9 @@
  * Polls /api/hash; refetches the graph whenever either tree changes. */
 
 const COLORS = {
-  modified: "#ef4444",
+  modified: "#22c55e",
   added: "#3b82f6",
-  deleted: "#64748b",
+  deleted: "#ef4444",
   affected: "#f59e0b",
   unchanged: "#475569",
 };
@@ -346,7 +346,7 @@ function renderGraph(elements) {
         },
       },
       {
-        selector: "node[status='deleted']",
+        selector: "node[status='deleted'], node[collapsedStatus='deleted']",
         style: { "border-style": "dashed", opacity: 0.6 },
       },
       {
