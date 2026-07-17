@@ -102,4 +102,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [088](088-record-shipped-deviations-adr-016-020.md) | Record shipped deviations in ADR 016/020 and tickets 049/058 | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [089](089-sync-ticket-statuses.md) | Sync ticket statuses with reality (README rows + tickets 078-080) | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [090](090-call-edges-carry-admitting-imports.md) | Call edges carry the imports that admit them | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
-| [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | ready | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
+| [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |

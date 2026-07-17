@@ -139,7 +139,7 @@ function toElements(data) {
       edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] } };
       edgesById.set(id, edge);
     }
-    edge.data.calls.push({ source: e.source, target: e.target, status: e.status, module: e.module });
+    edge.data.calls.push({ source: e.source, target: e.target, status: e.status, module: e.module, via_imports: e.via_imports });
   }
   return { nodes, edges: [...edgesById.values()] };
 }
@@ -584,7 +584,27 @@ function showEdgeCalls(edge) {
   document.getElementById("edge-calls").hidden = false;
   document.getElementById("edge-calls-title").textContent = "Calls collapsed onto this edge";
   const calls = edge.data("calls");
-  document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("");
+  const admitting = dedupedViaImports(calls);
+  const admittingSection = admitting.length
+    ? `<section><h3>Imports admitting these calls</h3>${admitting.map(renderImportEntry).join("")}</section>`
+    : "";
+  document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("") + admittingSection;
+}
+
+// Union of the collapsed pairs' admitting imports (ADR 035) — pairs sharing
+// a file pair repeat the same modules, so dedupe by module+status.
+function dedupedViaImports(calls) {
+  const seen = new Set();
+  const entries = [];
+  for (const pair of calls) {
+    for (const entry of pair.via_imports || []) {
+      const key = `${entry.module}:${entry.status}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries.push(entry);
+    }
+  }
+  return entries;
 }
 
 // Deliberately not the full file diff (already one click away via the file

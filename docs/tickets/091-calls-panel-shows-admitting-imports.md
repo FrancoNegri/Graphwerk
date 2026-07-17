@@ -1,6 +1,6 @@
 # 091. Calls panel shows the imports admitting its calls
 
-Status: ready
+Status: done
 Decision: docs/decisions/035-calls-panel-surfaces-admitting-imports.md
 
 ## Goal
