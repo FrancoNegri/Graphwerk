@@ -1,6 +1,6 @@
 # 079. `modified` status turns green
 
-Status: ready
+Status: done
 Decision: docs/decisions/030-status-palette-modified-green-deleted-red.md
 
 *[ADR 031](../decisions/031-modified-status-blue-not-green.md) briefly

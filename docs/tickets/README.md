@@ -60,7 +60,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [046](046-split-imports-calls-toggle.md) | Split "show deps + calls" into independent imports/calls toggles | done | [014](../decisions/014-split-imports-calls-toggle.md) |
 | [047](047-generalize-container-collapse.md) | Generalize collapse to every container, always collapsed by default | done | [015](../decisions/015-contract-by-default.md) |
 | [048](048-show-calls-default-on.md) | `show-calls` defaults to on | done | [015](../decisions/015-contract-by-default.md) |
-| [049](049-call-edge-status-model.md) | `GraphEdge.status` computed for `calls` edges | ready | [016](../decisions/016-call-edge-status.md) |
+| [049](049-call-edge-status-model.md) | `GraphEdge.status` computed for `calls` edges | done | [016](../decisions/016-call-edge-status.md) |
 | [050](050-color-call-edges-by-status.md) | Color `calls` edges by their status | done | [016](../decisions/016-call-edge-status.md) |
 | [051](051-click-edge-lists-underlying-calls.md) | Clicking a `calls` edge lists the calls it collapsed | done | [016](../decisions/016-call-edge-status.md) |
 | [052](052-edge-calls-show-code.md) | Edge-calls panel renders caller/callee code | done | [017](../decisions/017-edge-calls-show-code.md) |
@@ -71,11 +71,11 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [057](057-loadgraph-in-flight-guard.md) | Guard `loadGraph()` against overlapping in-flight calls | done | [011](../decisions/011-prompt-box-session-kickoff.md) |
 | [058](058-wheel-zoom-feel.md) | Tune wheel-zoom sensitivity and bounds | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
 | [059](059-hover-reveal-unchanged-edges.md) | Hide unchanged-status edges by default; reveal on node hover | done | [020](../decisions/020-edge-hover-reveal-and-zoom-feel.md) |
-| [060](060-skip-generic-wrapper-dir-grouping.md) | Skip generic wrapper directories in file grouping | ready | [021](../decisions/021-src-layout-grouping.md) |
-| [061](061-layer-from-entry-points.md) | Layer by longest path from entry points, not to leaves | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
-| [062](062-render-layer-zero-at-top.md) | Render layer 0 at the top of the graph | ready | [022](../decisions/022-entry-points-anchor-top-layer.md) |
-| [063](063-import-adjacency-survives-noise-filtered-files.md) | Import adjacency survives noise-filtered intermediate files | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
-| [064](064-exclude-test-file-edges-from-layering.md) | Exclude test-file edges from import layering | ready | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
+| [060](060-skip-generic-wrapper-dir-grouping.md) | Skip generic wrapper directories in file grouping | done | [021](../decisions/021-src-layout-grouping.md) |
+| [061](061-layer-from-entry-points.md) | Layer by longest path from entry points, not to leaves | done | [022](../decisions/022-entry-points-anchor-top-layer.md) |
+| [062](062-render-layer-zero-at-top.md) | Render layer 0 at the top of the graph | done | [022](../decisions/022-entry-points-anchor-top-layer.md) |
+| [063](063-import-adjacency-survives-noise-filtered-files.md) | Import adjacency survives noise-filtered intermediate files | done | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
+| [064](064-exclude-test-file-edges-from-layering.md) | Exclude test-file edges from import layering | done | [023](../decisions/023-import-adjacency-drops-noise-filtered-and-test-edges.md) |
 | [065](065-extract-nested-imports.md) | Collect imports from the whole file, skipping TYPE_CHECKING blocks | done | [024](../decisions/024-extract-nested-imports.md) |
 | [066](066-parse-guidance-bullets.md) | Parse the guidance bullet format as the primary rationale source | done | [025](../decisions/025-rationale-mention-confidence.md) |
 | [067](067-tighten-prose-mention-fallback.md) | Tighten the prose-mention fallback (qualified refs, backtick-quoting) | done | [025](../decisions/025-rationale-mention-confidence.md) |
@@ -89,9 +89,9 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [075](075-ui-descriptive-only-marker.md) | UI marker for describes-only rationale | done | [027](../decisions/027-rationale-must-justify-not-describe.md) |
 | [076](076-edge-calls-collapsible-dropdowns.md) | Fuse each edge-calls pair into a collapsed dropdown | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
 | [077](077-code-display-mode-toggle.md) | Sidebar toggle: code + changes vs. changes only | done | [028](../decisions/028-edge-calls-dropdowns-and-code-mode-toggle.md) |
-| [078](078-collapsed-deleted-pill-dashed-treatment.md) | Collapsed deleted-status pills keep the dashed/faded look (hue superseded by 030: red, not stone) | ready | [029](../decisions/029-collapsed-deleted-pill-visual-treatment.md) |
-| [079](079-modified-status-turns-green.md) | `modified` status turns green | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
-| [080](080-decouple-prompt-error-color.md) | Decouple `#prompt-error` from the status palette | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
+| [078](078-collapsed-deleted-pill-dashed-treatment.md) | Collapsed deleted-status pills keep the dashed/faded look (hue superseded by 030: red, not stone) | done | [029](../decisions/029-collapsed-deleted-pill-visual-treatment.md) |
+| [079](079-modified-status-turns-green.md) | `modified` status turns green | done | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
+| [080](080-decouple-prompt-error-color.md) | Decouple `#prompt-error` from the status palette | done | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
 | [081](081-scope-call-edges-to-shared-tree.md) | Scope call-edge target resolution to the caller's tree | done | [032](../decisions/032-call-edge-resolution-scoped-to-shared-tree.md) |
 | [082](082-diff-imports-by-module-name.md) | Diff imports as added/removed/unchanged per file | done | [033](../decisions/033-import-edge-status-and-pertinent-import-inspection.md) |
 | [083](083-import-edges-carry-module-status.md) | Import edges carry per-module status and the responsible module name | done | [033](../decisions/033-import-edge-status-and-pertinent-import-inspection.md) |
@@ -100,6 +100,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [086](086-sessionrunner-settle-race.md) | Fix `SessionRunner._settle` race under concurrent status polls | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [087](087-normalize-bash-deletion-paths.md) | Normalize relative paths in Bash deletion tracking | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [088](088-record-shipped-deviations-adr-016-020.md) | Record shipped deviations in ADR 016/020 and tickets 049/058 | done | [audit 001](../audit/runs/001-2026-07-17.md) |
-| [089](089-sync-ticket-statuses.md) | Sync ticket statuses with reality (README rows + tickets 078-080) | ready | [audit 001](../audit/runs/001-2026-07-17.md) |
+| [089](089-sync-ticket-statuses.md) | Sync ticket statuses with reality (README rows + tickets 078-080) | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [090](090-call-edges-carry-admitting-imports.md) | Call edges carry the imports that admit them | ready | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
 | [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | ready | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |

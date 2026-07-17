@@ -1,6 +1,6 @@
 # 089. Sync ticket statuses with reality (README rows + tickets 078–080)
 
-Status: ready
+Status: done
 Decision: docs/audit/runs/001-2026-07-17.md
 
 ## Goal

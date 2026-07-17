@@ -1,6 +1,6 @@
 # 080. Decouple `#prompt-error` from the status palette
 
-Status: ready
+Status: done
 Decision: docs/decisions/030-status-palette-modified-green-deleted-red.md
 
 ## Goal

@@ -1,6 +1,6 @@
 # 078. Deleted status: distinct hue, and collapsed pills keep the dashed/faded look
 
-Status: ready
+Status: done
 Decision: docs/decisions/029-collapsed-deleted-pill-visual-treatment.md
 
 *Hue superseded by [ADR 030](../decisions/030-status-palette-modified-green-deleted-red.md):*
