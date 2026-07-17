@@ -95,6 +95,13 @@
     </form>
     <span id="prompt-busy" hidden><i class="spinner"></i>agent session running</span>
     <span id="prompt-error" hidden></span>
+    <div id="commit-controls">
+      <span id="commit-error" hidden></span>
+      <input id="commit-message" type="text" autocomplete="off"
+        placeholder="Commit message — fills in when a session completes">
+      <button id="btn-commit" type="button">Commit</button>
+      <button id="btn-discard" type="button" class="danger">Discard</button>
+    </div>
   </div>
   <div id="toast" hidden></div>
   <script src="/static/vendor/cytoscape.min.js"></script>

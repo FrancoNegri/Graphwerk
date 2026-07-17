@@ -73,7 +73,8 @@ header {
 
 #prompt-form { display: flex; flex: 1; max-width: 720px; gap: 8px; }
 
-#prompt-input {
+#prompt-input,
+#commit-message {
   flex: 1;
   background: #0b1220;
   border: 1px solid var(--border);
@@ -84,12 +85,26 @@ header {
 }
 #prompt-input:disabled { opacity: 0.5; }
 
-#prompt-send {
+#prompt-send,
+#btn-commit,
+#btn-discard {
   width: auto;
   margin: 0;
   padding: 7px 18px;
 }
-#prompt-send:disabled { opacity: 0.5; cursor: default; }
+#prompt-send:disabled,
+#btn-commit:disabled,
+#btn-discard:disabled { opacity: 0.5; cursor: default; }
+
+#commit-controls {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+#commit-message { max-width: 520px; }
+#commit-error { font-size: 12px; color: var(--danger); }
 
 #prompt-busy {
   display: flex;

@@ -65,6 +65,8 @@ async function loadGraph() {
     document.getElementById("paths").innerHTML =
       `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
     renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
+    minedCommitMessage = data.meta ? data.meta.commit_message : null;
+    maybeFillCommitMessageBox();
 
     groupTints = buildGroupTints(data.nodes);
     renderGroupLegend(groupTints);
@@ -760,11 +762,70 @@ function renderSessionState(session) {
   const running = session.state === "running";
   document.getElementById("prompt-input").disabled = running;
   document.getElementById("prompt-send").disabled = running;
+  document.getElementById("btn-commit").disabled = running;
+  document.getElementById("btn-discard").disabled = running;
   document.getElementById("prompt-busy").hidden = !running;
   const error = document.getElementById("prompt-error");
   error.hidden = session.state !== "failed";
   if (session.state === "failed") error.textContent = session.detail;
+  if (session.state === "done" && session.session_id
+      && session.session_id !== completedSessionId) {
+    completedSessionId = session.session_id;
+    // the mined message in hand predates this session — refetch to re-mine
+    minedCommitMessage = null;
+    loadGraph();
+  }
+  maybeFillCommitMessageBox();
 }
+
+// The box is overwritten only when a *new* session's mined message arrives;
+// routine refetches never clobber the reviewer's edits (ADR 037).
+let completedSessionId = null;
+let filledForSessionId = null;
+let minedCommitMessage = null;
+
+function maybeFillCommitMessageBox() {
+  if (!completedSessionId || completedSessionId === filledForSessionId) return;
+  if (minedCommitMessage == null) return;
+  document.getElementById("commit-message").value = minedCommitMessage;
+  filledForSessionId = completedSessionId;
+}
+
+function showCommitError(message) {
+  const error = document.getElementById("commit-error");
+  error.hidden = !message;
+  error.textContent = message || "";
+}
+
+document.getElementById("btn-commit").addEventListener("click", async () => {
+  showCommitError(null);
+  const box = document.getElementById("commit-message");
+  const res = await fetch("/api/commit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: box.value.trim() }),
+  });
+  const data = await res.json();
+  if (res.ok) {
+    toast(`✓ committed ${data.commit} (${data.paths.length} file${data.paths.length === 1 ? "" : "s"})`);
+    box.value = "";
+  } else {
+    showCommitError(data.detail);
+  }
+});
+
+document.getElementById("btn-discard").addEventListener("click", async () => {
+  showCommitError(null);
+  if (!confirm("Discard all staged changes? The agent's work in the staging tree is lost.")) return;
+  const res = await fetch("/api/discard", { method: "POST" });
+  const data = await res.json();
+  if (res.ok) {
+    toast(`✓ discarded ${data.paths.length} file${data.paths.length === 1 ? "" : "s"}`);
+    document.getElementById("commit-message").value = "";
+  } else {
+    showCommitError(data.detail);
+  }
+});
 
 document.getElementById("prompt-form").addEventListener("submit", async (event) => {
   event.preventDefault();

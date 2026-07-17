@@ -1,6 +1,6 @@
 # 099. Session bar UI: commit message box + commit/discard buttons
 
-Status: ready
+Status: done
 Decision: docs/decisions/037-bottom-session-bar-commit-discard.md
 
 ## Goal
