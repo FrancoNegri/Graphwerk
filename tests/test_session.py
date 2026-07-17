@@ -1,3 +1,5 @@
+import tempfile
+import threading
 import time
 
 import pytest
@@ -136,6 +138,84 @@ def test_unparseable_success_output_reports_failed(staged_root, tmp_path):
 
     assert finished["state"] == "failed"
     assert finished["detail"] != ""
+
+
+class SlowExitingChild:
+    """Fake child whose poll() is slow enough for unsynchronized threads to overlap in it."""
+
+    def __init__(self, exit_code=0, poll_delay=0.05):
+        self.exit_code = exit_code
+        self.poll_delay = poll_delay
+
+    def poll(self):
+        time.sleep(self.poll_delay)
+        return self.exit_code
+
+
+def make_settling_runner(staged_root, output=b'{"session_id": "sess-race"}'):
+    """A runner whose child has already exited but has not been settled yet."""
+    runner = SessionRunner(staged_root)
+    runner._child = SlowExitingChild()
+    runner._child_output = tempfile.TemporaryFile()
+    runner._child_output.write(output)
+    runner._state = "running"
+    return runner
+
+
+def run_in_threads(*targets):
+    errors = []
+
+    def wrap(target):
+        def guarded():
+            try:
+                target()
+            except Exception as exc:  # noqa: BLE001 - the test asserts on this
+                errors.append(exc)
+        return guarded
+
+    threads = [threading.Thread(target=wrap(target)) for target in targets]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return errors
+
+
+def test_concurrent_status_polls_settle_exactly_once(staged_root):
+    runner = make_settling_runner(staged_root)
+    barrier = threading.Barrier(2)
+
+    def poll_status():
+        barrier.wait()
+        runner.status()
+
+    errors = run_in_threads(poll_status, poll_status)
+
+    assert errors == []
+    assert runner.status() == {"state": "done", "detail": "",
+                               "session_id": "sess-race"}
+
+
+def test_start_racing_a_settling_poll_sees_settled_state(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-next"}\'')
+    runner = make_settling_runner(staged_root)
+    runner.claude_cmd = str(stub)
+    barrier = threading.Barrier(2)
+
+    def poll_status():
+        barrier.wait()
+        runner.status()
+
+    def start_next():
+        barrier.wait()
+        time.sleep(0.01)  # land inside the other thread's settling poll
+        runner.start("next prompt")
+
+    errors = run_in_threads(poll_status, start_next)
+
+    assert errors == []
+    assert wait_until_finished(runner) == {"state": "done", "detail": "",
+                                           "session_id": "sess-next"}
 
 
 def test_failed_run_keeps_last_successful_session_id(staged_root, tmp_path):

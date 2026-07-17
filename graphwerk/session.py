@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 
 
@@ -27,31 +28,39 @@ class SessionRunner:
         self._state = "idle"
         self._detail = ""
         self._last_session_id = ""
+        # status() runs concurrently from FastAPI's threadpool (every open
+        # tab polls /api/session); the lock keeps _settle to one run per child.
+        self._lock = threading.Lock()
 
     def start(self, prompt: str) -> dict:
-        if self.status()["state"] == "running":
-            raise SessionBusyError("a session is already running")
-        command = [self.claude_cmd, "-p", prompt,
-                   "--output-format", "json",
-                   "--permission-mode", self.permission_mode]
-        if self.system_prompt:
-            command += ["--append-system-prompt", self.system_prompt]
-        self._child_output = tempfile.TemporaryFile()
-        try:
-            self._child = subprocess.Popen(command, cwd=self.staged_root,
-                                           stdout=self._child_output,
-                                           stderr=subprocess.STDOUT)
-        except OSError as exc:
-            self._child_output.close()
-            self._child_output = None
-            self._state = "failed"
-            self._detail = f"could not launch {self.claude_cmd}: {exc}"
-            return self.status()
-        self._state = "running"
-        self._detail = ""
-        return self.status()
+        with self._lock:
+            if self._status_locked()["state"] == "running":
+                raise SessionBusyError("a session is already running")
+            command = [self.claude_cmd, "-p", prompt,
+                       "--output-format", "json",
+                       "--permission-mode", self.permission_mode]
+            if self.system_prompt:
+                command += ["--append-system-prompt", self.system_prompt]
+            self._child_output = tempfile.TemporaryFile()
+            try:
+                self._child = subprocess.Popen(command, cwd=self.staged_root,
+                                               stdout=self._child_output,
+                                               stderr=subprocess.STDOUT)
+            except OSError as exc:
+                self._child_output.close()
+                self._child_output = None
+                self._state = "failed"
+                self._detail = f"could not launch {self.claude_cmd}: {exc}"
+                return self._status_locked()
+            self._state = "running"
+            self._detail = ""
+            return self._status_locked()
 
     def status(self) -> dict:
+        with self._lock:
+            return self._status_locked()
+
+    def _status_locked(self) -> dict:
         if self._child is not None:
             exit_code = self._child.poll()
             if exit_code is not None:

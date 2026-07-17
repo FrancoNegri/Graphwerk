@@ -1,6 +1,6 @@
 # 086. `SessionRunner._settle` is not safe under concurrent status polls
 
-Status: ready
+Status: done
 Decision: docs/audit/runs/001-2026-07-17.md
 
 ## Goal
