@@ -111,15 +111,45 @@ aren't sufficient proof — CLAUDE.md is explicit that this project verifies
 by curling the running API (`/api/graph`, `/api/hash`, `/api/apply`,
 `/api/reject`), not just imports. Use the `verify` skill for this, or by
 hand: run `graphwerk demo`, exercise the change, reset the demo afterward.
-UI changes need the same treatment in an actual browser, not just a
-type-check.
 
-## 6. Close it out
+Do not attempt to check `static/` changes in a browser yourself — the user
+verifies the frontend by hand (it's meant to stay thin per CLAUDE.md, so
+there's little for a headless check to catch anyway). Land the JS change,
+call out what you touched, and let them eyeball it.
+
+## 6. Reset the dogfood server
+
+The user usually keeps a graphwerk server running against a real repo pair
+(the dogfood setup) while tickets land. After your changes it is still
+running the *old* code — reset it at the end of every ticket, the same way
+every time:
+
+1. Find the running server and capture its exact command line:
+   `pgrep -af 'graphwerk (demo|serve|start)'`.
+2. If nothing is running, there is nothing to reset — say so and move on.
+   Don't start a server the user didn't have running.
+3. Kill it: `pkill -f 'graphwerk (demo|serve|start)'`.
+4. Relaunch the captured command line **verbatim**, in the background —
+   same subcommand, same `--base`/`--staged` pair, same `--host`/`--port`.
+   Don't substitute the demo for the user's real pair, and don't drop
+   `--host 0.0.0.0` if it was there (the user browses from another LAN
+   device).
+5. Confirm it's back up: `curl -s localhost:<port>/api/hash` returns a
+   hash.
+
+Do this after the full suite is green and after any demo workspace used in
+step 5 has been reset — it's the last action before close-out, so the
+user's browser is always one refresh away from the code you just landed.
+
+## 7. Close it out
 
 - Update the ticket's `Status:` to `done` (or `blocked: <why>` if you
   stopped short — don't silently leave it looking finished when it isn't).
 - Summarize: what changed, what tests were added, and confirm the full
   suite is green.
+- Commit the ticket's changes now, as its own commit — include the ticket
+  file's `Status:` update in it. Don't bundle multiple tickets into one
+  commit and don't leave a completed ticket uncommitted for a later batch.
 - If you noticed the ticket was actually two things, or the ADR's scope
   didn't quite match reality, say so — that feedback belongs back in
   `docs/decisions/` or `docs/tickets/`, not silently absorbed.
