@@ -1,6 +1,6 @@
 # 088. Record shipped deviations in ADR 016/020 and tickets 049/058
 
-Status: ready
+Status: done
 Decision: docs/audit/runs/001-2026-07-17.md
 
 ## Goal

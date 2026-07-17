@@ -99,7 +99,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [085](085-scope-call-edges-to-caller-imports.md) | Scope call-edge resolution to the caller's file or its actual imports | done | [034](../decisions/034-call-edge-resolution-scoped-to-actual-imports.md) |
 | [086](086-sessionrunner-settle-race.md) | Fix `SessionRunner._settle` race under concurrent status polls | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [087](087-normalize-bash-deletion-paths.md) | Normalize relative paths in Bash deletion tracking | done | [audit 001](../audit/runs/001-2026-07-17.md) |
-| [088](088-record-shipped-deviations-adr-016-020.md) | Record shipped deviations in ADR 016/020 and tickets 049/058 | ready | [audit 001](../audit/runs/001-2026-07-17.md) |
+| [088](088-record-shipped-deviations-adr-016-020.md) | Record shipped deviations in ADR 016/020 and tickets 049/058 | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [089](089-sync-ticket-statuses.md) | Sync ticket statuses with reality (README rows + tickets 078-080) | ready | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [090](090-call-edges-carry-admitting-imports.md) | Call edges carry the imports that admit them | ready | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
 | [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | ready | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |

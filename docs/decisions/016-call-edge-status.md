@@ -3,6 +3,15 @@
 Status: proposed
 Date: 2026-07-15
 
+*Amended 2026-07-17 (audit F-003):* the `AFFECTED` branch of decision #1
+(affected source → unchanged target ⇒ edge status `AFFECTED`) was removed
+during implementation as an over-tagging bug — it painted *every* call out
+of an affected node, including calls with no bearing on the change, commit
+cfb4832. Current behavior: a `calls` edge takes its target's status when
+that target is changed, and stays `unchanged` otherwise — no edge is ever
+`affected`. Pinned by
+`test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_status`.
+
 ## Context
 
 Node status coloring (red/blue/grey/amber for modified/added/deleted/

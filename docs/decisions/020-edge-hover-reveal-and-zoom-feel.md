@@ -3,6 +3,14 @@
 Status: proposed
 Date: 2026-07-16
 
+*Amended 2026-07-17 (audit F-004):* the wheel-zoom half shipped the
+opposite direction from the guess below — empirical tuning landed
+`wheelSensitivity: 5`, not a value lowered toward `0.15`–`0.2`; per-notch
+travel felt too *slow*, not too fast, once `minZoom`/`maxZoom` bounds
+(which landed as specified) removed the overshoot risk. Confirmed as the
+intended feel by the user on 2026-07-17. The hover-reveal half is
+unaffected.
+
 ## Context
 
 Two small interaction-polish requests against the current graph view, both
