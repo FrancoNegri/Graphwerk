@@ -17,12 +17,16 @@ even for resolved or wontfix findings, so history stays traceable.
 
 | ID | Category | Status | Location | Summary | First seen | Ticket / Test |
 |----|----------|--------|----------|---------|-------------|----------------|
-
-*(empty — no audit run yet)*
+| F-001 | bug | ticketed | `graphwerk/session.py::SessionRunner.status/_settle` | Concurrent status polls can double-enter `_settle` → AttributeError/500 at session end | [001](runs/001-2026-07-17.md) | [086](../tickets/086-sessionrunner-settle-race.md) |
+| F-002 | bug | ticketed | `graphwerk/rationale/transcript.py::_bash_deleted_rel_paths` | Relative `rm` tokens (`./x.py`, `a/../b.py`) kept unnormalized, so deletion rationale keys never match differ paths | [001](runs/001-2026-07-17.md) | [087](../tickets/087-normalize-bash-deletion-paths.md) |
+| F-003 | inconsistency | ticketed | ADR 016 / ticket 049 vs `service.py::_mark_edge_status` | Affected-edge rule deliberately removed in code (cfb4832) but ADR/ticket still state it | [001](runs/001-2026-07-17.md) | [088](../tickets/088-record-shipped-deviations-adr-016-020.md) |
+| F-004 | inconsistency | ticketed | ADR 020 / ticket 058 vs `static/app.js:280` | Docs say wheelSensitivity was lowered to ~0.15–0.2; shipped value is 5, unrecorded | [001](runs/001-2026-07-17.md) | [088](../tickets/088-record-shipped-deviations-adr-016-020.md) |
+| F-005 | inconsistency | ticketed | `docs/tickets/README.md`; tickets 078–080 | Status bookkeeping stale: README rows 049/060–064 vs ticket files; 078–080 implemented but marked ready | [001](runs/001-2026-07-17.md) | [089](../tickets/089-sync-ticket-statuses.md) |
+| F-006 | missing-test | open | `graphwerk/apply.py` + `/api/apply`, `/api/reject` | The only code path that writes the developer's tree has zero test coverage (incl. path-escape check) | [001](runs/001-2026-07-17.md) | queued for audit-tests |
+| F-007 | missing-test | open | `graphwerk/service.py::state_hash` | No behavioral test of the polling contract (stable when idle, changes on touch/add/delete) | [001](runs/001-2026-07-17.md) | queued for audit-tests |
 
 ## Runs
 
 | # | Date | Commit | Opened | Resolved |
 |---|------|--------|--------|----------|
-
-*(empty — run the `audit` skill to create `runs/001-<date>.md`)*
+| [001](runs/001-2026-07-17.md) | 2026-07-17 | 4beff12 | 7 (2 bug, 3 inconsistency, 2 missing-test) | 0 |
