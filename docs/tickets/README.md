@@ -106,7 +106,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [092](092-node-is-test-flag.md) | `GraphNode.is_test` in the snapshot payload | done | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
 | [093](093-hide-tests-exempts-changed-affected.md) | Hide-tests filter exempts changed and affected test nodes | done | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
 | [094](094-prompt-bar-docks-bottom.md) | Prompt bar docks to the bottom of the viewport | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
-| [095](095-commit-message-guidance-and-parse.md) | Commit-message line: session guidance + transcript parse | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [095](095-commit-message-guidance-and-parse.md) | Commit-message line: session guidance + transcript parse | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [096](096-commit-message-in-snapshot-meta.md) | Snapshot meta carries the mined commit message | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [097](097-commit-endpoint.md) | Commit-all: engine + `/api/commit` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [098](098-discard-endpoint.md) | Discard-all: engine + `/api/discard` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |

@@ -1,6 +1,6 @@
 # 095. Commit-message line: session guidance + transcript parse
 
-Status: ready
+Status: done
 Decision: docs/decisions/037-bottom-session-bar-commit-discard.md
 
 ## Goal

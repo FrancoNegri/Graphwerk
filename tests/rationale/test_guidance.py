@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from graphwerk.rationale.attribution import (
+    parse_commit_message,
     attribute_files,
     attribute_guidance_bullets,
     attribute_symbols,
@@ -97,3 +98,37 @@ def test_session_guidance_has_a_labeled_describes_vs_justifies_contrast():
 
     assert "path/to/file.py" in describes_line and "path/to/file.py" in justifies_line
     assert describes_line != justifies_line
+
+
+def test_session_guidance_closing_line_yields_the_commit_message(tmp_path):
+    staged_root = tmp_path / "staged"
+    staged_root.mkdir()
+    transcript_path = tmp_path / "session.jsonl"
+
+    write_transcript(transcript_path, [
+        assistant_entry(text_block(
+            SESSION_GUIDANCE + "\n\n"
+            "- `billing/gateway.py` (`Gateway.charge`): retries now survive a flaky network\n"
+            "\n"
+            "Commit-message: Retry flaky network calls in the billing gateway"
+        )),
+    ])
+
+    segments, _ = parse_transcript(transcript_path, staged_root)
+    assert parse_commit_message(segments) == (
+        "Retry flaky network calls in the billing gateway")
+
+
+def test_transcript_without_commit_message_line_yields_none(tmp_path):
+    staged_root = tmp_path / "staged"
+    staged_root.mkdir()
+    transcript_path = tmp_path / "session.jsonl"
+
+    write_transcript(transcript_path, [
+        assistant_entry(text_block(
+            "- `cli.py` (`main`): exposes the new --retry flag callers asked for"
+        )),
+    ])
+
+    segments, _ = parse_transcript(transcript_path, staged_root)
+    assert parse_commit_message(segments) is None

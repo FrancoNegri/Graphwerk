@@ -25,5 +25,9 @@ SESSION_GUIDANCE = (
     "\n"
     "If you delete a file, give it a line in the same shape, with `removed` "
     "as the reason's lead word:\n"
-    "- `path/to/old_file.py`: removed — reason"
+    "- `path/to/old_file.py`: removed — reason\n"
+    "\n"
+    "After the per-file lines, close your final message with exactly one "
+    "line of this form:\n"
+    "Commit-message: <concise one-line summary of the whole change set>"
 )

@@ -2,6 +2,7 @@ from graphwerk.rationale.attribution import (
     attribute_files,
     attribute_guidance_bullets,
     attribute_symbols,
+    parse_commit_message,
     parse_guidance_bullet,
     reason_justifies,
 )
@@ -259,3 +260,20 @@ def test_reason_justifies_is_false_without_any_connective():
 
 def test_reason_justifies_does_not_match_connective_as_a_substring():
     assert reason_justifies("the science fiction module was untouched") is False
+
+
+def test_commit_message_empty_after_prefix_is_none():
+    assert parse_commit_message([Segment(index=0, text="Commit-message:")]) is None
+    assert parse_commit_message([Segment(index=0, text="Commit-message:   ")]) is None
+
+
+def test_commit_message_only_counts_in_the_final_segment():
+    segments = [
+        Segment(index=0, text="Commit-message: an early draft"),
+        Segment(index=1, text="Actually, let me rework that first."),
+    ]
+    assert parse_commit_message(segments) is None
+
+
+def test_commit_message_with_no_segments_is_none():
+    assert parse_commit_message([]) is None

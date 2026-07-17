@@ -22,6 +22,7 @@ _DELETION_BULLET = re.compile(
     re.IGNORECASE,
 )
 _BACKTICKED = re.compile(r"`([^`]+)`")
+_COMMIT_MESSAGE_LINE = re.compile(r"^Commit-message:(?P<message>.*)$")
 
 _JUSTIFYING_CONNECTIVES = (
     "because", "since", "so that", "so it", "in order to", "to avoid",
@@ -73,6 +74,18 @@ def parse_deletion_bullet(text: str) -> GuidanceBullet | None:
     if reason.startswith("(") and reason.endswith(")"):
         reason = reason[1:-1].strip()
     return GuidanceBullet(rel_path=match.group("path"), symbols=(), reason=reason or "removed")
+
+
+def parse_commit_message(segments: list[Segment]) -> str | None:
+    """The `Commit-message:` line SESSION_GUIDANCE asks the agent to close
+    with (ADR 037). Only the final segment counts — an earlier occurrence
+    the agent then walked back is not the session's closing summary."""
+    if not segments:
+        return None
+    match = _COMMIT_MESSAGE_LINE.match(segments[-1].text.strip())
+    if not match:
+        return None
+    return match.group("message").strip() or None
 
 
 def attribute_guidance_bullets(segments: list[Segment],
