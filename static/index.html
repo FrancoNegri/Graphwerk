@@ -35,15 +35,6 @@
     </label>
     <div id="paths" class="paths"></div>
   </header>
-  <div id="prompt-bar">
-    <form id="prompt-form">
-      <input id="prompt-input" type="text" autocomplete="off"
-        placeholder="Prompt the agent — its changes show up in the graph">
-      <button id="prompt-send" type="submit">Run</button>
-    </form>
-    <span id="prompt-busy" hidden><i class="spinner"></i>agent session running</span>
-    <span id="prompt-error" hidden></span>
-  </div>
   <div id="banner" hidden>
     <span id="banner-text"></span>
     <button id="banner-dismiss" title="dismiss">&times;</button>
@@ -96,6 +87,15 @@
       </div>
     </aside>
   </main>
+  <div id="prompt-bar">
+    <form id="prompt-form">
+      <input id="prompt-input" type="text" autocomplete="off"
+        placeholder="Prompt the agent — its changes show up in the graph">
+      <button id="prompt-send" type="submit">Run</button>
+    </form>
+    <span id="prompt-busy" hidden><i class="spinner"></i>agent session running</span>
+    <span id="prompt-error" hidden></span>
+  </div>
   <div id="toast" hidden></div>
   <script src="/static/vendor/cytoscape.min.js"></script>
   <script src="/static/vendor/layout-base.js"></script>

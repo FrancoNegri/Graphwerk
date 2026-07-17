@@ -60,13 +60,15 @@ header {
 
 .paths { font-size: 11px; color: var(--muted); margin-left: auto; text-align: right; }
 
+/* Docked as the body flex column's last row — bottom edge, full width,
+   with main shrinking to make room (ADR 037). */
 #prompt-bar {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 8px 16px;
   background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
 }
 
 #prompt-form { display: flex; flex: 1; max-width: 720px; gap: 8px; }
@@ -292,7 +294,7 @@ textarea {
 
 #toast {
   position: fixed;
-  bottom: 20px;
+  bottom: 68px; /* clears the docked session bar */
   left: 50%;
   transform: translateX(-50%);
   background: #14532d;

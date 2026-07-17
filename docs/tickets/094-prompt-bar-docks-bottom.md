@@ -1,6 +1,6 @@
 # 094. Prompt bar docks to the bottom of the viewport
 
-Status: ready
+Status: done
 Decision: docs/decisions/037-bottom-session-bar-commit-discard.md
 
 ## Goal
