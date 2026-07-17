@@ -59,6 +59,14 @@ def test_graph_node_why_justifies_defaults_to_none_and_is_serialized():
     assert node.to_dict()["why_justifies"] is False
 
 
+def test_graph_node_is_test_omitted_from_dict_unless_true():
+    node = GraphNode(id="a.py", label="a.py", kind="file", path="a.py")
+    assert node.is_test is False
+    assert "is_test" not in node.to_dict()
+    node.is_test = True
+    assert node.to_dict()["is_test"] is True
+
+
 def test_graph_edge_via_imports_defaults_to_none_and_is_serialized():
     edge = GraphEdge(source="a.py::f", target="b.py::g", kind="calls")
     assert edge.via_imports is None

@@ -1,6 +1,6 @@
 from graphwerk.layout import (
     _grouped_by_directory,
-    _is_test_path,
+    is_test_path,
     _orders_by_barycenter,
     assign_layers,
     group_for_path,
@@ -114,10 +114,10 @@ def test_import_from_test_file_does_not_demote_the_importee():
     assert layers["tests/test_app.py"] == 0
 
 
-def test_is_test_path_matches_tests_segment_or_test_filename():
-    assert _is_test_path("tests/foo.py")
-    assert _is_test_path("pkg/test_bar.py")
-    assert not _is_test_path("pkg/app.py")
+def testis_test_path_matches_tests_segment_or_test_filename():
+    assert is_test_path("tests/foo.py")
+    assert is_test_path("pkg/test_bar.py")
+    assert not is_test_path("pkg/app.py")
 
 
 def test_functions_layered_by_intra_file_call_depth():

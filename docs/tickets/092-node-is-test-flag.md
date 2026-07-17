@@ -1,6 +1,6 @@
 # 092. `GraphNode.is_test` in the snapshot payload
 
-Status: ready
+Status: done
 Decision: docs/decisions/036-hide-tests-exempts-changed-and-affected.md
 
 ## Goal

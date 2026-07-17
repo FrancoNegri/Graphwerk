@@ -53,9 +53,10 @@ class GraphNode:
     group: str | None = None  # top-level directory of path; files only, None for symbols
     source: str | None = None  # full text of the node, changed or not
     code: list | None = None  # merged diff/highlight line view (see codeview.py)
+    is_test: bool = False  # path matches the pytest discovery convention
 
     def to_dict(self) -> dict:
-        return {
+        payload = {
             "id": self.id,
             "label": self.label,
             "kind": self.kind,
@@ -71,6 +72,9 @@ class GraphNode:
             "group": self.group,
             "code": self.code,
         }
+        if self.is_test:
+            payload["is_test"] = True
+        return payload
 
 
 @dataclass

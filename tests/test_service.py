@@ -702,3 +702,13 @@ def test_touching_one_files_text_recomputes_only_its_code_views(tmp_path, monkey
 
     assert ("def f():\n    return 1\n", "def f():\n    return 2\n") in calls
     assert not any("def g" in (base_text or "") or "def g" in (staged_text or "") for base_text, staged_text in calls)
+
+
+def test_snapshot_flags_test_file_and_symbol_nodes_as_is_test(tmp_path):
+    service = make_service(tmp_path, {
+        "tests/test_x.py": "def test_one():\n    pass\n",
+        "pkg/mod.py": "def helper():\n    pass\n",
+    })
+    nodes = service.snapshot().nodes
+    flagged = {node.id for node in nodes if node.is_test}
+    assert flagged == {"tests/test_x.py", "tests/test_x.py::test_one"}

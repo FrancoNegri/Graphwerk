@@ -7,7 +7,7 @@ from pathlib import Path
 
 from graphwerk.codeview import build_code_view
 from graphwerk.indexing.walk import iter_python_files
-from graphwerk.layout import assign_layers
+from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder
@@ -84,6 +84,7 @@ class GraphService:
                     diff=change.diff or None,
                     source=change.source,
                     code=self._code_view(change.base_source, change.staged_source),
+                    is_test=is_test_path(rel),
                 )
             )
             index = change.staged or change.base
@@ -117,6 +118,7 @@ class GraphService:
                             base_info.source if base_info else None,
                             staged_info.source if staged_info else None,
                         ),
+                        is_test=is_test_path(rel),
                     )
                 )
                 simple = qualname.split(".")[-1]

@@ -70,7 +70,7 @@ def _layered_adjacencies(
 _TEST_PATH_SEGMENTS = {"tests", "test"}
 
 
-def _is_test_path(path: str) -> bool:
+def is_test_path(path: str) -> bool:
     """A file counts as a test file by pytest's own discovery convention:
     a tests/test-named path segment, or a test_*.py/*_test.py filename."""
     filename = path.rpartition("/")[2]
@@ -89,7 +89,7 @@ def _import_adjacency(
     for edge in edges:
         if edge.kind != "imports" or edge.source == edge.target:
             continue
-        if _is_test_path(edge.source):
+        if is_test_path(edge.source):
             continue
         imported_files_of.setdefault(edge.source, set())
         imported_files_of.setdefault(edge.target, set())
