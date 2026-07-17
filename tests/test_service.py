@@ -712,3 +712,30 @@ def test_snapshot_flags_test_file_and_symbol_nodes_as_is_test(tmp_path):
     nodes = service.snapshot().nodes
     flagged = {node.id for node in nodes if node.is_test}
     assert flagged == {"tests/test_x.py", "tests/test_x.py::test_one"}
+
+
+def test_snapshot_meta_carries_the_mined_commit_message(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def f():\n    return 1\n"})
+    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+
+    transcript = tmp_path / "session.jsonl"
+    write_transcript(transcript, [
+        assistant_entry(text_block(
+            "- `a.py` (`f`): bumps the value because the request asked for it\n"
+            "\n"
+            "Commit-message: Bump f's return value"
+        )),
+    ])
+    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
+    service = GraphService(base, staged, rationale)
+
+    assert service.snapshot().meta["commit_message"] == "Bump f's return value"
+
+
+def test_snapshot_meta_commit_message_is_null_without_the_line(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    pass\n"})
+    meta = service.snapshot().meta
+    assert "commit_message" in meta
+    assert meta["commit_message"] is None

@@ -63,7 +63,12 @@ class GraphService:
     def snapshot(self) -> Snapshot:
         changes = self.builder.build()
         self.rationale.reload(changed_symbols=self._changed_symbols(changes))
-        snap = Snapshot(meta={"rationale": self.rationale.status.to_dict()})
+        snap = Snapshot(meta={
+            "rationale": self.rationale.status.to_dict(),
+            # null (not absent) when no message was mined, so the UI can
+            # tell "no message" apart from an old payload (ADR 037)
+            "commit_message": self.rationale.commit_message,
+        })
         name_to_ids: dict[str, list[str]] = {}  # simple name -> symbol node ids
         symbol_calls: dict[str, set[str]] = {}  # node id -> called simple names
 

@@ -21,6 +21,7 @@ from graphwerk.rationale.attribution import (
     attribute_files,
     attribute_guidance_bullets,
     attribute_symbols,
+    parse_commit_message,
     reason_justifies,
 )
 from graphwerk.rationale.discovery import find_latest_transcript
@@ -73,6 +74,7 @@ class RationaleStore:
         self.base_root = base_root
         self._sidecar: dict[str, str] = {}
         self._transcript: dict[str, RationaleEntry] = {}  # rel_path -> latest narration
+        self.commit_message: str | None = None  # session-closing line (ADR 037)
         self.status = RationaleStatus()
         self.reload()
 
@@ -80,7 +82,11 @@ class RationaleStore:
         sidecar_entries = self._load_sidecar()
         self._sidecar = sidecar_entries if sidecar_entries is not None else {}
         transcript_path = self._usable_transcript_path()
-        self._transcript = self._mine_transcript(transcript_path, changed_symbols or {})
+        segments, edits = (
+            parse_transcript(transcript_path, self.staged_root) if transcript_path else ([], [])
+        )
+        self._transcript = self._mine_transcript(segments, edits, changed_symbols or {})
+        self.commit_message = parse_commit_message(segments)
         self.status = RationaleStatus(
             sidecar_path=str(self.sidecar_path) if sidecar_entries is not None else None,
             sidecar_entries=len(self._sidecar),
@@ -188,11 +194,8 @@ class RationaleStore:
         except (json.JSONDecodeError, OSError):
             return None
 
-    def _mine_transcript(self, transcript_path: Path | None,
+    def _mine_transcript(self, segments: list, edits: list,
                          changed_symbols: dict[str, list[str]]) -> dict[str, RationaleEntry]:
-        if not transcript_path:
-            return {}
-        segments, edits = parse_transcript(transcript_path, self.staged_root)
         rationale: dict[str, RationaleEntry] = {}
         for edit in edits:
             if edit.last_segment_index is not None:

@@ -1,6 +1,6 @@
 # 096. Snapshot meta carries the mined commit message
 
-Status: ready
+Status: done
 Decision: docs/decisions/037-bottom-session-bar-commit-discard.md
 
 ## Goal
