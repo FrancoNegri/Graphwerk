@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from graphwerk.indexing.python_ast import PythonAstExtractor
+from graphwerk.models import Status
 from graphwerk.staging import ChangeSetBuilder
 
 
@@ -108,6 +109,35 @@ def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatc
     builder.build()
 
     assert calls == []
+
+
+def test_modified_file_imports_split_into_added_removed_unchanged(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "import kept\nimport gone\n\ndef f():\n    pass\n"},
+        staged={"a.py": "import kept\nimport fresh\n\ndef f():\n    pass\n"},
+    )
+    assert changes["a.py"].imports == {
+        "kept": Status.UNCHANGED,
+        "gone": Status.DELETED,
+        "fresh": Status.ADDED,
+    }
+
+
+def test_added_file_imports_are_all_added(tmp_path):
+    changes = build_changes(tmp_path, base={}, staged={"new.py": "import fresh\n\nx = 1\n"})
+    assert changes["new.py"].imports == {"fresh": Status.ADDED}
+
+
+def test_deleted_file_imports_are_all_deleted(tmp_path):
+    changes = build_changes(tmp_path, base={"old.py": "import gone\n\nx = 1\n"}, staged={})
+    assert changes["old.py"].imports == {"gone": Status.DELETED}
+
+
+def test_unchanged_file_imports_are_all_unchanged(tmp_path):
+    text = "import kept\n\nx = 1\n"
+    changes = build_changes(tmp_path, base={"a.py": text}, staged={"a.py": text})
+    assert changes["a.py"].imports == {"kept": Status.UNCHANGED}
 
 
 def test_touching_one_file_reparses_only_that_file(tmp_path, monkeypatch):

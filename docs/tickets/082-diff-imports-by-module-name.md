@@ -1,6 +1,6 @@
 # 082. Diff imports as added/removed/unchanged per file
 
-Status: ready
+Status: done
 Decision: docs/decisions/033-import-edge-status-and-pertinent-import-inspection.md
 
 ## Goal

@@ -31,6 +31,8 @@ class FileChange:
         self.diff = diff
         # qualname -> (status, symbol-level unified diff)
         self.symbols: dict[str, tuple[Status, str]] = {}
+        # module name -> status
+        self.imports: dict[str, Status] = {}
         # full staged text (base text for deleted files); None if unreadable
         self.source: str | None = None
         self.base_source: str | None = None
@@ -61,14 +63,20 @@ class ChangeSetBuilder:
                 change = FileChange(rel, Status.DELETED, base, None, _file_diff(rel, base_text, staged_text))
                 for qualname in base.symbols:
                     change.symbols[qualname] = (Status.DELETED, self._symbol_diff(base, None, qualname))
+                for module in base.imports:
+                    change.imports[module] = Status.DELETED
             elif base is None and staged is not None:
                 change = FileChange(rel, Status.ADDED, None, staged, _file_diff(rel, base_text, staged_text))
                 for qualname in staged.symbols:
                     change.symbols[qualname] = (Status.ADDED, self._symbol_diff(None, staged, qualname))
+                for module in staged.imports:
+                    change.imports[module] = Status.ADDED
             elif base_bytes is not None and base_bytes == staged_bytes:
                 change = FileChange(rel, Status.UNCHANGED, base, staged, "")
                 for qualname in staged.symbols:
                     change.symbols[qualname] = (Status.UNCHANGED, "")
+                for module in staged.imports:
+                    change.imports[module] = Status.UNCHANGED
             else:
                 change = FileChange(rel, Status.MODIFIED, base, staged, _file_diff(rel, base_text, staged_text))
                 for qualname in sorted(set(base.symbols) | set(staged.symbols)):
@@ -83,6 +91,14 @@ class ChangeSetBuilder:
                         status = Status.UNCHANGED
                     diff = "" if status is Status.UNCHANGED else self._symbol_diff(base, staged, qualname)
                     change.symbols[qualname] = (status, diff)
+                for module in sorted(base.imports | staged.imports):
+                    in_base, in_staged = module in base.imports, module in staged.imports
+                    if in_base and not in_staged:
+                        change.imports[module] = Status.DELETED
+                    elif in_staged and not in_base:
+                        change.imports[module] = Status.ADDED
+                    else:
+                        change.imports[module] = Status.UNCHANGED
             change.source = staged_text if staged_text is not None else base_text
             change.base_source = base_text
             change.staged_source = staged_text
