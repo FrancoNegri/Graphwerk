@@ -80,6 +80,9 @@ class GraphEdge:
     kind: str  # "calls" | "imports"
     status: Status = Status.UNCHANGED
     module: str | None = None  # imports-kind only: the module name responsible for the edge
+    # calls-kind, cross-file only: [{"module", "status"}] for each import
+    # of the caller's file that admits the target's file
+    via_imports: list | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +91,7 @@ class GraphEdge:
             "kind": self.kind,
             "status": self.status.value,
             "module": self.module,
+            "via_imports": self.via_imports,
         }
 
 

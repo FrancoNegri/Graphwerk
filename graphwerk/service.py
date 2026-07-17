@@ -166,23 +166,32 @@ class GraphService:
         other (the agendabot phantom-edge case)."""
         status_by_id = {n.id: n.status for n in snap.nodes}
         path_by_id = {n.id: n.path for n in snap.nodes}
-        reachable_files_cache: dict[tuple[str, bool], set[str]] = {}
+        admitting_modules_cache: dict[tuple[str, bool], dict[str, list[str]]] = {}
 
-        def reachable_files(rel: str, caller_deleted: bool) -> set[str]:
+        def admitting_modules_by_file(rel: str, caller_deleted: bool) -> dict[str, list[str]]:
             key = (rel, caller_deleted)
-            cached = reachable_files_cache.get(key)
+            cached = admitting_modules_cache.get(key)
             if cached is not None:
                 return cached
             change = changes.get(rel)
             index = (change.base if caller_deleted else change.staged) if change else None
-            files = {rel}
+            modules_by_file: dict[str, list[str]] = {}
             if index:
-                for module in index.imports:
+                for module in sorted(index.imports):
                     target = resolver.resolve(module)
                     if target:
-                        files.add(target)
-            reachable_files_cache[key] = files
-            return files
+                        modules_by_file.setdefault(target, []).append(module)
+            admitting_modules_cache[key] = modules_by_file
+            return modules_by_file
+
+        def via_imports_entries(caller_rel: str, target_rel: str, modules_by_file: dict) -> list | None:
+            if target_rel == caller_rel:
+                return None
+            import_statuses = changes[caller_rel].imports
+            return [
+                {"module": module, "status": import_statuses[module].value}
+                for module in modules_by_file[target_rel]
+            ]
 
         seen: set[tuple[str, str]] = set()
         for source_id, calls in symbol_calls.items():
@@ -192,17 +201,21 @@ class GraphService:
                 if caller_deleted
                 else {Status.ADDED, Status.MODIFIED, Status.UNCHANGED}
             )
-            allowed_files = reachable_files(path_by_id.get(source_id), caller_deleted)
+            caller_rel = path_by_id.get(source_id)
+            modules_by_file = admitting_modules_by_file(caller_rel, caller_deleted)
+            allowed_files = {caller_rel, *modules_by_file}
             for name in calls:
                 for target_id in name_to_ids.get(name, []):
                     if target_id == source_id or (source_id, target_id) in seen:
                         continue
                     if status_by_id.get(target_id) not in allowed_target_statuses:
                         continue
-                    if path_by_id.get(target_id) not in allowed_files:
+                    target_rel = path_by_id.get(target_id)
+                    if target_rel not in allowed_files:
                         continue
                     seen.add((source_id, target_id))
-                    snap.edges.append(GraphEdge(source_id, target_id, "calls"))
+                    via_imports = via_imports_entries(caller_rel, target_rel, modules_by_file)
+                    snap.edges.append(GraphEdge(source_id, target_id, "calls", via_imports=via_imports))
 
     def _add_import_edges(self, snap: Snapshot, changes: dict, resolver: ModuleFileResolver) -> None:
         for rel, change in changes.items():

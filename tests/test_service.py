@@ -495,6 +495,71 @@ def test_caller_resolves_to_same_named_symbol_in_its_own_file(tmp_path):
     assert ("a.py::run", "a.py::helper") in calls_edge_pairs(snapshot)
 
 
+def test_cross_file_calls_edge_names_added_admitting_import(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "caller.py": "def run():\n    return 1\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    write_tree(staged, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    assert edge.via_imports == [{"module": "helper", "status": "added"}]
+
+
+def test_cross_file_calls_edge_names_unchanged_admitting_import(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    assert edge.via_imports == [{"module": "helper", "status": "unchanged"}]
+
+
+def test_same_file_calls_edge_has_no_via_imports(tmp_path):
+    service = make_service(tmp_path, {
+        "a.py": "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::run", "a.py::helper")
+    assert edge.via_imports is None
+
+
+def test_imports_edge_has_no_via_imports(tmp_path):
+    service = make_service(tmp_path, {
+        "producer.py": "def f():\n    return 1\n",
+        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
+    assert edge.via_imports is None
+
+
+def test_deleted_caller_derives_via_imports_from_base_imports(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
+    assert edge.via_imports == [{"module": "helper", "status": "deleted"}]
+
+
 def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

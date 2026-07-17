@@ -1,6 +1,6 @@
 # 090. Call edges carry the imports that admit them
 
-Status: ready
+Status: done
 Decision: docs/decisions/035-calls-panel-surfaces-admitting-imports.md
 
 ## Goal
