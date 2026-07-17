@@ -42,4 +42,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [031](031-modified-status-blue-not-green.md) | `modified` status turns blue, not green | rejected |
 | [032](032-call-edge-resolution-scoped-to-shared-tree.md) | Call-edge resolution only matches targets that share a tree with the caller | accepted |
 | [033](033-import-edge-status-and-pertinent-import-inspection.md) | Import edges carry per-module status; clicking one shows only the pertinent imports | accepted |
-| [034](034-call-edge-resolution-scoped-to-actual-imports.md) | Call-edge resolution scoped to the caller's own file or its actual imports | proposed |
+| [034](034-call-edge-resolution-scoped-to-actual-imports.md) | Call-edge resolution scoped to the caller's own file or its actual imports | accepted |

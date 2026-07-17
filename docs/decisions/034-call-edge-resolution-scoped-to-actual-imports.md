@@ -1,6 +1,6 @@
 # 034. Call-edge resolution scoped to the caller's own file or its actual imports
 
-Status: proposed
+Status: accepted
 Date: 2026-07-17
 
 ## Context

@@ -1,6 +1,6 @@
 # 085. Scope call-edge resolution to the caller's file or its actual imports
 
-Status: ready
+Status: done
 Decision: docs/decisions/034-call-edge-resolution-scoped-to-actual-imports.md
 
 ## Goal

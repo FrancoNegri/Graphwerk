@@ -457,6 +457,44 @@ def test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_statu
     assert edge.status == Status.UNCHANGED
 
 
+def test_caller_does_not_resolve_to_same_named_symbol_in_a_file_it_does_not_import(tmp_path):
+    """Agendabot shape (ADR 034): e2e_runner.py defines and calls its own
+    local _format_history and does not import conversation.py at all;
+    conversation.py's unrelated same-named _format_history must not wire in
+    just because the simple name matches."""
+    service = make_service(tmp_path, {
+        "e2e_runner.py": (
+            "def _format_history(entries):\n    return entries\n\n"
+            "def run_e2e_scenario():\n    return _format_history([])\n"
+        ),
+        "conversation.py": "def _format_history(entries):\n    return entries\n",
+    })
+    snapshot = service.snapshot()
+
+    pairs = calls_edge_pairs(snapshot)
+    assert ("e2e_runner.py::run_e2e_scenario", "conversation.py::_format_history") not in pairs
+    assert ("e2e_runner.py::run_e2e_scenario", "e2e_runner.py::_format_history") in pairs
+
+
+def test_caller_resolves_to_same_named_symbol_in_a_file_it_does_import(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("caller.py::run", "helper.py::do_work") in calls_edge_pairs(snapshot)
+
+
+def test_caller_resolves_to_same_named_symbol_in_its_own_file(tmp_path):
+    service = make_service(tmp_path, {
+        "a.py": "def helper():\n    return 1\n\ndef run():\n    return helper()\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("a.py::run", "a.py::helper") in calls_edge_pairs(snapshot)
+
+
 def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

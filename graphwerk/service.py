@@ -123,8 +123,9 @@ class GraphService:
                 name_to_ids.setdefault(simple, []).append(node_id)
                 symbol_calls[node_id] = info.calls
 
-        self._add_call_edges(snap, name_to_ids, symbol_calls)
-        self._add_import_edges(snap, changes)
+        resolver = ModuleFileResolver(changes)
+        self._add_call_edges(snap, name_to_ids, symbol_calls, changes, resolver)
+        self._add_import_edges(snap, changes, resolver)
         self._mark_affected(snap)
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
@@ -149,33 +150,61 @@ class GraphService:
                 digest.update(f"{rel}:{stat.st_mtime_ns}:{stat.st_size};".encode())
         return digest.hexdigest()
 
-    def _add_call_edges(self, snap: Snapshot, name_to_ids: dict, symbol_calls: dict) -> None:
-        """Only wires a caller to targets that shared a parsed tree with it
-        (ADR 032): a deleted caller's calls list came from base_info, so it
-        may only resolve within base; every other caller's calls list came
-        from staged_info, so it may only resolve within staged. Otherwise a
-        relocated symbol's old and new copies (same simple name, one
-        deleted, one added) would wire together despite never having
-        coexisted in either tree."""
+    def _add_call_edges(
+        self, snap: Snapshot, name_to_ids: dict, symbol_calls: dict, changes: dict, resolver: ModuleFileResolver
+    ) -> None:
+        """Only wires a caller to targets that (a) shared a parsed tree with
+        it (ADR 032) and (b) live in a file the caller can actually reach —
+        its own file, or a file resolved from its relevant tree's imports
+        (ADR 034). A deleted caller's calls/imports came from base_info, so
+        both checks resolve within base; every other caller's came from
+        staged_info, so both resolve within staged. Without (a), a relocated
+        symbol's old and new copies (same simple name, one deleted, one
+        added) would wire together despite never having coexisted in either
+        tree. Without (b), any two same-named symbols anywhere in the repo
+        would wire together regardless of whether either file can see the
+        other (the agendabot phantom-edge case)."""
         status_by_id = {n.id: n.status for n in snap.nodes}
+        path_by_id = {n.id: n.path for n in snap.nodes}
+        reachable_files_cache: dict[tuple[str, bool], set[str]] = {}
+
+        def reachable_files(rel: str, caller_deleted: bool) -> set[str]:
+            key = (rel, caller_deleted)
+            cached = reachable_files_cache.get(key)
+            if cached is not None:
+                return cached
+            change = changes.get(rel)
+            index = (change.base if caller_deleted else change.staged) if change else None
+            files = {rel}
+            if index:
+                for module in index.imports:
+                    target = resolver.resolve(module)
+                    if target:
+                        files.add(target)
+            reachable_files_cache[key] = files
+            return files
+
         seen: set[tuple[str, str]] = set()
         for source_id, calls in symbol_calls.items():
+            caller_deleted = status_by_id.get(source_id) is Status.DELETED
             allowed_target_statuses = (
                 {Status.DELETED, Status.MODIFIED, Status.UNCHANGED}
-                if status_by_id.get(source_id) is Status.DELETED
+                if caller_deleted
                 else {Status.ADDED, Status.MODIFIED, Status.UNCHANGED}
             )
+            allowed_files = reachable_files(path_by_id.get(source_id), caller_deleted)
             for name in calls:
                 for target_id in name_to_ids.get(name, []):
                     if target_id == source_id or (source_id, target_id) in seen:
                         continue
                     if status_by_id.get(target_id) not in allowed_target_statuses:
                         continue
+                    if path_by_id.get(target_id) not in allowed_files:
+                        continue
                     seen.add((source_id, target_id))
                     snap.edges.append(GraphEdge(source_id, target_id, "calls"))
 
-    def _add_import_edges(self, snap: Snapshot, changes: dict) -> None:
-        resolver = ModuleFileResolver(changes)
+    def _add_import_edges(self, snap: Snapshot, changes: dict, resolver: ModuleFileResolver) -> None:
         for rel, change in changes.items():
             base_index, staged_index = change.base, change.staged
             all_modules = (base_index.imports if base_index else set()) | (
