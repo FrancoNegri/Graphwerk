@@ -1,6 +1,6 @@
 # 087. Normalize relative paths in Bash deletion tracking
 
-Status: ready
+Status: done
 Decision: docs/audit/runs/001-2026-07-17.md
 
 ## Goal

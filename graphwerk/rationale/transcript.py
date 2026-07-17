@@ -8,6 +8,7 @@ place in the narration order.
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,7 +79,12 @@ def _bash_deleted_rel_paths(command: str, staged_root: Path) -> list[str]:
     for token in match.group("args").split():
         if token.startswith("-"):
             continue
-        rel_path = _to_staged_rel(token, staged_root) if Path(token).is_absolute() else token
+        if Path(token).is_absolute():
+            rel_path = _to_staged_rel(token, staged_root)
+        else:
+            # the file is gone by the time the transcript is mined, so
+            # ./x.py and a/../b.py must be normalized lexically, not resolved
+            rel_path = posixpath.normpath(token)
         if rel_path:
             rel_paths.append(rel_path)
     return rel_paths

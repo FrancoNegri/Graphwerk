@@ -156,6 +156,53 @@ def test_git_rm_with_multiple_paths_emits_an_event_per_path(tmp_path, staged_roo
     assert {edit.rel_path for edit in edits} == {"a.py", "b.py"}
 
 
+def test_rm_with_dot_slash_prefix_normalizes_to_node_path(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(
+            text_block("Removing the old module."),
+            bash_block("rm ./old.py"),
+        ),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [(edit.rel_path, edit.last_segment_index) for edit in edits] == [("old.py", 0)]
+
+
+def test_git_rm_with_dot_slash_prefix_normalizes_to_node_path(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(bash_block("git rm ./sub/old.py")),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [edit.rel_path for edit in edits] == ["sub/old.py"]
+
+
+def test_rm_with_parent_traversal_token_normalizes_lexically(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(bash_block("rm sub/../old.py")),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [edit.rel_path for edit in edits] == ["old.py"]
+
+
+def test_rm_with_plain_relative_token_keeps_it_as_is(tmp_path, staged_root):
+    transcript = tmp_path / "session.jsonl"
+    write_jsonl(transcript, [
+        assistant_entry(bash_block("rm src/x.py")),
+    ])
+
+    _, edits = parse_transcript(transcript, staged_root)
+
+    assert [edit.rel_path for edit in edits] == ["src/x.py"]
+
+
 def test_bash_call_unrelated_to_rm_produces_no_edit_event(tmp_path, staged_root):
     transcript = tmp_path / "session.jsonl"
     write_jsonl(transcript, [
