@@ -25,6 +25,13 @@ Big decisions and small implementation steps are deliberately separated:
 - **`ticket` skill** — implements exactly one ticket via strict TDD, small
   single-responsibility classes, minimum coupling between the layers below,
   and a passing test for everything touched.
+- **`audit` skill** — periodic full-repo consistency sweep. Re-reads
+  docs/02-04, CLAUDE.md, and its own ledger at `docs/audit/README.md`,
+  checks the code for doc/code drift, bugs, and missing test coverage, and
+  files a ticket for anything actionable. Documents only, like `north-star`.
+- **`audit-tests` skill** — works through the missing-test backlog `audit`
+  queues, one TDD pass per finding. If a new test reveals a real bug
+  instead of just a gap, it tickets that too rather than fixing it inline.
 
 Don't skip straight to multi-file code changes for anything that would
 count as an architectural decision — run `north-star` first.

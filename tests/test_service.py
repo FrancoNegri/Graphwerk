@@ -333,7 +333,14 @@ def test_calls_edge_into_added_target_has_added_status(tmp_path):
     assert edge.status == Status.ADDED
 
 
-def test_calls_edge_into_deleted_target_has_deleted_status(tmp_path):
+def calls_edge_pairs(snapshot) -> set[tuple[str, str]]:
+    return {(e.source, e.target) for e in snapshot.edges if e.kind == "calls"}
+
+
+def test_unchanged_caller_does_not_resolve_to_deleted_target_it_no_longer_calls(tmp_path):
+    """Mirror phantom case (ADR 032): a caller whose calls came from
+    staged_info must not resolve to a deleted (base-only) target it never
+    actually called in the staged tree, even if the name still matches."""
     base = tmp_path / "base"
     staged = tmp_path / "staged"
     write_tree(base, {"a.py": "def gone():\n    return 1\n\ndef caller():\n    return gone()\n"})
@@ -341,7 +348,48 @@ def test_calls_edge_into_deleted_target_has_deleted_status(tmp_path):
     service = GraphService(base, staged, RationaleStore(staged_root=staged))
     snapshot = service.snapshot()
 
-    edge = edge_between(snapshot, "a.py::caller", "a.py::gone")
+    assert ("a.py::caller", "a.py::gone") not in calls_edge_pairs(snapshot)
+
+
+def test_unchanged_caller_does_not_resolve_to_deleted_target_in_another_file(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "a.py": "def caller():\n    return helper()\n",
+        "b.py": "def helper():\n    return 1\n",
+    })
+    write_tree(staged, {"a.py": "def caller():\n    return helper()\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    assert ("a.py::caller", "b.py::helper") not in calls_edge_pairs(snapshot)
+
+
+def test_deleted_caller_does_not_resolve_to_added_target_with_same_name(tmp_path):
+    """Phantom case (ADR 032): a deleted (base-only) caller must not resolve
+    to an added (staged-only) target that only exists in the other tree,
+    e.g. a relocated symbol's old and new copies sharing a simple name."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def gone():\n    return helper()\n"})
+    write_tree(staged, {"b.py": "def helper():\n    return 1\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    assert ("a.py::gone", "b.py::helper") not in calls_edge_pairs(snapshot)
+
+
+def test_deleted_caller_still_resolves_to_deleted_target_it_actually_called(tmp_path):
+    """Regression guard (ADR 032): the deleted -> deleted pairing that
+    reconstructs a gutted file's real internal wiring stays intact."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"})
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::gone", "a.py::helper")
     assert edge.status == Status.DELETED
 
 

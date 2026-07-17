@@ -92,3 +92,8 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [078](078-collapsed-deleted-pill-dashed-treatment.md) | Collapsed deleted-status pills keep the dashed/faded look (hue superseded by 030: red, not stone) | ready | [029](../decisions/029-collapsed-deleted-pill-visual-treatment.md) |
 | [079](079-modified-status-turns-green.md) | `modified` status turns green | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
 | [080](080-decouple-prompt-error-color.md) | Decouple `#prompt-error` from the status palette | ready | [030](../decisions/030-status-palette-modified-green-deleted-red.md) |
+| [081](081-scope-call-edges-to-shared-tree.md) | Scope call-edge target resolution to the caller's tree | done | [032](../decisions/032-call-edge-resolution-scoped-to-shared-tree.md) |
+| [082](082-diff-imports-by-module-name.md) | Diff imports as added/removed/unchanged per file | ready | [033](../decisions/033-import-edge-status-and-pertinent-import-inspection.md) |
+| [083](083-import-edges-carry-module-status.md) | Import edges carry per-module status and the responsible module name | ready | [033](../decisions/033-import-edge-status-and-pertinent-import-inspection.md) |
+| [084](084-import-edge-status-color-and-click-panel.md) | Import edges colored by status; clicking one lists the pertinent imports | ready | [033](../decisions/033-import-edge-status-and-pertinent-import-inspection.md) |
+| [085](085-scope-call-edges-to-caller-imports.md) | Scope call-edge resolution to the caller's file or its actual imports | ready | [034](../decisions/034-call-edge-resolution-scoped-to-actual-imports.md) |

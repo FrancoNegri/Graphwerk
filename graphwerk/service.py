@@ -150,11 +150,26 @@ class GraphService:
         return digest.hexdigest()
 
     def _add_call_edges(self, snap: Snapshot, name_to_ids: dict, symbol_calls: dict) -> None:
+        """Only wires a caller to targets that shared a parsed tree with it
+        (ADR 032): a deleted caller's calls list came from base_info, so it
+        may only resolve within base; every other caller's calls list came
+        from staged_info, so it may only resolve within staged. Otherwise a
+        relocated symbol's old and new copies (same simple name, one
+        deleted, one added) would wire together despite never having
+        coexisted in either tree."""
+        status_by_id = {n.id: n.status for n in snap.nodes}
         seen: set[tuple[str, str]] = set()
         for source_id, calls in symbol_calls.items():
+            allowed_target_statuses = (
+                {Status.DELETED, Status.MODIFIED, Status.UNCHANGED}
+                if status_by_id.get(source_id) is Status.DELETED
+                else {Status.ADDED, Status.MODIFIED, Status.UNCHANGED}
+            )
             for name in calls:
                 for target_id in name_to_ids.get(name, []):
                     if target_id == source_id or (source_id, target_id) in seen:
+                        continue
+                    if status_by_id.get(target_id) not in allowed_target_statuses:
                         continue
                     seen.add((source_id, target_id))
                     snap.edges.append(GraphEdge(source_id, target_id, "calls"))
