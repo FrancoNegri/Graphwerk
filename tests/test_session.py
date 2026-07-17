@@ -158,6 +158,7 @@ def make_settling_runner(staged_root, output=b'{"session_id": "sess-race"}'):
     runner._child = SlowExitingChild()
     runner._child_output = tempfile.TemporaryFile()
     runner._child_output.write(output)
+    runner._child_errors = tempfile.TemporaryFile()
     runner._state = "running"
     return runner
 
@@ -230,3 +231,49 @@ def test_failed_run_keeps_last_successful_session_id(staged_root, tmp_path):
 
     assert finished["state"] == "failed"
     assert finished["session_id"] == "sess-1"
+
+
+def test_stderr_warning_does_not_corrupt_the_session_result(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo "warning: connectors disabled" >&2\n'
+                               'echo \'{"session_id": "sess-clean"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("hello")
+    finished = wait_until_finished(runner)
+
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-clean"}
+
+
+def test_event_array_output_yields_the_result_events_session_id(staged_root, tmp_path):
+    events = ('[{"type": "system", "subtype": "init", "session_id": "sess-events"},'
+              ' {"type": "assistant", "session_id": "sess-events"},'
+              ' {"type": "result", "subtype": "success", "session_id": "sess-events"}]')
+    stub = make_stub(tmp_path, f"echo '{events}'")
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("hello")
+    finished = wait_until_finished(runner)
+
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-events"}
+
+
+def test_nonzero_exit_detail_includes_stderr(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo "credit balance too low" >&2\nexit 1')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("hello")
+    finished = wait_until_finished(runner)
+
+    assert finished["state"] == "failed"
+    assert "credit balance too low" in finished["detail"]
+
+
+def test_unparseable_output_detail_includes_a_snippet(staged_root, tmp_path):
+    stub = make_stub(tmp_path, "echo not-json-at-all")
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("hello")
+    finished = wait_until_finished(runner)
+
+    assert finished["state"] == "failed"
+    assert "not-json-at-all" in finished["detail"]

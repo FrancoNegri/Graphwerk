@@ -25,6 +25,7 @@ class SessionRunner:
         self.system_prompt = system_prompt
         self._child: subprocess.Popen | None = None
         self._child_output = None
+        self._child_errors = None
         self._state = "idle"
         self._detail = ""
         self._last_session_id = ""
@@ -41,14 +42,16 @@ class SessionRunner:
                        "--permission-mode", self.permission_mode]
             if self.system_prompt:
                 command += ["--append-system-prompt", self.system_prompt]
+            # stderr kept apart from stdout: a stray CLI warning must not
+            # corrupt the JSON result, and it's the useful detail on failure
             self._child_output = tempfile.TemporaryFile()
+            self._child_errors = tempfile.TemporaryFile()
             try:
                 self._child = subprocess.Popen(command, cwd=self.staged_root,
                                                stdout=self._child_output,
-                                               stderr=subprocess.STDOUT)
+                                               stderr=self._child_errors)
             except OSError as exc:
-                self._child_output.close()
-                self._child_output = None
+                self._close_child_files()
                 self._state = "failed"
                 self._detail = f"could not launch {self.claude_cmd}: {exc}"
                 return self._status_locked()
@@ -69,20 +72,61 @@ class SessionRunner:
                 "session_id": self._last_session_id}
 
     def _settle(self, exit_code: int) -> None:
-        self._child_output.seek(0)
-        output = self._child_output.read().decode(errors="replace")
-        self._child_output.close()
-        self._child_output = None
+        output = _read_back(self._child_output)
+        errors = _read_back(self._child_errors)
+        self._close_child_files()
         self._child = None
         if exit_code != 0:
             self._state = "failed"
             self._detail = f"{self.claude_cmd} exited with code {exit_code}"
+            if errors.strip():
+                self._detail += f": {_snippet(errors)}"
             return
-        try:
-            self._last_session_id = json.loads(output)["session_id"]
-        except (json.JSONDecodeError, KeyError, TypeError):
+        session_id = _session_id_from(output)
+        if session_id is None:
             self._state = "failed"
-            self._detail = f"{self.claude_cmd} succeeded but returned no parseable session result"
+            self._detail = (f"{self.claude_cmd} succeeded but returned no parseable "
+                            f"session result: {_snippet(output)}")
             return
+        self._last_session_id = session_id
         self._state = "done"
         self._detail = ""
+
+    def _close_child_files(self) -> None:
+        for handle in (self._child_output, self._child_errors):
+            if handle is not None:
+                handle.close()
+        self._child_output = None
+        self._child_errors = None
+
+
+def _read_back(handle) -> str:
+    if handle is None:
+        return ""
+    handle.seek(0)
+    return handle.read().decode(errors="replace")
+
+
+def _snippet(text: str, limit: int = 300) -> str:
+    text = text.strip()
+    return text[:limit] + ("…" if len(text) > limit else "")
+
+
+def _session_id_from(output: str) -> str | None:
+    """claude ≤2.0's --output-format json printed one result object; 2.1+
+    prints the whole event list, whose closing "result" event owns the
+    session id. Accept both, falling back to any event that carries one."""
+    try:
+        parsed = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    if not isinstance(parsed, list):
+        return None
+    events = [entry for entry in parsed
+              if isinstance(entry, dict) and isinstance(entry.get("session_id"), str)]
+    for event in reversed(events):
+        if event.get("type") == "result":
+            return event["session_id"]
+    return events[-1]["session_id"] if events else None
