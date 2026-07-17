@@ -103,3 +103,14 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [089](089-sync-ticket-statuses.md) | Sync ticket statuses with reality (README rows + tickets 078-080) | done | [audit 001](../audit/runs/001-2026-07-17.md) |
 | [090](090-call-edges-carry-admitting-imports.md) | Call edges carry the imports that admit them | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
 | [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
+| [092](092-node-is-test-flag.md) | `GraphNode.is_test` in the snapshot payload | ready | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
+| [093](093-hide-tests-exempts-changed-affected.md) | Hide-tests filter exempts changed and affected test nodes | ready | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
+| [094](094-prompt-bar-docks-bottom.md) | Prompt bar docks to the bottom of the viewport | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [095](095-commit-message-guidance-and-parse.md) | Commit-message line: session guidance + transcript parse | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [096](096-commit-message-in-snapshot-meta.md) | Snapshot meta carries the mined commit message | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [097](097-commit-endpoint.md) | Commit-all: engine + `/api/commit` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [098](098-discard-endpoint.md) | Discard-all: engine + `/api/discard` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [099](099-session-bar-commit-discard-ui.md) | Session bar UI: commit message box + commit/discard buttons | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [100](100-extractor-captures-import-statement-text.md) | Extractor captures import statement text and line | ready | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
+| [101](101-via-imports-entries-carry-statement-code.md) | `via_imports` entries carry the statement as code lines | ready | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
+| [102](102-admitting-imports-render-with-rendercode.md) | Admitting-imports section renders the statement via `renderCode` | ready | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |

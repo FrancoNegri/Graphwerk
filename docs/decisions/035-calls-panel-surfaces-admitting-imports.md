@@ -97,4 +97,8 @@ Make the admitting import part of the call edge itself, end to end:
 - Changing the imports-view default visibility (see Alternatives).
 - Extending blast radius through imports — still deferred, per ADR 033.
 - Line-level import text / aliasing — still deferred, per ADR 033.
+  *(Reversed for statement text by
+  [ADR 038](038-admitting-imports-render-as-real-statements.md),
+  2026-07-17, after dogfooding this panel; aliasing analysis stays
+  deferred.)*
 - Relative-import dot-level resolution — ticket 054, separate.

@@ -3,6 +3,13 @@
 Status: accepted
 Date: 2026-07-17
 
+*Amended 2026-07-17:* the "line-level import extraction — deferred"
+alternative below is partially reversed by
+[ADR 038](038-admitting-imports-render-as-real-statements.md): the
+extractor now captures verbatim import statement text (for the calls
+panel's admitting-imports section). Aliasing analysis stays deferred, and
+this ADR's module-name granularity for edge status is unchanged.
+
 ## Context
 
 Phase 2's real-repo hardening goal (docs/04-roadmap.md) is to fix what the

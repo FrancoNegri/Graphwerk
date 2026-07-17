@@ -44,3 +44,6 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [033](033-import-edge-status-and-pertinent-import-inspection.md) | Import edges carry per-module status; clicking one shows only the pertinent imports | accepted |
 | [034](034-call-edge-resolution-scoped-to-actual-imports.md) | Call-edge resolution scoped to the caller's own file or its actual imports | accepted |
 | [035](035-calls-panel-surfaces-admitting-imports.md) | Call edges carry the imports that admit them; the calls panel shows them | proposed |
+| [036](036-hide-tests-exempts-changed-and-affected.md) | Hide-tests exempts changed and affected tests | proposed |
+| [037](037-bottom-session-bar-commit-discard.md) | Bottom session bar: commit message + commit-all / discard | proposed |
+| [038](038-admitting-imports-render-as-real-statements.md) | Admitting imports render as the real import statements | proposed |
