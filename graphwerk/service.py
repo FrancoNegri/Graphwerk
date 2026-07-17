@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 
 from graphwerk.codeview import build_code_view
+from graphwerk.highlight import highlight_lines
 from graphwerk.indexing.walk import iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
@@ -191,12 +192,21 @@ class GraphService:
             admitting_modules_cache[key] = modules_by_file
             return modules_by_file
 
-        def via_imports_entries(caller_rel: str, target_rel: str, modules_by_file: dict) -> list | None:
+        def via_imports_entries(
+            caller_rel: str, target_rel: str, modules_by_file: dict, caller_deleted: bool
+        ) -> list | None:
             if target_rel == caller_rel:
                 return None
-            import_statuses = changes[caller_rel].imports
+            change = changes[caller_rel]
+            index = change.base if caller_deleted else change.staged
             return [
-                {"module": module, "status": import_statuses[module].value}
+                {
+                    "module": module,
+                    "status": change.imports[module].value,
+                    "code": _statement_code_lines(
+                        index.import_statements.get(module), change.imports[module]
+                    ),
+                }
                 for module in modules_by_file[target_rel]
             ]
 
@@ -221,7 +231,7 @@ class GraphService:
                     if target_rel not in allowed_files:
                         continue
                     seen.add((source_id, target_id))
-                    via_imports = via_imports_entries(caller_rel, target_rel, modules_by_file)
+                    via_imports = via_imports_entries(caller_rel, target_rel, modules_by_file, caller_deleted)
                     snap.edges.append(GraphEdge(source_id, target_id, "calls", via_imports=via_imports))
 
     def _add_import_edges(self, snap: Snapshot, changes: dict, resolver: ModuleFileResolver) -> None:
@@ -264,3 +274,25 @@ class GraphService:
             target_status = status_by_id.get(edge.target)
             if target_status in CHANGED:
                 edge.status = target_status
+
+
+_IMPORT_STATUS_TO_OP = {Status.ADDED: "add", Status.DELETED: "del"}
+
+
+def _statement_code_lines(statement: tuple[str, int] | None, status: Status) -> list | None:
+    """Render one import statement in the code-view line shape the panel
+    already consumes (ADR 038), so the frontend reuses renderCode as-is."""
+    if statement is None:
+        return None
+    text, start_line = statement
+    op = _IMPORT_STATUS_TO_OP.get(status, "ctx")
+    spans_per_line = highlight_lines(text)
+    return [
+        {
+            "text": line_text,
+            "op": op,
+            "line": start_line + offset,
+            "spans": [list(span) for span in spans_per_line[offset]],
+        }
+        for offset, line_text in enumerate(text.splitlines())
+    ]

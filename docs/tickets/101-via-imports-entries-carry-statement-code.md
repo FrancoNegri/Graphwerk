@@ -1,6 +1,6 @@
 # 101. `via_imports` entries carry the statement as code lines
 
-Status: ready
+Status: done
 Decision: docs/decisions/038-admitting-imports-render-as-real-statements.md
 
 ## Goal

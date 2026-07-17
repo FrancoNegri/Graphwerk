@@ -24,6 +24,10 @@ def edge_between(snapshot, source: str, target: str, kind: str = "calls"):
     raise AssertionError(f"no {kind} edge {source} -> {target}")
 
 
+def without_code(via_imports: list) -> list:
+    return [{key: entry[key] for key in ("module", "status")} for entry in via_imports]
+
+
 def make_service(tmp_path: Path, files: dict[str, str]) -> GraphService:
     base = tmp_path / "base"
     staged = tmp_path / "staged"
@@ -510,7 +514,7 @@ def test_cross_file_calls_edge_names_added_admitting_import(tmp_path):
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
-    assert edge.via_imports == [{"module": "helper", "status": "added"}]
+    assert without_code(edge.via_imports) == [{"module": "helper", "status": "added"}]
 
 
 def test_cross_file_calls_edge_names_unchanged_admitting_import(tmp_path):
@@ -521,7 +525,7 @@ def test_cross_file_calls_edge_names_unchanged_admitting_import(tmp_path):
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
-    assert edge.via_imports == [{"module": "helper", "status": "unchanged"}]
+    assert without_code(edge.via_imports) == [{"module": "helper", "status": "unchanged"}]
 
 
 def test_same_file_calls_edge_has_no_via_imports(tmp_path):
@@ -557,7 +561,61 @@ def test_deleted_caller_derives_via_imports_from_base_imports(tmp_path):
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
-    assert edge.via_imports == [{"module": "helper", "status": "deleted"}]
+    assert without_code(edge.via_imports) == [{"module": "helper", "status": "deleted"}]
+
+
+def test_added_import_entry_carries_statement_as_add_code_line(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "caller.py": "def run():\n    return 1\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    write_tree(staged, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    (line,) = entry["code"]
+    assert line["text"] == "import helper"
+    assert line["op"] == "add"
+    assert line["line"] == 1
+    assert line["spans"]
+
+
+def test_deleted_caller_import_entry_code_comes_from_base_statement(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    (line,) = entry["code"]
+    assert line["text"] == "import helper"
+    assert line["op"] == "del"
+
+
+def test_import_present_in_both_trees_renders_as_ctx_code_line(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    (line,) = entry["code"]
+    assert line["op"] == "ctx"
 
 
 def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
