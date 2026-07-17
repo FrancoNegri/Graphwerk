@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.commit import CommitEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
 from graphwerk.service import GraphService
@@ -40,7 +41,8 @@ def client(tmp_path, stub_runner):
                                transcript_path=None, staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
-    return TestClient(create_app(service, engine, stub_runner))
+    commit_engine = CommitEngine(base, engine, service.builder)
+    return TestClient(create_app(service, engine, stub_runner, commit_engine))
 
 
 def test_prompt_starts_a_run_and_returns_its_status(client, stub_runner):
@@ -128,10 +130,45 @@ def test_graph_endpoint_compresses_large_responses(tmp_path, stub_runner):
                                transcript_path=None, staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
-    client = TestClient(create_app(service, engine, stub_runner))
+    commit_engine = CommitEngine(base, engine, service.builder)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine))
 
     response = client.get("/api/graph", headers={"Accept-Encoding": "gzip"})
 
     assert response.status_code == 200
     assert response.headers["content-encoding"] == "gzip"
     assert response.json()["nodes"]
+
+
+def test_commit_endpoint_returns_paths_and_hash(tmp_path, stub_runner):
+    import subprocess
+
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (base / "mod.py").write_text("def f():\n    return 1\n")
+    (staged / "mod.py").write_text("def f():\n    return 2\n")
+    for args in (["init", "-q"], ["config", "user.email", "t@e.st"],
+                 ["config", "user.name", "T"], ["add", "-A"],
+                 ["commit", "-q", "-m", "initial"]):
+        subprocess.run(["git", "-C", str(base), *args], check=True, capture_output=True)
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    commit_engine = CommitEngine(base, engine, service.builder)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine))
+
+    response = client.post("/api/commit", json={"message": "Bump f"})
+
+    assert response.status_code == 200
+    assert response.json()["paths"] == ["mod.py"]
+    assert response.json()["commit"]
+
+
+def test_commit_endpoint_maps_preflight_failures_to_400(client):
+    response = client.post("/api/commit", json={"message": "msg"})
+
+    assert response.status_code == 400
+    assert "git repository" in response.json()["detail"]

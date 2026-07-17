@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from starlette.middleware.gzip import GZipMiddleware
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.commit import CommitEngine, CommitError
 from graphwerk.service import GraphService
 from graphwerk.session import SessionBusyError, SessionRunner
 
@@ -25,6 +26,10 @@ class PromptRequest(BaseModel):
     prompt: str = ""
 
 
+class CommitRequest(BaseModel):
+    message: str = ""
+
+
 class RejectRequest(BaseModel):
     id: str
     label: str = ""
@@ -34,7 +39,7 @@ class RejectRequest(BaseModel):
 
 
 def create_app(service: GraphService, engine: ApplyEngine,
-               runner: SessionRunner) -> FastAPI:
+               runner: SessionRunner, commit_engine: CommitEngine) -> FastAPI:
     app = FastAPI(title="graphwerk")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -63,6 +68,13 @@ def create_app(service: GraphService, engine: ApplyEngine,
         try:
             return {"result": engine.apply_file(req.path)}
         except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.post("/api/commit")
+    def commit(req: CommitRequest):
+        try:
+            return commit_engine.commit_all(req.message)
+        except CommitError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
     @app.post("/api/reject")

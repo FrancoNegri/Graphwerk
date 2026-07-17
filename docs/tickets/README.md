@@ -108,7 +108,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [094](094-prompt-bar-docks-bottom.md) | Prompt bar docks to the bottom of the viewport | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [095](095-commit-message-guidance-and-parse.md) | Commit-message line: session guidance + transcript parse | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [096](096-commit-message-in-snapshot-meta.md) | Snapshot meta carries the mined commit message | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
-| [097](097-commit-endpoint.md) | Commit-all: engine + `/api/commit` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
+| [097](097-commit-endpoint.md) | Commit-all: engine + `/api/commit` | done | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [098](098-discard-endpoint.md) | Discard-all: engine + `/api/discard` | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [099](099-session-bar-commit-discard-ui.md) | Session bar UI: commit message box + commit/discard buttons | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [100](100-extractor-captures-import-statement-text.md) | Extractor captures import statement text and line | ready | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
