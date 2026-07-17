@@ -104,7 +104,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [090](090-call-edges-carry-admitting-imports.md) | Call edges carry the imports that admit them | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
 | [091](091-calls-panel-shows-admitting-imports.md) | Calls panel shows the imports admitting its calls | done | [035](../decisions/035-calls-panel-surfaces-admitting-imports.md) |
 | [092](092-node-is-test-flag.md) | `GraphNode.is_test` in the snapshot payload | done | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
-| [093](093-hide-tests-exempts-changed-affected.md) | Hide-tests filter exempts changed and affected test nodes | ready | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
+| [093](093-hide-tests-exempts-changed-affected.md) | Hide-tests filter exempts changed and affected test nodes | done | [036](../decisions/036-hide-tests-exempts-changed-and-affected.md) |
 | [094](094-prompt-bar-docks-bottom.md) | Prompt bar docks to the bottom of the viewport | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [095](095-commit-message-guidance-and-parse.md) | Commit-message line: session guidance + transcript parse | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |
 | [096](096-commit-message-in-snapshot-meta.md) | Snapshot meta carries the mined commit message | ready | [037](../decisions/037-bottom-session-bar-commit-discard.md) |

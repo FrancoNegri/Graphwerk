@@ -1,6 +1,6 @@
 # 093. Hide-tests filter exempts changed and affected test nodes
 
-Status: ready
+Status: done
 Decision: docs/decisions/036-hide-tests-exempts-changed-and-affected.md
 
 ## Goal

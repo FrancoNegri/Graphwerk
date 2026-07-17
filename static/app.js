@@ -111,10 +111,16 @@ function toElements(data) {
 
   const revealedIds = changedOnlyView ? changedAndBlastRadiusIds(data.nodes, parentOf) : null;
 
+  // Only signal-free test nodes are hideable: a changed or affected test —
+  // itself or via any descendant — is review signal, not noise (ADR 036).
+  const signalFreeTestNode = (n) => n.is_test
+    && n.status === "unchanged"
+    && (strongestStatus.get(n.id) || "unchanged") === "unchanged";
+
   const nodes = data.nodes
     .filter((n) => representativeId(n.id) === n.id
       && (!revealedIds || revealedIds.has(n.id))
-      && (!hideTestsView || !isTestPath(n.path)))
+      && (!hideTestsView || !signalFreeTestNode(n)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (n.group != null) nodeData.group = n.group;
@@ -180,13 +186,6 @@ function changedAndBlastRadiusIds(nodes, parentOf) {
 function setChangedOnlyView(enabled) {
   changedOnlyView = enabled;
   if (graphData) renderGraph(toElements(graphData));
-}
-
-function isTestPath(path) {
-  const segments = path.split("/");
-  if (segments.some((segment) => segment === "tests" || segment === "test")) return true;
-  const filename = segments[segments.length - 1];
-  return /^test_.*\.py$/.test(filename) || /_test\.py$/.test(filename);
 }
 
 function setHideTestsView(enabled) {
