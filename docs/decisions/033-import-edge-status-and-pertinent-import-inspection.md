@@ -1,6 +1,6 @@
 # 033. Import edges carry per-module status; clicking one shows only the pertinent imports
 
-Status: proposed
+Status: accepted
 Date: 2026-07-17
 
 ## Context

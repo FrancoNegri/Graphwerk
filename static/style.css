@@ -213,6 +213,15 @@ section h3 {
 .call-pair[open] summary { border-bottom: 1px solid var(--border); }
 .call-pair section { padding: 10px 12px; }
 
+.import-entry {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.import-entry .chip { margin-right: 8px; }
+
 .diff {
   background: #0b1220;
   border: 1px solid var(--border);

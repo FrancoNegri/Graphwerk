@@ -1,6 +1,6 @@
 # 084. Import edges colored by status; clicking one lists the pertinent imports
 
-Status: ready
+Status: done
 Decision: docs/decisions/033-import-edge-status-and-pertinent-import-inspection.md
 
 ## Goal

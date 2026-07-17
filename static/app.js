@@ -139,7 +139,7 @@ function toElements(data) {
       edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] } };
       edgesById.set(id, edge);
     }
-    edge.data.calls.push({ source: e.source, target: e.target, status: e.status });
+    edge.data.calls.push({ source: e.source, target: e.target, status: e.status, module: e.module });
   }
   return { nodes, edges: [...edgesById.values()] };
 }
@@ -212,7 +212,9 @@ function setCodeDisplayMode(mode) {
     showDetails(nodesById[selectedId]);
   } else if (selectedEdgeId && cy) {
     const edge = cy.getElementById(selectedEdgeId);
-    if (!edge.empty()) showEdgeCalls(edge);
+    if (edge.empty()) return;
+    if (edge.data("kind") === "imports") showEdgeImports(edge);
+    else showEdgeCalls(edge);
   }
 }
 
@@ -369,7 +371,11 @@ function renderGraph(elements) {
       },
       {
         selector: "edge[kind='imports']",
-        style: { "line-style": "dashed", "line-color": "#334155", "target-arrow-color": "#334155" },
+        style: {
+          "line-style": "dashed",
+          "line-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
+          "target-arrow-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
+        },
       },
       {
         // Unchanged edges (all imports edges, most calls edges) are clutter,
@@ -395,6 +401,7 @@ function renderGraph(elements) {
   });
   cy.on("tap", "edge", (evt) => pinEdges(evt.target));
   cy.on("tap", "edge[kind='calls']", (evt) => showEdgeCalls(evt.target));
+  cy.on("tap", "edge[kind='imports']", (evt) => showEdgeImports(evt.target));
   cy.on("tap", (evt) => {
     if (evt.target === cy) {
       clearDetails();
@@ -575,8 +582,29 @@ function showEdgeCalls(edge) {
   document.getElementById("placeholder").hidden = true;
   document.getElementById("details").hidden = true;
   document.getElementById("edge-calls").hidden = false;
+  document.getElementById("edge-calls-title").textContent = "Calls collapsed onto this edge";
   const calls = edge.data("calls");
   document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("");
+}
+
+// Deliberately not the full file diff (already one click away via the file
+// node itself) — just which module(s) were added/removed for this file
+// pair, reusing the calls panel markup (ADR 033).
+function showEdgeImports(edge) {
+  selectedId = null;
+  selectedEdgeId = edge.id();
+  document.getElementById("placeholder").hidden = true;
+  document.getElementById("details").hidden = true;
+  document.getElementById("edge-calls").hidden = false;
+  document.getElementById("edge-calls-title").textContent = "Imports collapsed onto this edge";
+  const imports = edge.data("calls");
+  document.getElementById("d-calls").innerHTML = imports.map(renderImportEntry).join("");
+}
+
+function renderImportEntry({ module, status }) {
+  const badge = `<span class="chip ${status}">${status}</span>`;
+  const sign = status === "deleted" ? "-" : status === "added" ? "+" : " ";
+  return `<div class="import-entry">${badge} ${sign} ${esc(module)}</div>`;
 }
 
 // One closed-by-default <details> per call pair: the summary is the label,
