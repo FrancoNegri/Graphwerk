@@ -1,6 +1,6 @@
 # 098. Discard-all: engine + `/api/discard`
 
-Status: ready
+Status: done
 Decision: docs/decisions/037-bottom-session-bar-commit-discard.md
 
 ## Goal

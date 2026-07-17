@@ -25,7 +25,7 @@ class ApplyEngine:
     def apply_file(self, rel_path: str) -> str:
         src = self.staged_root / rel_path
         dst = self.base_root / rel_path
-        if not _is_within(self.staged_root, src) or not _is_within(self.base_root, dst):
+        if not is_within(self.staged_root, src) or not is_within(self.base_root, dst):
             raise ValueError(f"path escapes workspace: {rel_path}")
         if src.exists():
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ class ApplyEngine:
         return prompt
 
 
-def _is_within(root: Path, path: Path) -> bool:
+def is_within(root: Path, path: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
         return True

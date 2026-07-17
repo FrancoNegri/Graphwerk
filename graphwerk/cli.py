@@ -18,6 +18,7 @@ import uvicorn
 from graphwerk import __version__
 from graphwerk.apply import ApplyEngine
 from graphwerk.commit import CommitEngine
+from graphwerk.discard import DiscardEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.rationale.guidance import SESSION_GUIDANCE
 from graphwerk.server import create_app
@@ -110,7 +111,8 @@ def _serve(base: Path, staged: Path, sidecar: Path | None, transcript: Path | No
     runner = SessionRunner(staged, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)
     commit_engine = CommitEngine(base, engine, service.builder)
-    app = create_app(service, engine, runner, commit_engine)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    app = create_app(service, engine, runner, commit_engine, discard_engine)
     shown = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
     print(f"graphwerk review UI: http://{shown}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="warning")

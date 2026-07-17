@@ -12,6 +12,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from graphwerk.apply import ApplyEngine
 from graphwerk.commit import CommitEngine, CommitError
+from graphwerk.discard import DiscardEngine
 from graphwerk.service import GraphService
 from graphwerk.session import SessionBusyError, SessionRunner
 
@@ -39,7 +40,8 @@ class RejectRequest(BaseModel):
 
 
 def create_app(service: GraphService, engine: ApplyEngine,
-               runner: SessionRunner, commit_engine: CommitEngine) -> FastAPI:
+               runner: SessionRunner, commit_engine: CommitEngine,
+               discard_engine: DiscardEngine) -> FastAPI:
     app = FastAPI(title="graphwerk")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -76,6 +78,13 @@ def create_app(service: GraphService, engine: ApplyEngine,
             return commit_engine.commit_all(req.message)
         except CommitError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.post("/api/discard")
+    def discard():
+        # never yank files out from under a live agent session (ADR 037)
+        if runner.status()["state"] == "running":
+            raise HTTPException(status_code=409, detail="a session is running — wait for it to finish")
+        return {"paths": discard_engine.discard_all()}
 
     @app.post("/api/reject")
     def reject(req: RejectRequest):
