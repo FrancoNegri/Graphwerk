@@ -622,8 +622,13 @@ function showEdgeImports(edge) {
   document.getElementById("d-calls").innerHTML = imports.map(renderImportEntry).join("");
 }
 
-function renderImportEntry({ module, status }) {
+// Entries without a `code` field (the imports-edge panel, or an extractor
+// that captured no statement) keep the chip + module-name fallback (ADR 038).
+function renderImportEntry({ module, status, code }) {
   const badge = `<span class="chip ${status}">${status}</span>`;
+  if (Array.isArray(code) && code.length > 0) {
+    return `<div class="import-entry">${badge}<div class="code">${renderCode(code)}</div></div>`;
+  }
   const sign = status === "deleted" ? "-" : status === "added" ? "+" : " ";
   return `<div class="import-entry">${badge} ${sign} ${esc(module)}</div>`;
 }

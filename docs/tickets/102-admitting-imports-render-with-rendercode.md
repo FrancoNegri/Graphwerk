@@ -1,6 +1,6 @@
 # 102. Admitting-imports section renders the statement via `renderCode`
 
-Status: ready
+Status: done
 Decision: docs/decisions/038-admitting-imports-render-as-real-statements.md
 
 ## Goal

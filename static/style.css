@@ -238,6 +238,7 @@ section h3 {
   font-size: 13px;
 }
 .import-entry .chip { margin-right: 8px; }
+.import-entry .code { margin-top: 6px; }
 
 .diff {
   background: #0b1220;
