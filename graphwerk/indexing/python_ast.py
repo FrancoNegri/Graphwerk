@@ -30,7 +30,12 @@ class PythonAstExtractor:
 
         for node in _iter_executable_nodes(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
-                index.imports |= _imported_modules(node)
+                modules = _imported_modules(node)
+                index.imports |= modules
+                statement = ast.get_source_segment(source, node)
+                if statement is not None:
+                    for module in modules:
+                        index.import_statements.setdefault(module, (statement, node.lineno))
 
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

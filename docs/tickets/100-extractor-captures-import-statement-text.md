@@ -1,6 +1,6 @@
 # 100. Extractor captures import statement text and line
 
-Status: ready
+Status: done
 Decision: docs/decisions/038-admitting-imports-render-as-real-statements.md
 
 ## Goal
