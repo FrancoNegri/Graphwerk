@@ -1,6 +1,6 @@
 # 038. Admitting imports render as the real import statements
 
-Status: proposed
+Status: accepted
 Date: 2026-07-17
 
 ## Context
