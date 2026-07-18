@@ -793,9 +793,20 @@ function renderSessionState(session) {
     // the mined message in hand predates this session — refetch to re-mine
     minedCommitMessage = null;
     loadGraph();
-    if (session.state === "done" && "attempt" in session) toast("✓ check passed");
+    if (session.state === "done" && "attempt" in session) toast(formatCheckPassedToast(session));
   }
   maybeFillCommitMessageBox();
+}
+
+function formatCheckPassedToast(session) {
+  const summary = session.check_summary;
+  if (!summary) return "✓ check passed";
+  const parts = [];
+  parts.push(summary.passed != null && summary.total != null
+    ? `${summary.passed}/${summary.total} tests passed`
+    : "check passed");
+  if (session.check_duration_s != null) parts.push(`in ${session.check_duration_s.toFixed(1)}s`);
+  return `✓ ${parts.join(" ")}`;
 }
 
 function renderSessionBusyIndicator(session, busy) {
@@ -825,6 +836,27 @@ function renderCheckBanner(session) {
     ? "check could not run"
     : `check failed — exit code ${session.check_exit_code}`;
   document.getElementById("check-banner-tail").textContent = session.check_tail;
+  renderCheckBannerSummary(session.check_summary);
+}
+
+function renderCheckBannerSummary(summary) {
+  const summaryEl = document.getElementById("check-banner-summary");
+  const failuresEl = document.getElementById("check-banner-failures");
+  const counts = summary
+    ? ["passed", "failed", "total"]
+        .filter((key) => summary[key] != null)
+        .map((key) => `${summary[key]} ${key}`)
+    : [];
+  summaryEl.hidden = counts.length === 0;
+  summaryEl.textContent = counts.join(", ");
+  const failures = (summary && summary.failures) || [];
+  failuresEl.hidden = failures.length === 0;
+  failuresEl.innerHTML = "";
+  for (const name of failures) {
+    const item = document.createElement("li");
+    item.textContent = name;
+    failuresEl.appendChild(item);
+  }
 }
 
 document.getElementById("check-banner-dismiss").addEventListener("click", () => {

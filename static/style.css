@@ -172,6 +172,9 @@ header {
   font-size: 16px;
   line-height: 1;
 }
+#check-banner-summary { margin-top: 6px; font-weight: 600; }
+#check-banner-summary[hidden], #check-banner-failures[hidden] { display: none; }
+#check-banner-failures { margin: 4px 0 0; padding-left: 20px; max-height: 100px; overflow-y: auto; }
 #check-banner-tail { margin-top: 6px; max-height: 160px; overflow-y: auto; }
 
 main { flex: 1; display: flex; min-height: 0; }
