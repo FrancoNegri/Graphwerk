@@ -585,27 +585,7 @@ function showEdgeCalls(edge) {
   document.getElementById("edge-calls").hidden = false;
   document.getElementById("edge-calls-title").textContent = "Calls collapsed onto this edge";
   const calls = edge.data("calls");
-  const admitting = dedupedViaImports(calls);
-  const admittingSection = admitting.length
-    ? `<section><h3>Imports admitting these calls</h3>${admitting.map(renderImportEntry).join("")}</section>`
-    : "";
-  document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("") + admittingSection;
-}
-
-// Union of the collapsed pairs' admitting imports (ADR 035) — pairs sharing
-// a file pair repeat the same modules, so dedupe by module+status.
-function dedupedViaImports(calls) {
-  const seen = new Set();
-  const entries = [];
-  for (const pair of calls) {
-    for (const entry of pair.via_imports || []) {
-      const key = `${entry.module}:${entry.status}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      entries.push(entry);
-    }
-  }
-  return entries;
+  document.getElementById("d-calls").innerHTML = calls.map(renderCallPair).join("");
 }
 
 // Deliberately not the full file diff (already one click away via the file
@@ -640,13 +620,17 @@ function renderImportEntry({ module, status, code }) {
 // status — a source can be "affected" overall via some *other* call while
 // this specific pair is genuinely unchanged, and the badge must reflect this
 // pair, not the whole node.
-function renderCallPair({ source, target, status }) {
+function renderCallPair({ source, target, status, via_imports }) {
   const badge = `<span class="chip ${status}">${status}</span>`;
   const summary = `${badge} ${esc(qualifiedLabel(source))} &rarr; ${esc(qualifiedLabel(target))}`;
+  const admittingImports = (via_imports || [])
+    .filter((entry) => !entry.in_caller_code)
+    .map(renderImportEntry)
+    .join("");
   const body = [source, target]
-    .map((id) => nodesById[id])
-    .filter((node) => node && Array.isArray(node.code) && node.code.length > 0)
-    .map((node) => `<section><h3>${esc(qualifiedLabel(node.id))}</h3><div class="code">${renderCode(node.code)}</div></section>`)
+    .map((id) => ({ id, node: nodesById[id], imports: id === source ? admittingImports : "" }))
+    .filter(({ node }) => node && Array.isArray(node.code) && node.code.length > 0)
+    .map(({ id, node, imports }) => `<section><h3>${esc(qualifiedLabel(id))}</h3>${imports}<div class="code">${renderCode(node.code)}</div></section>`)
     .join("");
   return `<details class="call-pair"><summary>${summary}</summary>${body}</details>`;
 }

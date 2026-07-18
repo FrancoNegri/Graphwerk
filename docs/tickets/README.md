@@ -114,3 +114,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [100](100-extractor-captures-import-statement-text.md) | Extractor captures import statement text and line | done | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
 | [101](101-via-imports-entries-carry-statement-code.md) | `via_imports` entries carry the statement as code lines | done | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
 | [102](102-admitting-imports-render-with-rendercode.md) | Admitting-imports section renders the statement via `renderCode` | done | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
+| [103](103-flag-via-imports-inside-caller-code.md) | `via_imports` entries flag statements inside the caller's own code | done | [039](../decisions/039-admitting-imports-inline-in-call-pair.md) |
+| [104](104-render-admitting-imports-in-caller-section.md) | Calls panel renders admitting imports inside each pair's caller section | done | [039](../decisions/039-admitting-imports-inline-in-call-pair.md) |
