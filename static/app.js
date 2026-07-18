@@ -787,26 +787,64 @@ function renderSessionState(session) {
   error.hidden = session.state !== "failed";
   if (session.state === "failed") error.textContent = session.detail;
   renderCheckBanner(session);
+  renderChecksIndicator(session);
   if ((session.state === "done" || session.state === "check_failed") && session.session_id
       && session.session_id !== completedSessionId) {
     completedSessionId = session.session_id;
     // the mined message in hand predates this session — refetch to re-mine
     minedCommitMessage = null;
     loadGraph();
-    if (session.state === "done" && "attempt" in session) toast(formatCheckPassedToast(session));
+    if (session.state === "done" && session.check_configured) toast(formatCheckPassedToast(session));
   }
   maybeFillCommitMessageBox();
 }
 
+function formatCheckCounts(summary) {
+  return summary && summary.passed != null && summary.total != null
+    ? `${summary.passed}/${summary.total}`
+    : null;
+}
+
 function formatCheckPassedToast(session) {
-  const summary = session.check_summary;
-  if (!summary) return "✓ check passed";
-  const parts = [];
-  parts.push(summary.passed != null && summary.total != null
-    ? `${summary.passed}/${summary.total} tests passed`
-    : "check passed");
+  const counts = formatCheckCounts(session.check_summary);
+  const parts = [counts ? `${counts} checks passed` : "checks passed"];
   if (session.check_duration_s != null) parts.push(`in ${session.check_duration_s.toFixed(1)}s`);
   return `✓ ${parts.join(" ")}`;
+}
+
+// Counts/duration are only shown once a check_summary has actually arrived —
+// see ticket 123 (a duration with no summary shouldn't imply pass/fail counts).
+function formatCheckCountsAndDuration(session) {
+  if (!session.check_summary) return "";
+  const parts = [formatCheckCounts(session.check_summary)];
+  if (session.check_duration_s != null) parts.push(`in ${session.check_duration_s.toFixed(1)}s`);
+  const detail = parts.filter(Boolean).join(" ");
+  return detail ? ` (${detail})` : "";
+}
+
+const CHECKS_RUNNING_LABELS = { checking: "running…" };
+
+function renderChecksIndicator(session) {
+  const el = document.getElementById("checks-indicator");
+  if (session.check_configured === false) {
+    setChecksIndicator(el, "not-configured", "Checks: not configured");
+  } else if (session.state === "checking" || session.state === "resuming") {
+    const label = session.state === "resuming"
+      ? `retrying — attempt ${session.attempt}…`
+      : CHECKS_RUNNING_LABELS.checking;
+    setChecksIndicator(el, "running", `Checks: ${label}`);
+  } else if (session.state === "done") {
+    setChecksIndicator(el, "passed", `Checks: passed${formatCheckCountsAndDuration(session)}`);
+  } else if (session.state === "check_failed") {
+    setChecksIndicator(el, "failed", `Checks: failed${formatCheckCountsAndDuration(session)}`);
+  } else {
+    setChecksIndicator(el, "pending", "Checks: pending");
+  }
+}
+
+function setChecksIndicator(el, variant, text) {
+  el.textContent = text;
+  el.className = `checks-${variant}`;
 }
 
 function renderSessionBusyIndicator(session, busy) {

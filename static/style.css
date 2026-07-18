@@ -127,6 +127,18 @@ header {
 
 #prompt-error { font-size: 12px; color: var(--danger); }
 
+#checks-indicator {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+#checks-indicator.checks-passed { border-color: var(--modified); color: #86efac; }
+#checks-indicator.checks-failed { border-color: var(--danger); color: #fca5a5; }
+#checks-indicator.checks-running { border-color: var(--added); color: #93c5fd; }
+
 #banner {
   display: flex;
   align-items: center;
