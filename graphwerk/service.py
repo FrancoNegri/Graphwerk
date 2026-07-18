@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import deque
 from pathlib import Path
 
 from graphwerk.codeview import build_code_view
@@ -223,27 +224,66 @@ class GraphService:
             reachable_files_cache[key] = result
             return result
 
+        def admitting_entry(rel: str, module: str, caller_deleted: bool, caller_symbol: SymbolInfo | None) -> dict:
+            change = changes[rel]
+            index = change.base if caller_deleted else change.staged
+            return {
+                "module": module,
+                "status": change.imports[module].value,
+                "code": _statement_code_lines(index.import_statements.get(module), change.imports[module]),
+                "in_caller_code": _statement_in_caller_span(index.import_statements.get(module), caller_symbol),
+            }
+
+        def import_chain(caller_rel: str, target_rel: str, caller_deleted: bool) -> list[tuple[str, str, str]] | None:
+            """Shortest chain of resolved imports from caller_rel to
+            target_rel, as (from_file, module, to_file) hops — the same
+            reachability `reachable_files` computes, but keeping the path
+            that got there (ADR 048's deferred multi-hop provenance)."""
+            parent: dict[str, tuple[str, str]] = {}
+            visited = {caller_rel}
+            frontier = deque([caller_rel])
+            while frontier:
+                current = frontier.popleft()
+                for next_file, modules in admitting_modules_by_file(current, caller_deleted).items():
+                    if next_file in visited:
+                        continue
+                    visited.add(next_file)
+                    parent[next_file] = (current, modules[0])
+                    frontier.append(next_file)
+            if target_rel not in parent:
+                return None
+            hops: list[tuple[str, str, str]] = []
+            node = target_rel
+            while node != caller_rel:
+                from_file, module = parent[node]
+                hops.append((from_file, module, node))
+                node = from_file
+            hops.reverse()
+            return hops
+
         def via_imports_entries(
             caller_rel: str, target_rel: str, modules_by_file: dict, caller_deleted: bool, source_id: str
         ) -> list | None:
-            if target_rel == caller_rel or target_rel not in modules_by_file:
+            if target_rel == caller_rel:
                 return None
             change = changes[caller_rel]
             index = change.base if caller_deleted else change.staged
             caller_qualname = source_id.split("::", 1)[1]
             caller_symbol = index.symbols.get(caller_qualname)
+            if target_rel in modules_by_file:
+                return [
+                    admitting_entry(caller_rel, module, caller_deleted, caller_symbol)
+                    for module in modules_by_file[target_rel]
+                ]
+            chain = import_chain(caller_rel, target_rel, caller_deleted)
+            if chain is None:
+                return None
             return [
                 {
-                    "module": module,
-                    "status": change.imports[module].value,
-                    "code": _statement_code_lines(
-                        index.import_statements.get(module), change.imports[module]
-                    ),
-                    "in_caller_code": _statement_in_caller_span(
-                        index.import_statements.get(module), caller_symbol
-                    ),
+                    **admitting_entry(from_file, module, caller_deleted, caller_symbol if from_file == caller_rel else None),
+                    "file": to_file,
                 }
-                for module in modules_by_file[target_rel]
+                for from_file, module, to_file in chain
             ]
 
         seen: set[tuple[str, str]] = set()

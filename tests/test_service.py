@@ -511,8 +511,6 @@ def test_call_edge_resolves_through_two_hop_reexport_chain(tmp_path):
     snapshot = service.snapshot()
 
     assert ("caller.py::run", "pkg/inner.py::Thing") in calls_edge_pairs(snapshot)
-    edge = edge_between(snapshot, "caller.py::run", "pkg/inner.py::Thing")
-    assert edge.via_imports is None
 
 
 def test_call_edge_resolves_through_three_hop_reexport_chain(tmp_path):
@@ -526,6 +524,71 @@ def test_call_edge_resolves_through_three_hop_reexport_chain(tmp_path):
     snapshot = service.snapshot()
 
     assert ("caller.py::run", "outer/mid/inner.py::Thing") in calls_edge_pairs(snapshot)
+
+
+def test_multi_hop_call_edge_names_the_full_admitting_chain(tmp_path):
+    """Ticket 137: a multi-hop edge's via_imports shows which module and
+    file admits each hop, in order, instead of no explanation at all."""
+    service = make_service(tmp_path, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "pkg/inner.py::Thing")
+    hops = [{"module": entry["module"], "file": entry["file"]} for entry in edge.via_imports]
+    assert hops == [
+        {"module": "pkg", "file": "pkg/__init__.py"},
+        {"module": "pkg.inner", "file": "pkg/inner.py"},
+    ]
+
+
+def test_multi_hop_via_imports_chain_follows_three_hops_in_order(tmp_path):
+    service = make_service(tmp_path, {
+        "outer/__init__.py": "from outer.mid import Thing\n",
+        "outer/mid/__init__.py": "from outer.mid.inner import Thing\n",
+        "outer/mid/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from outer import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "outer/mid/inner.py::Thing")
+    hops = [{"module": entry["module"], "file": entry["file"]} for entry in edge.via_imports]
+    assert hops == [
+        {"module": "outer", "file": "outer/__init__.py"},
+        {"module": "outer.mid", "file": "outer/mid/__init__.py"},
+        {"module": "outer.mid.inner", "file": "outer/mid/inner.py"},
+    ]
+
+
+def test_multi_hop_via_imports_first_hop_still_reports_caller_code_containment(tmp_path):
+    """First hop keeps the direct-import behavior (in_caller_code reflects
+    the actual calling symbol's span); later hops have no enclosing symbol
+    to check against, so they report False rather than crashing."""
+    service = make_service(tmp_path, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "def run():\n    from pkg import Thing\n    return Thing()\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "pkg/inner.py::Thing")
+    first_hop, second_hop = edge.via_imports
+    assert first_hop["in_caller_code"] is True
+    assert second_hop["in_caller_code"] is False
+
+
+def test_single_hop_via_imports_shape_is_unchanged_by_multi_hop_support(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    assert without_code(edge.via_imports) == [{"module": "helper", "status": "unchanged"}]
+    assert "file" not in edge.via_imports[0]
 
 
 def test_caller_does_not_resolve_transitively_to_unreachable_file_with_same_named_symbol(tmp_path):

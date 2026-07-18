@@ -299,6 +299,7 @@ section h3 {
 }
 .import-entry .chip { margin-right: 8px; }
 .import-entry .code { margin-top: 6px; }
+.import-entry .hop-file { color: var(--muted); font-size: 12px; }
 
 .diff {
   background: #0b1220;

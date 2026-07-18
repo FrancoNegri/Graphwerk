@@ -1,6 +1,6 @@
 # 137. Multi-hop `via_imports` provenance for transitively-reached call edges
 
-Status: ready
+Status: done
 Decision: docs/decisions/048-transitive-import-reachability-for-call-edges.md
 
 ## Goal

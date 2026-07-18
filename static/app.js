@@ -686,13 +686,17 @@ function showEdgeImports(edge) {
 
 // Entries without a `code` field (the imports-edge panel, or an extractor
 // that captured no statement) keep the chip + module-name fallback (ADR 038).
-function renderImportEntry({ module, status, code }) {
+// A `file` field (ADR 048's multi-hop chain) names which file that hop
+// resolves to; single-hop entries never carry it, so their rendering is
+// unchanged.
+function renderImportEntry({ module, status, code, file }) {
   const badge = `<span class="chip ${status}">${status}</span>`;
+  const hop = file ? `<span class="hop-file">&rarr; ${esc(file)}</span> ` : "";
   if (Array.isArray(code) && code.length > 0) {
-    return `<div class="import-entry">${badge}<div class="code">${renderCode(code)}</div></div>`;
+    return `<div class="import-entry">${badge}${hop}<div class="code">${renderCode(code)}</div></div>`;
   }
   const sign = status === "deleted" ? "-" : status === "added" ? "+" : " ";
-  return `<div class="import-entry">${badge} ${sign} ${esc(module)}</div>`;
+  return `<div class="import-entry">${badge} ${hop}${sign} ${esc(module)}</div>`;
 }
 
 // One closed-by-default <details> per call pair: the summary is the label,
