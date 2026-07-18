@@ -80,6 +80,44 @@ def is_test_path(path: str) -> bool:
     return any(segment in _TEST_PATH_SEGMENTS for segment in segments)
 
 
+def _mirror_key(path: str) -> str:
+    """Path with its top-level directory dropped; test files additionally
+    drop a leading tests/test segment and a test_/_test filename affix, so a
+    test file's key lines up with the source file it mirrors (ADR 041)."""
+    remainder = path.split("/", 1)[1] if "/" in path else path
+    if not is_test_path(path):
+        return remainder
+    segments = remainder.split("/")
+    if segments[0] in _TEST_PATH_SEGMENTS and len(segments) > 1:
+        segments = segments[1:]
+    *directory_segments, filename = segments
+    if filename.startswith("test_"):
+        filename = filename.removeprefix("test_")
+    elif filename.endswith("_test.py"):
+        filename = filename.removesuffix("_test.py") + ".py"
+    return "/".join([*directory_segments, filename])
+
+
+def pair_tests_with_files(nodes: list[GraphNode]) -> dict[str, str]:
+    """Maps each test file node id to the one source file node id sharing
+    its mirror key. No match, or more than one candidate, is left unpaired —
+    no arbitrary tie-break (ADR 041)."""
+    file_nodes = [node for node in nodes if node.kind == "file"]
+    source_ids_by_key: dict[str, list[str]] = {}
+    for node in file_nodes:
+        if not is_test_path(node.path):
+            source_ids_by_key.setdefault(_mirror_key(node.path), []).append(node.id)
+
+    paired: dict[str, str] = {}
+    for node in file_nodes:
+        if not is_test_path(node.path):
+            continue
+        candidates = source_ids_by_key.get(_mirror_key(node.path), [])
+        if len(candidates) == 1:
+            paired[node.id] = candidates[0]
+    return paired
+
+
 def _import_adjacency(
     nodes: list[GraphNode], edges: list[GraphEdge]
 ) -> dict[str, set[str]]:

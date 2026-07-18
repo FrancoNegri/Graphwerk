@@ -4,6 +4,7 @@ from graphwerk.layout import (
     _orders_by_barycenter,
     assign_layers,
     group_for_path,
+    pair_tests_with_files,
 )
 from graphwerk.models import GraphEdge, GraphNode
 
@@ -411,3 +412,40 @@ def test_grouping_is_deterministic_across_runs():
     second = build()
     assign_layers(second, edges)
     assert orders_of(first) == orders_of(second)
+
+
+def test_pair_tests_with_files_matches_same_directory_mirror():
+    nodes = [file_node("graphwerk/layout.py"), file_node("tests/test_layout.py")]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/test_layout.py": "graphwerk/layout.py"}
+
+
+def test_pair_tests_with_files_matches_directory_mirrored_case():
+    nodes = [
+        file_node("graphwerk/indexing/python_ast.py"),
+        file_node("tests/indexing/test_python_ast.py"),
+    ]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/indexing/test_python_ast.py": "graphwerk/indexing/python_ast.py"}
+
+
+def test_pair_tests_with_files_omits_ambiguous_match():
+    nodes = [
+        file_node("graphwerk/layout.py"),
+        file_node("other/layout.py"),
+        file_node("tests/test_layout.py"),
+    ]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {}
+
+
+def test_pair_tests_with_files_omits_unmatched_test_file():
+    nodes = [file_node("graphwerk/layout.py"), file_node("tests/conftest.py")]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {}
+
+
+def test_pair_tests_with_files_never_keys_a_non_test_file():
+    nodes = [file_node("graphwerk/layout.py"), file_node("tests/test_layout.py")]
+    paired = pair_tests_with_files(nodes)
+    assert "graphwerk/layout.py" not in paired
