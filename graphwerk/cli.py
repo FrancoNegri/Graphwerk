@@ -21,6 +21,7 @@ from graphwerk.commit import CommitEngine
 from graphwerk.discard import DiscardEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.rationale.guidance import SESSION_GUIDANCE
+from graphwerk.cycle import SessionCycle
 from graphwerk.server import create_app
 from graphwerk.service import GraphService
 from graphwerk.session import SessionRunner
@@ -47,6 +48,10 @@ def main(argv: list[str] | None = None) -> None:
     serve.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 to allow LAN access")
     serve.add_argument("--agent-permissions", default="acceptEdits",
                        help="permission mode for sessions spawned via /api/prompt")
+    serve.add_argument("--check", default=None,
+                       help="shell command to run after each session; unset disables the check gate")
+    serve.add_argument("--check-retries", type=int, default=1,
+                       help="max automatic resume attempts on check failure (default: 1)")
 
     start = sub.add_parser("start", help="ensure the staging worktree, print the claude invocation, serve the UI")
     start.add_argument("--repo", default=".", help="git repository under review (default: current directory)")
@@ -56,6 +61,10 @@ def main(argv: list[str] | None = None) -> None:
     start.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 to allow LAN access")
     start.add_argument("--agent-permissions", default="acceptEdits",
                        help="permission mode for sessions spawned via /api/prompt")
+    start.add_argument("--check", default=None,
+                       help="shell command to run after each session; unset disables the check gate")
+    start.add_argument("--check-retries", type=int, default=1,
+                       help="max automatic resume attempts on check failure (default: 1)")
 
     args = parser.parse_args(argv)
 
@@ -74,7 +83,7 @@ def main(argv: list[str] | None = None) -> None:
         sidecar = Path(args.rationale) if args.rationale else staged / ".graphwerk" / "rationale.json"
         transcript = Path(args.transcript) if args.transcript else None
         _serve(base, staged, sidecar, transcript, args.host, args.port,
-               args.agent_permissions)
+               args.agent_permissions, args.check, args.check_retries)
 
 
 def _start(args: argparse.Namespace) -> None:
@@ -86,7 +95,7 @@ def _start(args: argparse.Namespace) -> None:
     print(f"staging worktree ready — run the agent there:\n  cd {staging} && claude", flush=True)
     sidecar = staging / ".graphwerk" / "rationale.json"
     _serve(repo, staging, sidecar, None, args.host, args.port,
-           args.agent_permissions)
+           args.agent_permissions, args.check, args.check_retries)
 
 
 def default_staging_path(repo: Path) -> Path:
@@ -103,16 +112,18 @@ def _is_git_repo(path: Path) -> bool:
 
 
 def _serve(base: Path, staged: Path, sidecar: Path | None, transcript: Path | None,
-           host: str, port: int, agent_permissions: str) -> None:
+           host: str, port: int, agent_permissions: str,
+           check_command: str | None = None, check_retries: int = 1) -> None:
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
                                staged_root=staged, base_root=base)
     service = GraphService(base, staged, rationale)
     engine = ApplyEngine(base, staged)
     runner = SessionRunner(staged, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)
+    cycle = SessionCycle(runner, check_command, max_retries=check_retries)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    app = create_app(service, engine, runner, commit_engine, discard_engine)
+    app = create_app(service, engine, cycle, commit_engine, discard_engine)
     shown = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
     print(f"graphwerk review UI: http://{shown}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="warning")

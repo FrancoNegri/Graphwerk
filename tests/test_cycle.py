@@ -42,7 +42,7 @@ class StubSessionRunner:
     def status(self):
         if self._state == "running":
             self._poll_count += 1
-            if self._poll_count >= 2:
+            if self._poll_count >= 2 and self._outcomes:
                 outcome = self._outcomes.pop(0)
                 self._state = outcome["state"]
                 self._detail = outcome.get("detail", "")
@@ -175,11 +175,11 @@ def test_session_failure_ends_cycle_without_checking(tmp_path):
 
 
 def test_start_raises_busy_while_session_running(tmp_path):
-    runner = StubSessionRunner(tmp_path, [{"state": "done", "session_id": "sess-1"}])
+    runner = StubSessionRunner(tmp_path, [])  # never settles: stays "running"
     cycle = SessionCycle(runner, check_command="true")
 
     cycle.start("first")
-    assert cycle.status()["state"] in ("running", "checking")
+    assert cycle.status()["state"] == "running"
 
     with pytest.raises(SessionBusyError):
         cycle.start("second")

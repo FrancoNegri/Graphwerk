@@ -1,8 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import time
+
 from graphwerk.apply import ApplyEngine
 from graphwerk.commit import CommitEngine
+from graphwerk.cycle import SessionCycle
 from graphwerk.discard import DiscardEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
@@ -11,15 +14,24 @@ from graphwerk.session import SessionBusyError
 
 
 class StubRunner:
-    def __init__(self):
+    def __init__(self, staged_root=None):
         self.snapshot = {"state": "idle", "detail": "", "session_id": ""}
         self.prompts = []
+        self.resume_prompts = []
         self.busy = False
+        self.staged_root = staged_root
 
     def start(self, prompt):
         if self.busy:
             raise SessionBusyError("a session is already running")
         self.prompts.append(prompt)
+        self.snapshot = {"state": "running", "detail": "", "session_id": ""}
+        return dict(self.snapshot)
+
+    def resume(self, prompt):
+        if self.busy:
+            raise SessionBusyError("a session is already running")
+        self.resume_prompts.append(prompt)
         self.snapshot = {"state": "running", "detail": "", "session_id": ""}
         return dict(self.snapshot)
 
@@ -90,6 +102,82 @@ def test_session_returns_runner_status_snapshot(client, stub_runner):
 
     assert response.status_code == 200
     assert response.json() == {"state": "done", "detail": "", "session_id": "sess-9"}
+
+
+def make_cycle_client(tmp_path, check_command, max_retries=1):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    stub_runner = StubRunner(staged_root=staged)
+    cycle = SessionCycle(stub_runner, check_command, max_retries=max_retries)
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    commit_engine = CommitEngine(base, engine, service.builder)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    client = TestClient(create_app(service, engine, cycle, commit_engine, discard_engine))
+    return client, stub_runner
+
+
+def drive_session_to_terminal(client, timeout_seconds=5.0):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        snapshot = client.get("/api/session").json()
+        if snapshot["state"] in ("done", "failed", "check_failed"):
+            return snapshot
+        time.sleep(0.02)
+    raise AssertionError("session did not reach a terminal state in time")
+
+
+def test_gate_off_session_payload_is_backward_compatible(tmp_path):
+    client, stub_runner = make_cycle_client(tmp_path, check_command=None)
+
+    response = client.post("/api/prompt", json={"prompt": "add a docstring"})
+    stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
+
+    assert response.status_code == 200
+    assert client.get("/api/session").json() == {"state": "done", "detail": "", "session_id": "sess-1"}
+
+
+def test_gate_on_passing_check_reports_done(tmp_path):
+    client, stub_runner = make_cycle_client(tmp_path, check_command="true")
+
+    client.post("/api/prompt", json={"prompt": "add a docstring"})
+    stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
+    finished = drive_session_to_terminal(client)
+
+    assert finished["state"] == "done"
+    assert finished["attempt"] == 0
+    assert finished["check_exit_code"] == 0
+
+
+def test_gate_on_failing_check_surfaces_check_failed_and_tail(tmp_path):
+    client, stub_runner = make_cycle_client(
+        tmp_path, check_command='echo "assertion failed" >&2; exit 1', max_retries=0)
+
+    client.post("/api/prompt", json={"prompt": "add a docstring"})
+    stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
+    finished = drive_session_to_terminal(client)
+
+    assert finished["state"] == "check_failed"
+    assert finished["check_exit_code"] == 1
+    assert "assertion failed" in finished["check_tail"]
+
+
+def test_prompt_409s_for_the_whole_cycle_not_just_the_agent_subprocess(tmp_path):
+    client, stub_runner = make_cycle_client(tmp_path, check_command="sleep 0.3")
+
+    client.post("/api/prompt", json={"prompt": "add a docstring"})
+    stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
+    deadline = time.monotonic() + 5.0
+    while client.get("/api/session").json()["state"] != "checking":
+        assert time.monotonic() < deadline, "check never started"
+
+    response = client.post("/api/prompt", json={"prompt": "another"})
+
+    assert response.status_code == 409
 
 
 def test_existing_endpoints_still_respond(client):
@@ -180,6 +268,20 @@ def test_commit_endpoint_maps_preflight_failures_to_400(client):
 
 def test_discard_endpoint_refuses_while_session_running(client, stub_runner):
     stub_runner.snapshot = {"state": "running", "detail": "", "session_id": "s1"}
+
+    response = client.post("/api/discard")
+
+    assert response.status_code == 409
+
+
+def test_discard_endpoint_refuses_while_check_is_running(tmp_path):
+    client, stub_runner = make_cycle_client(tmp_path, check_command="sleep 0.3")
+
+    client.post("/api/prompt", json={"prompt": "add a docstring"})
+    stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
+    deadline = time.monotonic() + 5.0
+    while client.get("/api/session").json()["state"] != "checking":
+        assert time.monotonic() < deadline, "check never started"
 
     response = client.post("/api/discard")
 

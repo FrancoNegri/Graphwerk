@@ -36,8 +36,8 @@ class SessionCycle:
         if self.check_command is None:
             return self.runner.start(prompt)
         with self._lock:
-            self._advance_locked()
-            if self._state not in TERMINAL_STATES:
+            current = self._status_locked()
+            if current["state"] not in TERMINAL_STATES:
                 raise SessionBusyError("a session is already running")
             self.runner.start(prompt)
             self._check = None
@@ -54,22 +54,25 @@ class SessionCycle:
             return self._status_locked()
 
     def _status_locked(self) -> dict:
-        self._advance_locked()
-        payload = dict(self.runner.status())
+        # a single poll of the runner, reused both to drive the state
+        # transition and to fill the payload — polling twice would let the
+        # runner settle out from under the second read.
+        runner_status = self.runner.status()
+        self._advance_locked(runner_status)
+        payload = dict(runner_status)
         payload["state"] = self._state
         payload["attempt"] = self._attempt
         payload["check_exit_code"] = self._check_exit_code
         payload["check_tail"] = self._check_tail
         return payload
 
-    def _advance_locked(self) -> None:
+    def _advance_locked(self, runner_status: dict) -> None:
         if self._state in ("running", "resuming"):
-            self._advance_session_locked()
+            self._advance_session_locked(runner_status)
         elif self._state == "checking":
             self._advance_check_locked()
 
-    def _advance_session_locked(self) -> None:
-        runner_status = self.runner.status()
+    def _advance_session_locked(self, runner_status: dict) -> None:
         if runner_status["state"] == "running":
             return
         if runner_status["state"] == "failed":

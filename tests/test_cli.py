@@ -25,9 +25,9 @@ def start_harness(monkeypatch):
             calls.append(("ensure", repo_root, staging_root, branch))
 
     def recording_serve(base, staged, sidecar, transcript, host, port,
-                        agent_permissions):
+                        agent_permissions, check_command=None, check_retries=1):
         calls.append(("serve", base, staged, sidecar, transcript, host, port,
-                      agent_permissions))
+                      agent_permissions, check_command, check_retries))
 
     monkeypatch.setattr(cli, "ShadowWorkspace", RecordingWorkspace)
     monkeypatch.setattr(cli, "_serve", recording_serve)
@@ -69,7 +69,7 @@ def test_start_serves_repo_against_worktree_with_transcript_autodiscovery(git_re
     cli.main(["start", "--repo", str(git_repo), "--host", "0.0.0.0", "--port", "9000"])
 
     staging = git_repo.parent / "myrepo-graphwerk-staging"
-    _, base, staged, sidecar, transcript, host, port, _ = next(
+    _, base, staged, sidecar, transcript, host, port, _, _, _ = next(
         call for call in start_harness if call[0] == "serve")
     assert base == git_repo
     assert staged == staging
@@ -109,14 +109,14 @@ def serve_call(calls):
 def test_start_defaults_agent_permissions_to_accept_edits(git_repo, start_harness):
     cli.main(["start", "--repo", str(git_repo)])
 
-    assert serve_call(start_harness)[-1] == "acceptEdits"
+    assert serve_call(start_harness)[7] == "acceptEdits"
 
 
 def test_start_passes_agent_permissions_through(git_repo, start_harness):
     cli.main(["start", "--repo", str(git_repo),
               "--agent-permissions", "bypassPermissions"])
 
-    assert serve_call(start_harness)[-1] == "bypassPermissions"
+    assert serve_call(start_harness)[7] == "bypassPermissions"
 
 
 def test_serve_passes_agent_permissions_through(start_harness, tmp_path):
@@ -124,14 +124,42 @@ def test_serve_passes_agent_permissions_through(start_harness, tmp_path):
               "--staged", str(tmp_path / "staged"),
               "--agent-permissions", "plan"])
 
-    assert serve_call(start_harness)[-1] == "plan"
+    assert serve_call(start_harness)[7] == "plan"
 
 
 def test_serve_defaults_agent_permissions_to_accept_edits(start_harness, tmp_path):
     cli.main(["serve", "--base", str(tmp_path / "base"),
               "--staged", str(tmp_path / "staged")])
 
-    assert serve_call(start_harness)[-1] == "acceptEdits"
+    assert serve_call(start_harness)[7] == "acceptEdits"
+
+
+def test_start_defaults_check_gate_off(git_repo, start_harness):
+    cli.main(["start", "--repo", str(git_repo)])
+
+    assert serve_call(start_harness)[8:] == (None, 1)
+
+
+def test_start_passes_check_flags_through(git_repo, start_harness):
+    cli.main(["start", "--repo", str(git_repo),
+              "--check", "pytest -x", "--check-retries", "3"])
+
+    assert serve_call(start_harness)[8:] == ("pytest -x", 3)
+
+
+def test_serve_defaults_check_gate_off(start_harness, tmp_path):
+    cli.main(["serve", "--base", str(tmp_path / "base"),
+              "--staged", str(tmp_path / "staged")])
+
+    assert serve_call(start_harness)[8:] == (None, 1)
+
+
+def test_serve_passes_check_flags_through(start_harness, tmp_path):
+    cli.main(["serve", "--base", str(tmp_path / "base"),
+              "--staged", str(tmp_path / "staged"),
+              "--check", "make check", "--check-retries", "2"])
+
+    assert serve_call(start_harness)[8:] == ("make check", 2)
 
 
 @pytest.fixture
