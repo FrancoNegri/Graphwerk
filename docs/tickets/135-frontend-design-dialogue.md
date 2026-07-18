@@ -1,6 +1,6 @@
 # 135. Frontend: design-mode dialogue box
 
-Status: ready
+Status: done
 Decision: docs/decisions/047-design-scope-guidance-and-dialogue.md
 
 ## Goal

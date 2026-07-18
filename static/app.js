@@ -220,6 +220,48 @@ function matchesDomainMode(node) {
 function setDomainModeView(mode) {
   domainModeView = mode;
   if (graphData) renderGraph(toElements(graphData));
+  renderDesignDialogue();
+}
+
+// Design-mode dialogue (ADR 047): client-side only, prompt/reply pairs
+// accumulated for the tab's lifetime. Reset on a fresh start(), preserved
+// across continue_session and across toggling away from Design and back —
+// only hidden by the toggle, never cleared by it.
+let designDialogue = [];
+// The prompt just submitted, waiting for its turn to settle with a reply;
+// guards against the runner's `reply` field still holding the *previous*
+// turn's text while this turn is running (SessionRunner only updates it on
+// settle, same staleness convention as `session_id`).
+let pendingDesignDialoguePrompt = null;
+
+function renderDesignDialogue() {
+  const panel = document.getElementById("design-dialogue");
+  panel.hidden = domainModeView !== "design";
+  if (panel.hidden) return;
+  const list = document.getElementById("design-dialogue-list");
+  list.innerHTML = "";
+  for (const turn of designDialogue) {
+    const item = document.createElement("li");
+    const promptEl = document.createElement("div");
+    promptEl.className = "design-dialogue-prompt";
+    promptEl.textContent = turn.prompt;
+    const replyEl = document.createElement("div");
+    replyEl.className = "design-dialogue-reply";
+    replyEl.textContent = turn.reply;
+    item.append(promptEl, replyEl);
+    list.appendChild(item);
+  }
+  list.scrollTop = list.scrollHeight;
+}
+
+function maybeAppendDesignDialogueTurn(session) {
+  if (domainModeView !== "design" || !pendingDesignDialoguePrompt) return;
+  if (SESSION_BUSY_STATES.includes(session.state)) return;
+  const prompt = pendingDesignDialoguePrompt;
+  pendingDesignDialoguePrompt = null;
+  if (!session.reply) return;
+  designDialogue.push({ prompt, reply: session.reply });
+  renderDesignDialogue();
 }
 
 // Re-renders whichever panel is currently open so the toggle takes effect
@@ -816,6 +858,7 @@ function renderSessionState(session) {
     if (session.state === "done" && session.check_configured) toast(formatCheckPassedToast(session));
   }
   maybeFillCommitMessageBox();
+  maybeAppendDesignDialogueTurn(session);
 }
 
 function formatCheckCounts(summary) {
@@ -977,6 +1020,11 @@ document.getElementById("prompt-form").addEventListener("submit", async (event) 
   if (!promptText) return;
   const continueCheckbox = document.getElementById("continue-session");
   const continueSession = continueCheckbox.checked;
+  if (domainModeView === "design") {
+    if (!continueSession) designDialogue = [];
+    pendingDesignDialoguePrompt = promptText;
+    renderDesignDialogue();
+  }
   const body = { prompt: promptText, continue_session: continueSession, scope: domainModeView };
   const res = await fetch("/api/prompt", {
     method: "POST",

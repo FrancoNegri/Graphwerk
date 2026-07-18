@@ -189,6 +189,26 @@ header {
 #check-banner-failures { margin: 4px 0 0; padding-left: 20px; max-height: 100px; overflow-y: auto; }
 #check-banner-tail { margin-top: 6px; max-height: 160px; overflow-y: auto; }
 
+/* Design-mode dialogue (ADR 047): client-side only, hidden outside Design
+   view — Implementation mode's prompt box stays input-only per ADR 011. */
+#design-dialogue {
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  max-height: 220px;
+  overflow-y: auto;
+}
+#design-dialogue[hidden] { display: none; }
+#design-dialogue h3 { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+#design-dialogue-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.design-dialogue-prompt {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.design-dialogue-prompt::before { content: "> "; }
+.design-dialogue-reply { font-size: 13px; white-space: pre-wrap; }
+
 main { flex: 1; display: flex; min-height: 0; }
 
 #cy { flex: 1; min-width: 0; }

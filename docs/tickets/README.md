@@ -146,4 +146,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [132](132-wire-scope-guard-into-sessions.md) | Wire the scope guard into spawned sessions | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [133](133-design-session-guidance.md) | Design-session guidance module | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
 | [134](134-sessionrunner-reply-field.md) | `SessionRunner` exposes the session's reply text | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
-| [135](135-frontend-design-dialogue.md) | Frontend: design-mode dialogue box | ready | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
+| [135](135-frontend-design-dialogue.md) | Frontend: design-mode dialogue box | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
