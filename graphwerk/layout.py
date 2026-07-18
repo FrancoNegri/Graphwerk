@@ -39,11 +39,14 @@ def group_for_path(path: str) -> str:
 
 def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
     group_by_id = {node.id: group_for_path(node.path) for node in nodes if node.kind == "file"}
+    path_by_id = {node.id: node.path for node in nodes if node.kind == "file"}
     paired_file_by_test_id = pair_tests_with_files(nodes)
     layer_by_id: dict[str, int] = {}
     order_by_id: dict[str, int] = {}
     for is_file_graph, neighbors_of in _layered_adjacencies(nodes, edges, set(paired_file_by_test_id)):
         layers = _layers_by_longest_path(neighbors_of)
+        if is_file_graph:
+            layers = _sink_dangling_tests_to_bottom_layer(layers, path_by_id)
         layer_by_id.update(layers)
         orders = _orders_by_barycenter(layers, neighbors_of)
         if is_file_graph:
@@ -152,6 +155,22 @@ def _import_adjacency(
         imported_files_of.setdefault(edge.target, set())
         imported_files_of[edge.source].add(edge.target)
     return imported_files_of
+
+
+def _sink_dangling_tests_to_bottom_layer(
+    layers: dict[str, int], path_by_id: dict[str, str]
+) -> dict[str, int]:
+    """A dangling test file (still present here, since paired ones are
+    excluded from the file graph entirely) has no import adjacency of its
+    own and would otherwise settle at layer 0 next to real entry points.
+    Push it one layer past the deepest ordinary file instead, so it reads
+    as peripheral rather than architecturally central (ADR 043)."""
+    ordinary_layers = [layer for node_id, layer in layers.items() if not is_test_path(path_by_id.get(node_id, ""))]
+    bottom_layer = max(ordinary_layers) + 1 if ordinary_layers else 0
+    return {
+        node_id: bottom_layer if is_test_path(path_by_id.get(node_id, "")) else layer
+        for node_id, layer in layers.items()
+    }
 
 
 def _call_adjacencies_by_file(

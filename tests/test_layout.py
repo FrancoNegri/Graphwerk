@@ -109,13 +109,14 @@ def test_import_chain_through_noise_filtered_file_keeps_true_depth():
 def test_import_from_test_file_does_not_demote_the_importee():
     # tests/conftest.py has no mirroring source file, so it stays unpaired
     # (ticket 111) and this exercises the pre-pairing import-edge filtering
-    # (ADR 023) on its own.
+    # (ADR 023) on its own. Being dangling, it sinks below every ordinary
+    # file layer instead of sharing app.py's layer 0 (ADR 043).
     nodes = [file_node("app.py"), file_node("tests/conftest.py")]
     edges = [imports("tests/conftest.py", "app.py")]
     assign_layers(nodes, edges)
     layers = layers_of(nodes)
     assert layers["app.py"] == 0
-    assert layers["tests/conftest.py"] == 0
+    assert layers["tests/conftest.py"] == 1
 
 
 def testis_test_path_matches_tests_segment_or_test_filename():
@@ -464,9 +465,48 @@ def test_paired_test_file_gets_no_layer_or_order():
 def test_unpaired_test_file_still_gets_a_layer_and_order():
     nodes = [file_node("app.py"), file_node("tests/conftest.py")]
     assign_layers(nodes, [])
-    assert layers_of(nodes)["tests/conftest.py"] == 0
+    assert layers_of(nodes)["tests/conftest.py"] == 1
     assert orders_of(nodes)["tests/conftest.py"] is not None
     assert paired_files_of(nodes)["tests/conftest.py"] is None
+
+
+def test_dangling_test_sinks_one_layer_below_the_deepest_ordinary_file():
+    nodes = [file_node("a.py"), file_node("b.py"), file_node("tests/conftest.py")]
+    edges = [imports("a.py", "b.py")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["a.py"] == 0
+    assert layers["b.py"] == 1
+    assert layers["tests/conftest.py"] == 2
+
+
+def test_dangling_test_layer_is_zero_when_no_non_test_files_exist():
+    nodes = [file_node("tests/test_a.py"), file_node("tests/test_b.py")]
+    assign_layers(nodes, [])
+    layers = layers_of(nodes)
+    assert layers["tests/test_a.py"] == 0
+    assert layers["tests/test_b.py"] == 0
+
+
+def test_multiple_dangling_tests_sink_to_shared_bottom_layer_grouped_by_directory():
+    nodes = [
+        file_node("app.py"),
+        file_node("lib.py"),
+        file_node("backend/test_a.py"),
+        file_node("frontend/test_b.py"),
+    ]
+    edges = [imports("app.py", "lib.py")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["app.py"] == 0
+    assert layers["lib.py"] == 1
+    assert layers["backend/test_a.py"] == 2
+    assert layers["frontend/test_b.py"] == 2
+    orders = orders_of(nodes)
+    assert {orders["backend/test_a.py"], orders["frontend/test_b.py"]} == {0, 1}
+    groups = groups_of(nodes)
+    assert groups["backend/test_a.py"] == "backend"
+    assert groups["frontend/test_b.py"] == "frontend"
 
 
 def test_source_files_own_layer_order_group_unaffected_by_having_a_paired_test():
