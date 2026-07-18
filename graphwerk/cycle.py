@@ -1,0 +1,101 @@
+"""SessionCycle: session -> check -> bounded auto-resume state machine."""
+
+from __future__ import annotations
+
+import threading
+
+from graphwerk.check import CheckRunner
+from graphwerk.session import SessionBusyError
+
+TERMINAL_STATES = ("idle", "done", "failed", "check_failed")
+
+FAILURE_PROMPT_TEMPLATE = (
+    "The check command `{command}` failed with exit code {exit_code}.\n\n"
+    "Output tail:\n{tail}\n\n"
+    "Fix the failures shown above."
+)
+
+
+class SessionCycle:
+    """Wraps a SessionRunner with a deterministic post-session check gate."""
+
+    def __init__(self, runner, check_command: str | None, max_retries: int = 1) -> None:
+        self.runner = runner
+        self.check_command = check_command
+        self.max_retries = max_retries
+        self._check: CheckRunner | None = None
+        self._state = "idle"
+        self._attempt = 0
+        self._check_exit_code = None
+        self._check_tail = ""
+        # status() runs concurrently from FastAPI's threadpool; guards the
+        # same way SessionRunner/CheckRunner do (ticket 086).
+        self._lock = threading.Lock()
+
+    def start(self, prompt: str) -> dict:
+        if self.check_command is None:
+            return self.runner.start(prompt)
+        with self._lock:
+            self._advance_locked()
+            if self._state not in TERMINAL_STATES:
+                raise SessionBusyError("a session is already running")
+            self.runner.start(prompt)
+            self._check = None
+            self._state = "running"
+            self._attempt = 0
+            self._check_exit_code = None
+            self._check_tail = ""
+            return self._status_locked()
+
+    def status(self) -> dict:
+        if self.check_command is None:
+            return self.runner.status()
+        with self._lock:
+            return self._status_locked()
+
+    def _status_locked(self) -> dict:
+        self._advance_locked()
+        payload = dict(self.runner.status())
+        payload["state"] = self._state
+        payload["attempt"] = self._attempt
+        payload["check_exit_code"] = self._check_exit_code
+        payload["check_tail"] = self._check_tail
+        return payload
+
+    def _advance_locked(self) -> None:
+        if self._state in ("running", "resuming"):
+            self._advance_session_locked()
+        elif self._state == "checking":
+            self._advance_check_locked()
+
+    def _advance_session_locked(self) -> None:
+        runner_status = self.runner.status()
+        if runner_status["state"] == "running":
+            return
+        if runner_status["state"] == "failed":
+            self._state = "failed"
+            return
+        if runner_status["state"] == "done":
+            self._check = CheckRunner(self.check_command, self.runner.staged_root)
+            self._check.start()
+            self._state = "checking"
+
+    def _advance_check_locked(self) -> None:
+        check_status = self._check.status()
+        if check_status["state"] == "running":
+            return
+        self._check_exit_code = check_status["exit_code"]
+        self._check_tail = check_status["tail"]
+        if check_status["state"] == "passed":
+            self._state = "done"
+        elif check_status["state"] == "error":
+            self._state = "check_failed"
+        elif self._attempt < self.max_retries:
+            self._attempt += 1
+            self.runner.resume(FAILURE_PROMPT_TEMPLATE.format(
+                command=self.check_command,
+                exit_code=check_status["exit_code"],
+                tail=check_status["tail"]))
+            self._state = "resuming"
+        else:
+            self._state = "check_failed"
