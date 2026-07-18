@@ -27,6 +27,7 @@ class ApplyRequest(BaseModel):
 class PromptRequest(BaseModel):
     prompt: str = ""
     continue_session: bool = False
+    scope: str | None = None
 
 
 class CommitRequest(BaseModel):
@@ -102,9 +103,9 @@ def create_app(service: GraphService, engine: ApplyEngine,
             raise HTTPException(status_code=400, detail="prompt is required")
         try:
             if req.continue_session:
-                started = runner.continue_session(req.prompt)
+                started = runner.continue_session(req.prompt, scope=req.scope)
             else:
-                started = runner.start(req.prompt)
+                started = runner.start(req.prompt, scope=req.scope)
         except SessionBusyError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
         except NoSessionToResumeError as exc:

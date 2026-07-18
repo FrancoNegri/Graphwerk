@@ -17,29 +17,33 @@ class StubRunner:
     def __init__(self, staged_root=None):
         self.snapshot = {"state": "idle", "detail": "", "session_id": ""}
         self.prompts = []
+        self.start_scopes = []
         self.resume_prompts = []
+        self.resume_scopes = []
         self.busy = False
         self.has_session = False
         self.staged_root = staged_root
 
-    def start(self, prompt):
+    def start(self, prompt, scope=None):
         if self.busy:
             raise SessionBusyError("a session is already running")
         self.prompts.append(prompt)
+        self.start_scopes.append(scope)
         self.snapshot = {"state": "running", "detail": "", "session_id": ""}
         return dict(self.snapshot)
 
-    def resume(self, prompt):
+    def resume(self, prompt, scope=None):
         if self.busy:
             raise SessionBusyError("a session is already running")
         if not self.has_session:
             raise NoSessionToResumeError("no prior session to resume")
         self.resume_prompts.append(prompt)
+        self.resume_scopes.append(scope)
         self.snapshot = {"state": "running", "detail": "", "session_id": ""}
         return dict(self.snapshot)
 
-    def continue_session(self, prompt):
-        return self.resume(prompt)
+    def continue_session(self, prompt, scope=None):
+        return self.resume(prompt, scope=scope)
 
     def status(self):
         return dict(self.snapshot)
@@ -99,6 +103,29 @@ def test_prompt_with_continue_session_dispatches_to_resume(client, stub_runner):
     assert stub_runner.prompts == []
 
 
+def test_prompt_forwards_scope_to_start(client, stub_runner):
+    response = client.post("/api/prompt", json={"prompt": "add a docstring", "scope": "implementation"})
+
+    assert response.status_code == 200
+    assert stub_runner.start_scopes == ["implementation"]
+
+
+def test_prompt_forwards_scope_to_continue_session(client, stub_runner):
+    stub_runner.has_session = True
+
+    response = client.post("/api/prompt", json={
+        "prompt": "keep talking", "continue_session": True, "scope": "design"})
+
+    assert response.status_code == 200
+    assert stub_runner.resume_scopes == ["design"]
+
+
+def test_prompt_without_scope_forwards_none(client, stub_runner):
+    client.post("/api/prompt", json={"prompt": "add a docstring"})
+
+    assert stub_runner.start_scopes == [None]
+
+
 def test_prompt_continue_session_without_a_prior_session_is_409(client, stub_runner):
     response = client.post("/api/prompt",
                            json={"prompt": "keep talking", "continue_session": True})
@@ -108,7 +135,7 @@ def test_prompt_continue_session_without_a_prior_session_is_409(client, stub_run
 
 
 def test_failed_spawn_surfaces_runner_message(client, stub_runner):
-    def failing_start(prompt):
+    def failing_start(prompt, scope=None):
         stub_runner.snapshot = {"state": "failed",
                                 "detail": "could not launch claude: not found",
                                 "session_id": ""}

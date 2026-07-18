@@ -1,3 +1,5 @@
+import json
+import subprocess
 import tempfile
 import threading
 import time
@@ -358,3 +360,97 @@ def test_resume_failure_keeps_the_prior_session_id(staged_root, tmp_path):
 
     assert finished["state"] == "failed"
     assert finished["session_id"] == "sess-1"
+
+
+def settings_path(staged_root):
+    return staged_root / ".claude" / "settings.local.json"
+
+
+def test_start_with_no_scope_writes_no_hook_config(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("do the thing")
+    wait_until_finished(runner)
+
+    assert not settings_path(staged_root).exists()
+
+
+def test_start_with_design_scope_writes_a_pretooluse_hook_config(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("do the thing", scope="design")
+    wait_until_finished(runner)
+
+    settings = json.loads(settings_path(staged_root).read_text())
+    entry = settings["hooks"]["PreToolUse"][0]
+    assert entry["matcher"] == "Edit|Write"
+    command = entry["hooks"][0]["command"]
+    assert "graphwerk.hooks.scope_guard" in command
+    assert "GRAPHWERK_SCOPE=design" in command
+
+
+def test_resume_with_implementation_scope_writes_a_hook_config(staged_root, tmp_path):
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub))
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    resume_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-2"}\'', name="resume-stub")
+    runner.claude_cmd = str(resume_stub)
+    runner.resume("please fix the failures", scope="implementation")
+    wait_until_finished(runner)
+
+    command = json.loads(settings_path(staged_root).read_text())["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert "GRAPHWERK_SCOPE=implementation" in command
+
+
+def test_design_scope_hook_denies_py_writes_and_allows_md_writes_without_corrupting_session_result(
+    staged_root, tmp_path
+):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-scoped"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("update the docs", scope="design")
+    finished = wait_until_finished(runner)
+
+    command = json.loads(settings_path(staged_root).read_text())["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    py_result = subprocess.run(
+        command, shell=True, capture_output=True, text=True,
+        input=json.dumps({"tool_name": "Write", "tool_input": {"file_path": "graphwerk/service.py"}}),
+    )
+    md_result = subprocess.run(
+        command, shell=True, capture_output=True, text=True,
+        input=json.dumps({"tool_name": "Write", "tool_input": {"file_path": "docs/x.md"}}),
+    )
+
+    assert json.loads(py_result.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert json.loads(md_result.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-scoped"}
+
+
+def test_rerunning_with_a_new_scope_replaces_the_old_hook_entry_rather_than_duplicating(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("first", scope="design")
+    wait_until_finished(runner)
+    runner.start("second", scope="implementation")
+    wait_until_finished(runner)
+
+    pre_tool_use = json.loads(settings_path(staged_root).read_text())["hooks"]["PreToolUse"]
+    assert len(pre_tool_use) == 1
+    assert "GRAPHWERK_SCOPE=implementation" in pre_tool_use[0]["hooks"][0]["command"]
+
+
+def test_scope_hook_config_preserves_unrelated_existing_settings(staged_root, tmp_path):
+    settings_path(staged_root).parent.mkdir(parents=True)
+    settings_path(staged_root).write_text(json.dumps({"otherSetting": "keep-me"}))
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("do the thing", scope="design")
+    wait_until_finished(runner)
+
+    assert json.loads(settings_path(staged_root).read_text())["otherSetting"] == "keep-me"

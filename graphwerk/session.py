@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import threading
 from pathlib import Path
+
+SCOPE_HOOK_MARKER = "graphwerk.hooks.scope_guard"
+CLAUDE_SETTINGS_REL_PATH = Path(".claude") / "settings.local.json"
 
 
 class SessionBusyError(RuntimeError):
@@ -37,10 +41,12 @@ class SessionRunner:
         # tab polls /api/session); the lock keeps _settle to one run per child.
         self._lock = threading.Lock()
 
-    def start(self, prompt: str) -> dict:
+    def start(self, prompt: str, scope: str | None = None) -> dict:
         with self._lock:
             if self._status_locked()["state"] == "running":
                 raise SessionBusyError("a session is already running")
+            if scope is not None:
+                _configure_scope_hook(self.staged_root, scope)
             command = [self.claude_cmd, "-p", prompt,
                        "--output-format", "json",
                        "--permission-mode", self.permission_mode]
@@ -48,12 +54,14 @@ class SessionRunner:
                 command += ["--append-system-prompt", self.system_prompt]
             return self._spawn(command)
 
-    def resume(self, prompt: str) -> dict:
+    def resume(self, prompt: str, scope: str | None = None) -> dict:
         with self._lock:
             if self._status_locked()["state"] == "running":
                 raise SessionBusyError("a session is already running")
             if not self._last_session_id:
                 raise NoSessionToResumeError("no prior session to resume")
+            if scope is not None:
+                _configure_scope_hook(self.staged_root, scope)
             command = [self.claude_cmd, "-p", prompt,
                        "--resume", self._last_session_id,
                        "--output-format", "json",
@@ -119,6 +127,40 @@ class SessionRunner:
                 handle.close()
         self._child_output = None
         self._child_errors = None
+
+
+def _configure_scope_hook(staged_root: Path, scope: str) -> None:
+    """Writes/replaces this session's PreToolUse hook entry in the staged
+    worktree's local settings (ADR 046) so "design can't touch code,
+    implementation can't touch docs" is enforced by Claude Code itself, not
+    just requested via prompt text. Other hooks/settings already in the
+    file are left untouched; a prior graphwerk scope entry is replaced
+    rather than duplicated (a session can be re-scoped run over run)."""
+    path = staged_root / CLAUDE_SETTINGS_REL_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    settings = _read_json(path)
+    hooks = settings.setdefault("hooks", {})
+    pre_tool_use = [entry for entry in hooks.get("PreToolUse", [])
+                    if not _is_scope_hook_entry(entry)]
+    pre_tool_use.append(_scope_hook_entry(scope))
+    hooks["PreToolUse"] = pre_tool_use
+    path.write_text(json.dumps(settings, indent=2))
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _is_scope_hook_entry(entry: dict) -> bool:
+    return any(SCOPE_HOOK_MARKER in hook.get("command", "") for hook in entry.get("hooks", []))
+
+
+def _scope_hook_entry(scope: str) -> dict:
+    command = f"GRAPHWERK_SCOPE={scope} {sys.executable} -m {SCOPE_HOOK_MARKER}"
+    return {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": command}]}
 
 
 def _read_back(handle) -> str:

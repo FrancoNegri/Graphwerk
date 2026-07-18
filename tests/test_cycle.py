@@ -20,21 +20,25 @@ class StubSessionRunner:
         self._session_id = ""
         self._poll_count = 0
         self.start_prompts = []
+        self.start_scopes = []
         self.resume_prompts = []
+        self.resume_scopes = []
 
-    def start(self, prompt):
+    def start(self, prompt, scope=None):
         if self._state == "running":
             raise SessionBusyError("a session is already running")
         self.start_prompts.append(prompt)
+        self.start_scopes.append(scope)
         self._begin_run()
         return self._snapshot()
 
-    def resume(self, prompt):
+    def resume(self, prompt, scope=None):
         if self._state == "running":
             raise SessionBusyError("a session is already running")
         if not self._session_id:
             raise NoSessionToResumeError("no prior session to resume")
         self.resume_prompts.append(prompt)
+        self.resume_scopes.append(scope)
         self._begin_run()
         return self._snapshot()
 
@@ -75,14 +79,18 @@ class FixedStatusRunner:
         self.staged_root = staged_root
         self._snapshot = snapshot
         self.start_prompts = []
+        self.start_scopes = []
         self.resume_prompts = []
+        self.resume_scopes = []
 
-    def start(self, prompt):
+    def start(self, prompt, scope=None):
         self.start_prompts.append(prompt)
+        self.start_scopes.append(scope)
         return dict(self._snapshot)
 
-    def resume(self, prompt):
+    def resume(self, prompt, scope=None):
         self.resume_prompts.append(prompt)
+        self.resume_scopes.append(scope)
         return dict(self._snapshot)
 
     def status(self):
@@ -339,6 +347,24 @@ def test_continue_session_resets_bookkeeping_and_lands_running_like_start(tmp_pa
     assert finished["state"] == "done"
     assert finished["session_id"] == "sess-2"
     assert runner.resume_prompts == ["second turn"]
+
+
+def test_start_forwards_scope_to_the_runner(tmp_path):
+    runner = FixedStatusRunner(tmp_path, {"state": "running", "detail": "", "session_id": ""})
+    cycle = SessionCycle(runner, check_command=None)
+
+    cycle.start("do the thing", scope="design")
+
+    assert runner.start_scopes == ["design"]
+
+
+def test_continue_session_forwards_scope_to_the_runner(tmp_path):
+    runner = FixedStatusRunner(tmp_path, {"state": "running", "detail": "", "session_id": "sess-1"})
+    cycle = SessionCycle(runner, check_command=None)
+
+    cycle.continue_session("keep talking", scope="implementation")
+
+    assert runner.resume_scopes == ["implementation"]
 
 
 def test_start_succeeds_again_after_a_terminal_state(tmp_path):

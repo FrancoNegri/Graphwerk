@@ -42,26 +42,26 @@ class SessionCycle:
         # same way SessionRunner/CheckRunner do (ticket 086).
         self._lock = threading.Lock()
 
-    def start(self, prompt: str) -> dict:
+    def start(self, prompt: str, scope: str | None = None) -> dict:
         if self.check_command is None:
-            payload = dict(self.runner.start(prompt))
+            payload = dict(self.runner.start(prompt, scope=scope))
             payload["check_configured"] = False
             return payload
-        return self._begin_locked(self.runner.start, prompt)
+        return self._begin_locked(self.runner.start, prompt, scope)
 
-    def continue_session(self, prompt: str) -> dict:
+    def continue_session(self, prompt: str, scope: str | None = None) -> dict:
         if self.check_command is None:
-            payload = dict(self.runner.resume(prompt))
+            payload = dict(self.runner.resume(prompt, scope=scope))
             payload["check_configured"] = False
             return payload
-        return self._begin_locked(self.runner.resume, prompt)
+        return self._begin_locked(self.runner.resume, prompt, scope)
 
-    def _begin_locked(self, operation, prompt: str) -> dict:
+    def _begin_locked(self, operation, prompt: str, scope: str | None) -> dict:
         with self._lock:
             current = self._status_locked()
             if current["state"] not in TERMINAL_STATES:
                 raise SessionBusyError("a session is already running")
-            operation(prompt)
+            operation(prompt, scope=scope)
             self._check = None
             self._state = "running"
             self._attempt = 0
