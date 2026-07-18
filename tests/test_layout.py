@@ -497,3 +497,30 @@ def test_pair_tests_with_files_never_keys_a_non_test_file():
     nodes = [file_node("graphwerk/layout.py"), file_node("tests/test_layout.py")]
     paired = pair_tests_with_files(nodes)
     assert "graphwerk/layout.py" not in paired
+
+
+def test_pair_tests_with_files_drops_wrapper_directory_and_package_root():
+    nodes = [file_node("src/agendabot/webhook.py"), file_node("tests/test_webhook.py")]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/test_webhook.py": "src/agendabot/webhook.py"}
+
+
+def test_pair_tests_with_files_wrapper_directory_mirrors_nested_package_dirs():
+    nodes = [
+        file_node("src/agendabot/bsp/twilio.py"),
+        file_node("tests/bsp/test_twilio.py"),
+    ]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/bsp/test_twilio.py": "src/agendabot/bsp/twilio.py"}
+
+
+def test_pair_tests_with_files_non_wrapper_top_directory_still_pairs_as_before():
+    nodes = [file_node("graphwerk/layout.py"), file_node("tests/test_layout.py")]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/test_layout.py": "graphwerk/layout.py"}
+
+
+def test_pair_tests_with_files_wrapper_directory_with_no_package_root_does_not_crash():
+    nodes = [file_node("src/only.py"), file_node("tests/test_only.py")]
+    paired = pair_tests_with_files(nodes)
+    assert paired == {"tests/test_only.py": "src/only.py"}

@@ -82,11 +82,26 @@ def is_test_path(path: str) -> bool:
     return any(segment in _TEST_PATH_SEGMENTS for segment in segments)
 
 
+def _drop_wrapper_rooted_prefix(path: str) -> str:
+    """Path with its top-level directory dropped; a generic wrapper
+    directory (src/lib) also drops the package-root segment after it, the
+    same convention `group_for_path` already applies (ADR 021) — a
+    src-layout source file's mirror key needs to line up with a flat
+    tests/ tree that never had the package-root segment to begin with
+    (ADR 041 amendment)."""
+    if "/" not in path:
+        return path
+    top, remainder = path.split("/", 1)
+    if top in _WRAPPER_DIRECTORY_NAMES and "/" in remainder:
+        remainder = remainder.split("/", 1)[1]
+    return remainder
+
+
 def _mirror_key(path: str) -> str:
-    """Path with its top-level directory dropped; test files additionally
-    drop a leading tests/test segment and a test_/_test filename affix, so a
-    test file's key lines up with the source file it mirrors (ADR 041)."""
-    remainder = path.split("/", 1)[1] if "/" in path else path
+    """Test files additionally drop a leading tests/test segment and a
+    test_/_test filename affix, so a test file's key lines up with the
+    source file it mirrors (ADR 041)."""
+    remainder = _drop_wrapper_rooted_prefix(path)
     if not is_test_path(path):
         return remainder
     segments = remainder.split("/")
