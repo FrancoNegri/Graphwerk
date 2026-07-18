@@ -138,9 +138,9 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [124](124-markdown-heading-extractor.md) | Markdown heading extractor | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [125](125-wire-markdown-into-index-walk.md) | Wire the Markdown extractor into the walk/index path | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [126](126-cross-doc-reference-edges.md) | Cross-doc reference edges | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [127](127-sessioncycle-continue-session.md) | `SessionCycle.continue_session(prompt)` and `/api/prompt` wiring | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [128](128-frontend-continue-session-affordance.md) | Frontend: "continue this session" affordance | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [129](129-graphnode-domain-field.md) | `GraphNode.domain` field | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [130](130-frontend-design-implementation-view-toggle.md) | Frontend "Design" / "Implementation" mode toggle | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [131](131-scope-guard-decision-function.md) | Scope-guard decision function | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [132](132-wire-scope-guard-into-sessions.md) | Wire the scope guard into spawned sessions | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [127](127-sessioncycle-continue-session.md) | `SessionCycle.continue_session(prompt)` and `/api/prompt` wiring | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [128](128-frontend-continue-session-affordance.md) | Frontend: "continue this session" affordance | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [129](129-graphnode-domain-field.md) | `GraphNode.domain` field | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [130](130-frontend-design-implementation-view-toggle.md) | Frontend "Design" / "Implementation" mode toggle | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [131](131-scope-guard-decision-function.md) | Scope-guard decision function | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [132](132-wire-scope-guard-into-sessions.md) | Wire the scope guard into spawned sessions | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |

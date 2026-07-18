@@ -43,9 +43,9 @@ let changedOnlyView = false;
 let hideTestsView = true;
 let showImportsView = false;
 let showCallsView = true;
-// "all" | "design" | "implementation" — filters rendered nodes by domain
+// "design" | "implementation" — filters rendered nodes by domain
 // and doubles as the scope sent with the next spawned session (ADR 046).
-let domainModeView = "all";
+let domainModeView = "implementation";
 // group -> tint color, assigned in first-seen payload order (ADR 010).
 let groupTints = new Map();
 // Edges kept visible by a click, independent of hover; cleared by tapping
@@ -977,8 +977,7 @@ document.getElementById("prompt-form").addEventListener("submit", async (event) 
   if (!promptText) return;
   const continueCheckbox = document.getElementById("continue-session");
   const continueSession = continueCheckbox.checked;
-  const body = { prompt: promptText, continue_session: continueSession };
-  if (domainModeView !== "all") body.scope = domainModeView;
+  const body = { prompt: promptText, continue_session: continueSession, scope: domainModeView };
   const res = await fetch("/api/prompt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
