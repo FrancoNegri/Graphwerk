@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from graphwerk.design_guidance import DESIGN_SESSION_GUIDANCE
 from graphwerk.session import NoSessionToResumeError, SessionBusyError, SessionRunner
 
 
@@ -93,6 +94,68 @@ def test_no_system_prompt_leaves_command_unchanged(staged_root, tmp_path):
 
     assert record.read_text().strip() == (
         "-p do the thing --output-format json --permission-mode acceptEdits")
+
+
+def test_design_scope_appends_design_guidance_with_no_system_prompt_set(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                               'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("do the thing", scope="design")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p do the thing --output-format json --permission-mode acceptEdits "
+        f"--append-system-prompt {DESIGN_SESSION_GUIDANCE}")
+
+
+def test_design_scope_appends_design_guidance_after_the_existing_system_prompt(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                               'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub),
+                           system_prompt="follow the guidance")
+
+    runner.start("do the thing", scope="design")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p do the thing --output-format json --permission-mode acceptEdits "
+        f"--append-system-prompt follow the guidance\n\n{DESIGN_SESSION_GUIDANCE}")
+
+
+def test_implementation_scope_builds_the_exact_same_command_as_no_scope(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                               'echo \'{"session_id": "s"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub),
+                           system_prompt="follow the guidance")
+
+    runner.start("do the thing", scope="implementation")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p do the thing --output-format json --permission-mode acceptEdits "
+        "--append-system-prompt follow the guidance")
+
+
+def test_resume_with_design_scope_appends_design_guidance(staged_root, tmp_path):
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub))
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    record = tmp_path / "record.txt"
+    resume_stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                                      'echo \'{"session_id": "sess-2"}\'', name="resume-stub")
+    runner.claude_cmd = str(resume_stub)
+    runner.resume("please fix the failures", scope="design")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p please fix the failures --resume sess-1 --output-format json "
+        f"--permission-mode acceptEdits --append-system-prompt {DESIGN_SESSION_GUIDANCE}")
 
 
 def test_start_while_running_raises_busy(staged_root, tmp_path):

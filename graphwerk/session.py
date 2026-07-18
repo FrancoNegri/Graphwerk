@@ -9,6 +9,8 @@ import tempfile
 import threading
 from pathlib import Path
 
+from graphwerk.design_guidance import DESIGN_SESSION_GUIDANCE
+
 SCOPE_HOOK_MARKER = "graphwerk.hooks.scope_guard"
 CLAUDE_SETTINGS_REL_PATH = Path(".claude") / "settings.local.json"
 
@@ -50,8 +52,9 @@ class SessionRunner:
             command = [self.claude_cmd, "-p", prompt,
                        "--output-format", "json",
                        "--permission-mode", self.permission_mode]
-            if self.system_prompt:
-                command += ["--append-system-prompt", self.system_prompt]
+            append_system_prompt = self._append_system_prompt_for(scope)
+            if append_system_prompt:
+                command += ["--append-system-prompt", append_system_prompt]
             return self._spawn(command)
 
     def resume(self, prompt: str, scope: str | None = None) -> dict:
@@ -66,9 +69,20 @@ class SessionRunner:
                        "--resume", self._last_session_id,
                        "--output-format", "json",
                        "--permission-mode", self.permission_mode]
-            if self.system_prompt:
-                command += ["--append-system-prompt", self.system_prompt]
+            append_system_prompt = self._append_system_prompt_for(scope)
+            if append_system_prompt:
+                command += ["--append-system-prompt", append_system_prompt]
             return self._spawn(command)
+
+    def _append_system_prompt_for(self, scope: str | None) -> str:
+        """Design guidance (ADR 047) is added to this call's prompt only —
+        self.system_prompt (ADR 012) stays untouched so other scopes build
+        the exact same command as before."""
+        if scope != "design":
+            return self.system_prompt
+        if self.system_prompt:
+            return f"{self.system_prompt}\n\n{DESIGN_SESSION_GUIDANCE}"
+        return DESIGN_SESSION_GUIDANCE
 
     def _spawn(self, command: list[str]) -> dict:
         # stderr kept apart from stdout: a stray CLI warning must not

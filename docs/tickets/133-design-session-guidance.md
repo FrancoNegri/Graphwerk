@@ -1,6 +1,6 @@
 # 133. Design-session guidance module
 
-Status: ready
+Status: done
 Decision: docs/decisions/047-design-scope-guidance-and-dialogue.md
 
 ## Goal
