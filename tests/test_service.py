@@ -605,6 +605,46 @@ def test_deleted_caller_import_entry_code_comes_from_base_statement(tmp_path):
     assert line["op"] == "del"
 
 
+def test_top_of_file_import_is_not_in_caller_code(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    assert entry["in_caller_code"] is False
+
+
+def test_import_nested_inside_caller_is_in_caller_code(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "def run():\n    import helper\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    assert entry["in_caller_code"] is True
+
+
+def test_deleted_caller_import_containment_resolves_in_base(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "caller.py": "def gone():\n    import helper\n    return helper.do_work()\n",
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
+    (entry,) = edge.via_imports
+    assert entry["in_caller_code"] is True
+
+
 def test_import_present_in_both_trees_renders_as_ctx_code_line(tmp_path):
     service = make_service(tmp_path, {
         "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",

@@ -9,7 +9,7 @@ from graphwerk.codeview import build_code_view
 from graphwerk.highlight import highlight_lines
 from graphwerk.indexing.walk import iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
-from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status
+from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status, SymbolInfo
 from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder
 
@@ -193,18 +193,23 @@ class GraphService:
             return modules_by_file
 
         def via_imports_entries(
-            caller_rel: str, target_rel: str, modules_by_file: dict, caller_deleted: bool
+            caller_rel: str, target_rel: str, modules_by_file: dict, caller_deleted: bool, source_id: str
         ) -> list | None:
             if target_rel == caller_rel:
                 return None
             change = changes[caller_rel]
             index = change.base if caller_deleted else change.staged
+            caller_qualname = source_id.split("::", 1)[1]
+            caller_symbol = index.symbols.get(caller_qualname)
             return [
                 {
                     "module": module,
                     "status": change.imports[module].value,
                     "code": _statement_code_lines(
                         index.import_statements.get(module), change.imports[module]
+                    ),
+                    "in_caller_code": _statement_in_caller_span(
+                        index.import_statements.get(module), caller_symbol
                     ),
                 }
                 for module in modules_by_file[target_rel]
@@ -231,7 +236,9 @@ class GraphService:
                     if target_rel not in allowed_files:
                         continue
                     seen.add((source_id, target_id))
-                    via_imports = via_imports_entries(caller_rel, target_rel, modules_by_file, caller_deleted)
+                    via_imports = via_imports_entries(
+                        caller_rel, target_rel, modules_by_file, caller_deleted, source_id
+                    )
                     snap.edges.append(GraphEdge(source_id, target_id, "calls", via_imports=via_imports))
 
     def _add_import_edges(self, snap: Snapshot, changes: dict, resolver: ModuleFileResolver) -> None:
@@ -277,6 +284,16 @@ class GraphService:
 
 
 _IMPORT_STATUS_TO_OP = {Status.ADDED: "add", Status.DELETED: "del"}
+
+
+def _statement_in_caller_span(statement: tuple[str, int] | None, caller_symbol: SymbolInfo | None) -> bool:
+    """True when the import statement's start line falls inside the caller
+    symbol's own line span (nested imports, ticket 065) rather than at the
+    top of the file."""
+    if statement is None or caller_symbol is None:
+        return False
+    _, start_line = statement
+    return caller_symbol.lineno <= start_line <= caller_symbol.end_lineno
 
 
 def _statement_code_lines(statement: tuple[str, int] | None, status: Status) -> list | None:
