@@ -32,6 +32,20 @@ Searched for existing tools in this space. Findings:
 - **Per-node rationale:** every changed node explains *why* it changed, in the agent's own words. This turns review from "is this code correct?" into the stronger check "does the stated intent match what the code actually does?" — and a rejection can attack the reasoning directly ("your stated reason doesn't hold because...").
 - **Targeted re-prompting:** rejecting a node with a comment becomes a scoped follow-up in the same agent session, instead of re-running the whole prompt.
 
+## A second review domain: the knowledge base, before the code
+
+Everything above reviews code *after* it's generated. The same graph — the
+same `FileIndex`/`SymbolInfo` contract, the same staging/diff/apply/session
+machinery — also applies one step earlier, to the documentation that
+records *why* a product is built the way it is: ADRs, tickets, a roadmap,
+whatever a team's decision knowledge base looks like (ADR 046). A Markdown
+extractor turns headings into symbols the same way the Python extractor
+turns functions into symbols, so a `docs/decisions` + `docs/tickets` tree
+(this repo's own, or any product's) diffs and renders exactly like a code
+tree: sessions propose decisions, the human reviews and applies or rejects
+them node by node, and the accepted result — a set of tickets — becomes the
+input to the code-review loop above. Two domains, one pipeline.
+
 ## Open product questions
 
 - Granularity of a "node" for apply purposes: file, class, or function? (Function-level is the vision; file-level is the pragmatic v1 — see architecture notes.)

@@ -54,7 +54,14 @@ Goal: graduate from file-level apply.
 ## Phase 5 — Breadth and polish
 
 - Multi-language indexing via tree-sitter (JS/TS first), behind the existing
-  FileIndex contract.
+  FileIndex contract. *Markdown pulled forward 2026-07-18 (user call): ADR
+  046, tickets 124-128 — a stdlib heading-level extractor, not tree-sitter,
+  because a product's decision knowledge base (ADRs/tickets/roadmap) is the
+  first target, not general prose. Ships a second review domain (docs/02):
+  the same graph/session/apply pipeline, pointed at documentation instead of
+  code, plus a user-triggered "continue this session" control so a design
+  dialogue can have real back-and-forth turns. Full JS/TS via tree-sitter
+  stays here.*
 - Rationale quality: post-hoc one-liner summarization pass (Haiku) over mined
   narration. **Dogfood finding (ticket 007, July 2026): this is needed sooner
   than "polish".** Current sessions batch many edits after one short lead-in
