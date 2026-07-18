@@ -33,9 +33,21 @@ def file_fingerprint(path: Path) -> tuple[int, int]:
 
 def iter_python_files(root: Path):
     """Yield (abs_path, rel_path) for indexable .py files under root."""
-    rel_paths = _git_listed_python_files(root)
+    return iter_files_with_extension(root, ".py")
+
+
+def iter_markdown_files(root: Path):
+    """Yield (abs_path, rel_path) for indexable .md files under root."""
+    return iter_files_with_extension(root, ".md")
+
+
+def iter_files_with_extension(root: Path, extension: str):
+    """Yield (abs_path, rel_path) for indexable files under root matching
+    extension (git-aware: .gitignore respected, tracked + untracked, same
+    symlink handling as the extension-specific wrappers above)."""
+    rel_paths = _git_listed_files(root, extension)
     if rel_paths is None:
-        rel_paths = _fallback_python_files(root)
+        rel_paths = _fallback_files(root, extension)
     for rel in rel_paths:
         path = root / rel
         if not path.is_file() or _crosses_symlink(root, rel):
@@ -53,13 +65,13 @@ def _crosses_symlink(root: Path, rel: str) -> bool:
     return False
 
 
-def _git_listed_python_files(root: Path) -> list[str] | None:
-    """Relative .py paths per git (tracked + untracked, .gitignore applied),
-    or None when root is not inside a git work tree."""
+def _git_listed_files(root: Path, extension: str) -> list[str] | None:
+    """Relative paths matching extension per git (tracked + untracked,
+    .gitignore applied), or None when root is not inside a git work tree."""
     command = [
         "git", "-C", str(root),
         "ls-files", "--cached", "--others", "--exclude-standard", "-z",
-        "--", "*.py",
+        "--", f"*{extension}",
     ]
     try:
         listing = subprocess.run(command, capture_output=True, check=True)
@@ -68,9 +80,9 @@ def _git_listed_python_files(root: Path) -> list[str] | None:
     return sorted(rel for rel in listing.stdout.decode("utf-8").split("\0") if rel)
 
 
-def _fallback_python_files(root: Path) -> list[str]:
+def _fallback_files(root: Path, extension: str) -> list[str]:
     rel_paths = []
-    for path in sorted(root.rglob("*.py")):
+    for path in sorted(root.rglob(f"*{extension}")):
         rel_parts = path.relative_to(root).parts
         if any(part in IGNORED_DIRS or part.startswith(".") for part in rel_parts[:-1]):
             continue

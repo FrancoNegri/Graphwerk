@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from graphwerk.indexing.walk import iter_python_files
+from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -64,6 +64,32 @@ def test_git_root_skips_files_deleted_from_disk(git_repo: Path) -> None:
     (git_repo / "gone.py").unlink()
 
     assert _rel_paths(git_repo) == ["kept.py"]
+
+
+def test_iter_markdown_files_finds_git_tracked_and_untracked_md(git_repo: Path) -> None:
+    (git_repo / "README.md").write_text("# Title\n")
+    _git(git_repo, "add", "README.md")
+    (git_repo / "NOTES.md").write_text("# Notes\n")
+    (git_repo / "kept.py").write_text("x = 1\n")
+
+    assert [rel for _, rel in iter_markdown_files(git_repo)] == ["NOTES.md", "README.md"]
+
+
+def test_iter_markdown_files_respects_gitignore(git_repo: Path) -> None:
+    (git_repo / "kept.md").write_text("# Kept\n")
+    (git_repo / "generated.md").write_text("# Generated\n")
+    (git_repo / ".gitignore").write_text("generated.md\n")
+
+    assert [rel for _, rel in iter_markdown_files(git_repo)] == ["kept.md"]
+
+
+def test_iter_markdown_files_skips_symlinks(tmp_path: Path) -> None:
+    root = tmp_path / "plain"
+    root.mkdir(parents=True)
+    (root / "real.md").write_text("# Real\n")
+    (root / "alias.md").symlink_to(root / "real.md")
+
+    assert [rel for _, rel in iter_markdown_files(root)] == ["real.md"]
 
 
 def test_non_git_root_walks_like_legacy_ignore_list(tmp_path: Path) -> None:

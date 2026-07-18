@@ -7,7 +7,7 @@ from pathlib import Path
 
 from graphwerk.codeview import build_code_view
 from graphwerk.highlight import highlight_lines
-from graphwerk.indexing.walk import iter_python_files
+from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status, SymbolInfo
 from graphwerk.rationale import RationaleStore
@@ -153,7 +153,7 @@ class GraphService:
         """Cheap fingerprint of both trees; the UI polls this to know when to refetch."""
         digest = hashlib.md5()
         for root in (self.base_root, self.staged_root):
-            for path, rel in iter_python_files(root):
+            for path, rel in (*iter_python_files(root), *iter_markdown_files(root)):
                 stat = path.stat()
                 digest.update(f"{rel}:{stat.st_mtime_ns}:{stat.st_size};".encode())
         return digest.hexdigest()

@@ -75,18 +75,21 @@ def test_commit_all_commits_a_deletion(tmp_path):
 
 
 def test_commit_all_leaves_unrelated_dirty_files_out(tmp_path):
+    # .txt, not .md: this asserts on a file kind the differ genuinely never
+    # walks (unlike .py/.md as of ticket 125, which are diffed like any
+    # other tracked file and would legitimately show up as a change).
     base = make_git_base(tmp_path, {
         "mod.py": "def f():\n    return 1\n",
-        "notes.md": "original notes\n",
+        "notes.txt": "original notes\n",
     })
     staged = tmp_path / "staged"
     write_tree(staged, {"mod.py": "def f():\n    return 2\n"})
-    (base / "notes.md").write_text("local edit outside the change set\n")
+    (base / "notes.txt").write_text("local edit outside the change set\n")
 
     result = make_engine(base, staged).commit_all("Bump f only")
 
     assert result["paths"] == ["mod.py"]
-    assert git(base, "status", "--porcelain") == "M notes.md"
+    assert git(base, "status", "--porcelain") == "M notes.txt"
 
 
 def test_non_git_base_is_rejected_before_any_apply(tmp_path):

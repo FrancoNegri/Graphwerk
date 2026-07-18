@@ -738,6 +738,40 @@ def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     assert all("layer" in n.to_dict() for n in snapshot.nodes)
 
 
+def test_markdown_only_tree_produces_a_non_empty_graph(tmp_path):
+    service = make_service(tmp_path, {"doc.md": "# Title\n\n## Section\nbody\n"})
+    snapshot = service.snapshot()
+    node_ids = {n.id for n in snapshot.nodes}
+    assert "doc.md" in node_ids
+    assert "doc.md::Section" in node_ids
+
+
+def test_mixed_python_and_markdown_tree_renders_both(tmp_path):
+    service = make_service(tmp_path, {
+        "a.py": "def f():\n    pass\n",
+        "doc.md": "# Title\n\n## Notes\nbody\n",
+    })
+    snapshot = service.snapshot()
+    node_ids = {n.id for n in snapshot.nodes}
+    assert "a.py" in node_ids
+    assert "a.py::f" in node_ids
+    assert "doc.md" in node_ids
+    assert "doc.md::Notes" in node_ids
+
+
+def test_state_hash_changes_when_a_markdown_heading_changes(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"doc.md": "# Title\n\n## Section\nold body\n"})
+    write_tree(staged, {"doc.md": "# Title\n\n## Section\nold body\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    before = service.state_hash()
+
+    (staged / "doc.md").write_text("# Title\n\n## Section\nnew body\n")
+
+    assert service.state_hash() != before
+
+
 def test_snapshot_file_nodes_report_their_top_level_directory_as_group(tmp_path):
     service = make_service(tmp_path, {
         "shop/checkout.py": "def pay():\n    pass\n",

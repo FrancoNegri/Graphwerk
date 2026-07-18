@@ -94,6 +94,41 @@ def test_undecodable_file_yields_none_sources_without_raising(tmp_path):
     assert change.source is None
 
 
+def test_markdown_file_is_indexed_for_headings(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"doc.md": "# Title\n\n## Context\nold body\n"},
+        staged={"doc.md": "# Title\n\n## Context\nnew body\n"},
+    )
+
+    assert list(changes["doc.md"].symbols) == ["Context"]
+    assert changes["doc.md"].symbols["Context"][0] == Status.MODIFIED
+
+
+def test_markdown_only_tree_produces_changes(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={},
+        staged={"doc.md": "# Title\n\n## Section\nbody\n"},
+    )
+
+    assert "doc.md" in changes
+    assert changes["doc.md"].status is Status.ADDED
+
+
+def test_mixed_python_and_markdown_tree_indexes_both(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "def f():\n    pass\n", "doc.md": "# Title\n\n## Notes\nbody\n"},
+        staged={"a.py": "def f():\n    pass\n", "doc.md": "# Title\n\n## Notes\nbody\n"},
+    )
+
+    assert set(changes) == {"a.py", "doc.md"}
+    assert changes["a.py"].status is Status.UNCHANGED
+    assert changes["doc.md"].status is Status.UNCHANGED
+    assert list(changes["doc.md"].symbols) == ["Notes"]
+
+
 def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatch):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

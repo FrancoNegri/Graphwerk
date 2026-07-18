@@ -136,7 +136,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [122](122-sessioncycle-check-configured-flag.md) | `SessionCycle.status()` always reports `check_configured` | done | [045](../decisions/045-persistent-checks-status-and-naming.md) |
 | [123](123-frontend-persistent-checks-indicator.md) | Persistent "Checks" status indicator in the session bar | done | [045](../decisions/045-persistent-checks-status-and-naming.md) |
 | [124](124-markdown-heading-extractor.md) | Markdown heading extractor | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
-| [125](125-wire-markdown-into-index-walk.md) | Wire the Markdown extractor into the walk/index path | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [125](125-wire-markdown-into-index-walk.md) | Wire the Markdown extractor into the walk/index path | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [126](126-cross-doc-reference-edges.md) | Cross-doc reference edges | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [127](127-sessioncycle-continue-session.md) | `SessionCycle.continue_session(prompt)` and `/api/prompt` wiring | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [128](128-frontend-continue-session-affordance.md) | Frontend: "continue this session" affordance | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |

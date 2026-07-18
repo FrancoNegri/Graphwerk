@@ -10,8 +10,9 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
+from graphwerk.indexing.markdown import MarkdownExtractor
 from graphwerk.indexing.python_ast import PythonAstExtractor
-from graphwerk.indexing.walk import file_fingerprint, iter_python_files
+from graphwerk.indexing.walk import file_fingerprint, iter_markdown_files, iter_python_files
 from graphwerk.models import FileIndex, Status
 
 
@@ -43,7 +44,8 @@ class ChangeSetBuilder:
     def __init__(self, base_root: Path, staged_root: Path):
         self.base_root = base_root
         self.staged_root = staged_root
-        self._extractor = PythonAstExtractor()
+        self._python_extractor = PythonAstExtractor()
+        self._markdown_extractor = MarkdownExtractor()
         # (root, rel_path, mtime_ns, size) -> FileIndex; unbounded for the
         # process lifetime (ADR 019, out of scope: eviction/memory bounds).
         self._index_cache: dict[tuple[str, str, int, int], FileIndex] = {}
@@ -107,12 +109,13 @@ class ChangeSetBuilder:
 
     def _index_tree(self, root: Path) -> dict[str, FileIndex]:
         indexed: dict[str, FileIndex] = {}
-        for path, rel in iter_python_files(root):
+        for path, rel in (*iter_python_files(root), *iter_markdown_files(root)):
+            extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
             mtime_ns, size = file_fingerprint(path)
             key = (str(root), rel, mtime_ns, size)
             cached = self._index_cache.get(key)
             if cached is None:
-                cached = self._extractor.extract(path, rel)
+                cached = extractor.extract(path, rel)
                 self._index_cache[key] = cached
             indexed[rel] = cached
         return indexed
