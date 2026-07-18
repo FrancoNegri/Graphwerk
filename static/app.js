@@ -126,6 +126,7 @@ function toElements(data) {
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (n.group != null) nodeData.group = n.group;
+      if (n.paired_file != null) nodeData.pairedFile = n.paired_file;
       if (collapsedContainerIds.has(n.id)) {
         nodeData.collapsedStatus = strongestStatus.get(n.id) || "unchanged";
       }
@@ -412,7 +413,25 @@ function renderGraph(elements) {
   cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));
   cy.on("mouseover", "node", (evt) => evt.target.connectedEdges().addClass("revealed"));
   cy.on("mouseout", "node", (evt) => evt.target.connectedEdges().removeClass("revealed"));
+  cy.on("layoutstop", placePairedTestNodes);
   applyPinnedEdges();
+}
+
+// fcose has no "my left edge equals your center" primitive (ADR 041), so a
+// paired test pill is snapped into place after the layout settles instead of
+// being expressed as a layout constraint; reads the file node's actual
+// rendered box so this works whether the file is collapsed or expanded.
+const PAIRED_TEST_GAP = 24;
+
+function placePairedTestNodes() {
+  cy.nodes("[pairedFile]").forEach((testNode) => {
+    const fileNode = cy.getElementById(testNode.data("pairedFile"));
+    if (fileNode.empty()) return;
+    testNode.position({
+      x: fileNode.position("x") + testNode.width() / 2,
+      y: fileNode.position("y") + fileNode.height() / 2 + PAIRED_TEST_GAP,
+    });
+  });
 }
 
 function layoutOptions(keepPositions, elements, data) {
