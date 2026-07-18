@@ -6,12 +6,15 @@ line-based heading scan, no CommonMark dependency (ADR 046).
 
 from __future__ import annotations
 
+import posixpath
 import re
 from pathlib import Path
 
 from graphwerk.models import FileIndex, SymbolInfo
 
 _HEADING = re.compile(r"^(#{2,})\s+(.+?)\s*$")
+_INLINE_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+_DECISION_LINE = re.compile(r"^Decision:\s*(\S+\.md)\s*$", re.MULTILINE)
 
 
 class MarkdownExtractor:
@@ -43,6 +46,7 @@ class MarkdownExtractor:
                 end_lineno=end,
                 source="".join(lines[start:end]),
             )
+        index.references = _extract_references(source, rel_path)
         return index
 
 
@@ -58,3 +62,36 @@ def _unique_qualname(text: str, seen_counts: dict[str, int]) -> str:
     seen_counts[text] = seen_counts.get(text, 0) + 1
     count = seen_counts[text]
     return text if count == 1 else f"{text} ({count})"
+
+
+def _extract_references(source: str, rel_path: str) -> set[str]:
+    """Resolves both inline `[text](path.md)` links (relative to this file's
+    own directory) and the `Decision: docs/decisions/NNN-....md` line
+    (already repo-root-relative, as every ticket file writes it) to
+    repo-root-relative target paths — the deterministic doc-to-doc
+    link-parsing ADR 046 chose over inferred semantic relationships."""
+    inline_targets = [match.group(1) for match in _INLINE_LINK.finditer(source)]
+    resolved = {_resolve_relative_link(rel_path, target) for target in inline_targets}
+    resolved |= {_resolve_rooted_link(target) for target in _DECISION_LINE.findall(source)}
+    resolved.discard(None)
+    return resolved
+
+
+def _resolve_relative_link(source_rel_path: str, link_target: str) -> str | None:
+    target = _validated_md_target(link_target)
+    if target is None:
+        return None
+    directory = posixpath.dirname(source_rel_path)
+    return posixpath.normpath(posixpath.join(directory, target))
+
+
+def _resolve_rooted_link(link_target: str) -> str | None:
+    target = _validated_md_target(link_target)
+    return None if target is None else posixpath.normpath(target)
+
+
+def _validated_md_target(link_target: str) -> str | None:
+    target = link_target.split("#", 1)[0]
+    if not target.endswith(".md") or "://" in target or target.startswith("/"):
+        return None
+    return target

@@ -129,6 +129,30 @@ def test_mixed_python_and_markdown_tree_indexes_both(tmp_path):
     assert list(changes["doc.md"].symbols) == ["Notes"]
 
 
+def test_added_doc_link_is_an_added_reference(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"tickets/124.md": "# Ticket\nDecision: docs/decisions/046.md\n"},
+        staged={
+            "tickets/124.md": (
+                "# Ticket\nDecision: docs/decisions/046.md\n"
+                "See [also](../decisions/047.md).\n"
+            ),
+        },
+    )
+    assert changes["tickets/124.md"].references["docs/decisions/046.md"] == Status.UNCHANGED
+    assert changes["tickets/124.md"].references["decisions/047.md"] == Status.ADDED
+
+
+def test_removed_doc_link_is_a_deleted_reference(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"tickets/124.md": "# Ticket\nDecision: docs/decisions/046.md\n"},
+        staged={"tickets/124.md": "# Ticket\nno decision line anymore\n"},
+    )
+    assert changes["tickets/124.md"].references["docs/decisions/046.md"] == Status.DELETED
+
+
 def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatch):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

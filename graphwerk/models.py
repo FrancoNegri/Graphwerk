@@ -36,6 +36,8 @@ class FileIndex:
     # module name -> (verbatim statement source, 1-based start line);
     # first statement wins when a module is imported more than once (ADR 038)
     import_statements: dict[str, tuple[str, int]] = field(default_factory=dict)
+    # repo-root-relative target paths of this (Markdown) file's doc links
+    references: set[str] = field(default_factory=set)
     parse_error: str | None = None
 
 
@@ -87,7 +89,7 @@ class GraphNode:
 class GraphEdge:
     source: str
     target: str
-    kind: str  # "calls" | "imports"
+    kind: str  # "calls" | "imports" | "references"
     status: Status = Status.UNCHANGED
     module: str | None = None  # imports-kind only: the module name responsible for the edge
     # calls-kind, cross-file only: [{"module", "status"}] for each import

@@ -738,6 +738,45 @@ def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     assert all("layer" in n.to_dict() for n in snapshot.nodes)
 
 
+def test_ticket_linking_its_decision_adr_produces_a_references_edge(tmp_path):
+    service = make_service(tmp_path, {
+        "docs/decisions/046-thing.md": "# 046. Thing\n\n## Decision\nbody\n",
+        "docs/tickets/124-thing.md": (
+            "# 124. Some ticket\n\nDecision: docs/decisions/046-thing.md\n"
+        ),
+    })
+    snapshot = service.snapshot()
+    edge = edge_between(
+        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
+    assert edge.status == Status.UNCHANGED
+
+
+def test_reference_edge_added_status_reflects_new_link(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
+        "docs/tickets/124-thing.md": "# 124. Ticket\nno link yet\n",
+    })
+    write_tree(staged, {
+        "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
+        "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/046-thing.md\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+    edge = edge_between(
+        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
+    assert edge.status == Status.ADDED
+
+
+def test_reference_to_nonexistent_path_produces_no_edge(tmp_path):
+    service = make_service(tmp_path, {
+        "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/999-ghost.md\n",
+    })
+    snapshot = service.snapshot()
+    assert not [e for e in snapshot.edges if e.kind == "references"]
+
+
 def test_markdown_only_tree_produces_a_non_empty_graph(tmp_path):
     service = make_service(tmp_path, {"doc.md": "# Title\n\n## Section\nbody\n"})
     snapshot = service.snapshot()

@@ -134,6 +134,7 @@ class GraphService:
         resolver = ModuleFileResolver(changes)
         self._add_call_edges(snap, name_to_ids, symbol_calls, changes, resolver)
         self._add_import_edges(snap, changes, resolver)
+        self._add_reference_edges(snap, changes)
         self._mark_affected(snap)
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
@@ -251,6 +252,18 @@ class GraphService:
                 target = resolver.resolve(module)
                 if target and target != rel:
                     snap.edges.append(GraphEdge(rel, target, "imports", change.imports[module], module))
+
+    def _add_reference_edges(self, snap: Snapshot, changes: dict) -> None:
+        """Doc-to-doc links (ADR 046): targets already resolved to
+        repo-root-relative paths at extraction time, so this only needs to
+        check the target is an actual tracked file — an unresolvable link
+        (external URL, path outside the tree) simply isn't a key in
+        `changes` and is silently skipped, same posture as import
+        resolution."""
+        for rel, change in changes.items():
+            for target, status in change.references.items():
+                if target != rel and target in changes:
+                    snap.edges.append(GraphEdge(rel, target, "references", status))
 
     def _mark_affected(self, snap: Snapshot) -> None:
         """Yellow ring: unchanged symbols that call into changed ones (human blast radius)."""

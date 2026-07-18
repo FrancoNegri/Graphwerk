@@ -5,6 +5,7 @@ from graphwerk.indexing.markdown import MarkdownExtractor
 
 def _extract(tmp_path: Path, source: str, name: str = "doc.md"):
     path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source)
     return MarkdownExtractor().extract(path, name)
 
@@ -87,6 +88,56 @@ def test_file_with_no_headings_has_empty_symbols(tmp_path: Path) -> None:
 
     assert index.symbols == {}
     assert index.parse_error is None
+
+
+def test_inline_relative_link_resolves_to_repo_relative_target(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# Title\n\nSee [the ADR](../decisions/046-thing.md) for context.\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.references == {"decisions/046-thing.md"}
+
+
+def test_link_anchor_is_stripped_before_resolving(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# Title\n\nSee [section](../decisions/046-thing.md#decision) here.\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.references == {"decisions/046-thing.md"}
+
+
+def test_decision_line_is_recognized_as_a_reference(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# 124. Some ticket\n\nDecision: docs/decisions/046-thing.md\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert "docs/decisions/046-thing.md" in index.references
+
+
+def test_external_url_link_is_not_a_reference(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# Title\n\nSee [docs](https://example.com/page.md) online.\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.references == set()
+
+
+def test_link_to_non_markdown_target_is_not_a_reference(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# Title\n\nSee [code](../graphwerk/service.py) for the impl.\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.references == set()
 
 
 def test_unreadable_file_sets_parse_error(tmp_path: Path) -> None:
