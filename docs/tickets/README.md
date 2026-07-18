@@ -121,7 +121,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [107](107-sessioncycle-state-machine.md) | `SessionCycle`: session → check → bounded auto-resume state machine | ready | [040](../decisions/040-post-session-check-gate.md) |
 | [108](108-check-flags-and-session-endpoint.md) | `--check`/`--check-retries` flags; `/api/session` reports the cycle | ready | [040](../decisions/040-post-session-check-gate.md) |
 | [109](109-check-cycle-ui.md) | Session bar surfaces the check cycle | ready | [040](../decisions/040-post-session-check-gate.md) |
-| [110](110-pair-tests-with-files.md) | `pair_tests_with_files`: mirror-key matching between test and source files | ready | [041](../decisions/041-paired-test-file-placement.md) |
+| [110](110-pair-tests-with-files.md) | `pair_tests_with_files`: mirror-key matching between test and source files | done | [041](../decisions/041-paired-test-file-placement.md) |
 | [111](111-paired-file-field-and-layering-exclusion.md) | `GraphNode.paired_file` payload field; paired tests excluded from file layering | ready | [041](../decisions/041-paired-test-file-placement.md) |
 | [112](112-frontend-test-pill-anchoring.md) | Frontend: anchor paired test pills below their file, left edge at center | ready | [041](../decisions/041-paired-test-file-placement.md) |
 | [113](113-commit-message-runner.md) | `CommitMessageRunner`: one-shot diff-summarizing `claude -p` call | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
@@ -135,3 +135,12 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [121](121-frontend-check-summary-rendering.md) | Frontend renders the structured check summary | ready | [044](../decisions/044-check-result-summary-reporting.md) |
 | [122](122-sessioncycle-check-configured-flag.md) | `SessionCycle.status()` always reports `check_configured` | done | [045](../decisions/045-persistent-checks-status-and-naming.md) |
 | [123](123-frontend-persistent-checks-indicator.md) | Persistent "Checks" status indicator in the session bar | done | [045](../decisions/045-persistent-checks-status-and-naming.md) |
+| [124](124-markdown-heading-extractor.md) | Markdown heading extractor | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [125](125-wire-markdown-into-index-walk.md) | Wire the Markdown extractor into the walk/index path | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [126](126-cross-doc-reference-edges.md) | Cross-doc reference edges | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [127](127-sessioncycle-continue-session.md) | `SessionCycle.continue_session(prompt)` and `/api/prompt` wiring | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [128](128-frontend-continue-session-affordance.md) | Frontend: "continue this session" affordance | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [129](129-graphnode-domain-field.md) | `GraphNode.domain` field | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [130](130-frontend-design-implementation-view-toggle.md) | Frontend "Design" / "Implementation" mode toggle | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [131](131-scope-guard-decision-function.md) | Scope-guard decision function | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [132](132-wire-scope-guard-into-sessions.md) | Wire the scope guard into spawned sessions | ready | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
