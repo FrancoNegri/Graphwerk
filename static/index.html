@@ -100,6 +100,10 @@
     <form id="prompt-form">
       <input id="prompt-input" type="text" autocomplete="off"
         placeholder="Prompt the agent — its changes show up in the graph">
+      <label class="view-toggle">
+        <input type="checkbox" id="continue-session" disabled>
+        continue last session
+      </label>
       <button id="prompt-send" type="submit">Run</button>
     </form>
     <span id="prompt-busy" hidden><i class="spinner"></i><span id="prompt-busy-text">agent session running</span></span>

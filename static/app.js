@@ -782,6 +782,9 @@ function renderSessionState(session) {
   document.getElementById("prompt-send").disabled = busy;
   document.getElementById("btn-commit").disabled = busy;
   document.getElementById("btn-discard").disabled = busy;
+  const continueCheckbox = document.getElementById("continue-session");
+  continueCheckbox.disabled = busy || !session.session_id;
+  if (continueCheckbox.disabled) continueCheckbox.checked = false;
   renderSessionBusyIndicator(session, busy);
   const error = document.getElementById("prompt-error");
   error.hidden = session.state !== "failed";
@@ -956,14 +959,17 @@ document.getElementById("prompt-form").addEventListener("submit", async (event) 
   const input = document.getElementById("prompt-input");
   const promptText = input.value.trim();
   if (!promptText) return;
+  const continueCheckbox = document.getElementById("continue-session");
+  const continueSession = continueCheckbox.checked;
   const res = await fetch("/api/prompt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: promptText }),
+    body: JSON.stringify({ prompt: promptText, continue_session: continueSession }),
   });
   const data = await res.json();
   if (res.ok) {
     input.value = "";
+    continueCheckbox.checked = false;
     renderSessionState(data);
   } else if (res.status === 409) {
     renderSessionState({ state: "running" });
