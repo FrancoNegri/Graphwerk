@@ -56,3 +56,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [045](045-persistent-checks-status-and-naming.md) | Persistent, prominent "Checks" status; standing name for the concept | proposed |
 | [046](046-knowledge-base-graph-and-design-dialogue.md) | Knowledge-base graph and design dialogue, via the existing pipeline | proposed |
 | [047](047-design-scope-guidance-and-dialogue.md) | Design-scope session guidance and a scoped dialogue surface | proposed |
+| [048](048-transitive-import-reachability-for-call-edges.md) | Call-edge reachability follows re-export chains, not just direct imports | proposed |
