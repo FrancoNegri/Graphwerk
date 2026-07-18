@@ -1,3 +1,4 @@
+import json
 import time
 
 import pytest
@@ -35,7 +36,12 @@ def test_passing_command_settles_to_passed(root):
 
     assert started["state"] in ("running", "passed")
     finished = wait_until_settled(runner)
-    assert finished == {"state": "passed", "exit_code": 0, "tail": ""}
+    assert finished["state"] == "passed"
+    assert finished["exit_code"] == 0
+    assert finished["tail"] == ""
+    assert finished["check_summary"] is None
+    assert isinstance(finished["duration_s"], float)
+    assert finished["duration_s"] >= 0
 
 
 def test_failing_command_settles_to_failed_with_exit_code(root):
@@ -46,6 +52,8 @@ def test_failing_command_settles_to_failed_with_exit_code(root):
 
     assert finished["state"] == "failed"
     assert finished["exit_code"] == 3
+    assert finished["check_summary"] is None
+    assert isinstance(finished["duration_s"], float)
 
 
 def test_command_runs_in_given_root(root):
@@ -111,4 +119,54 @@ def test_command_that_cannot_launch_settles_to_error(tmp_path):
     assert started["state"] == "error"
     assert started["exit_code"] is None
     assert started["tail"] != ""
+    assert started["check_summary"] is None
+    assert isinstance(started["duration_s"], float)
     assert runner.status()["state"] == "error"
+
+
+def test_summary_file_written_by_command_is_parsed_into_check_summary(root):
+    runner = CheckRunner(
+        'echo \'{"passed": 42, "failed": 2, "total": 44}\' > .graphwerk-check.json', root)
+
+    runner.start()
+    finished = wait_until_settled(runner)
+
+    assert finished["check_summary"] == {"passed": 42, "failed": 2, "total": 44}
+
+
+def test_no_summary_file_check_summary_is_none(root):
+    runner = CheckRunner("true", root)
+
+    runner.start()
+    finished = wait_until_settled(runner)
+
+    assert finished["check_summary"] is None
+
+
+def test_malformed_summary_file_is_treated_as_absent(root):
+    runner = CheckRunner("echo 'not valid json' > .graphwerk-check.json", root)
+
+    runner.start()
+    finished = wait_until_settled(runner)
+
+    assert finished["state"] == "passed"
+    assert finished["check_summary"] is None
+
+
+def test_summary_file_that_parses_to_a_json_array_is_treated_as_absent(root):
+    runner = CheckRunner("echo '[1, 2, 3]' > .graphwerk-check.json", root)
+
+    runner.start()
+    finished = wait_until_settled(runner)
+
+    assert finished["check_summary"] is None
+
+
+def test_stale_summary_file_from_a_previous_run_is_not_misread(root):
+    (root / ".graphwerk-check.json").write_text(json.dumps({"passed": 1, "failed": 0, "total": 1}))
+    runner = CheckRunner("true", root)  # this run writes no summary of its own
+
+    runner.start()
+    finished = wait_until_settled(runner)
+
+    assert finished["check_summary"] is None
