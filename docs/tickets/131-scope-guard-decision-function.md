@@ -1,6 +1,6 @@
 # 131. Scope-guard decision function
 
-Status: ready
+Status: done
 Decision: docs/decisions/046-knowledge-base-graph-and-design-dialogue.md
 
 ## Goal
