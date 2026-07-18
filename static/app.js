@@ -43,6 +43,9 @@ let changedOnlyView = false;
 let hideTestsView = true;
 let showImportsView = false;
 let showCallsView = true;
+// "all" | "design" | "implementation" — filters rendered nodes by domain
+// and doubles as the scope sent with the next spawned session (ADR 046).
+let domainModeView = "all";
 // group -> tint color, assigned in first-seen payload order (ADR 010).
 let groupTints = new Map();
 // Edges kept visible by a click, independent of hover; cleared by tapping
@@ -122,7 +125,8 @@ function toElements(data) {
   const nodes = data.nodes
     .filter((n) => representativeId(n.id) === n.id
       && (!revealedIds || revealedIds.has(n.id))
-      && (!hideTestsView || !signalFreeTestNode(n)))
+      && (!hideTestsView || !signalFreeTestNode(n))
+      && matchesDomainMode(n))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (n.group != null) nodeData.group = n.group;
@@ -203,6 +207,18 @@ function setShowImportsView(enabled) {
 
 function setShowCallsView(enabled) {
   showCallsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+const DOMAIN_BY_MODE = { design: "doc", implementation: "code" };
+
+function matchesDomainMode(node) {
+  const wantedDomain = DOMAIN_BY_MODE[domainModeView];
+  return !wantedDomain || node.domain === wantedDomain;
+}
+
+function setDomainModeView(mode) {
+  domainModeView = mode;
   if (graphData) renderGraph(toElements(graphData));
 }
 
@@ -961,10 +977,12 @@ document.getElementById("prompt-form").addEventListener("submit", async (event) 
   if (!promptText) return;
   const continueCheckbox = document.getElementById("continue-session");
   const continueSession = continueCheckbox.checked;
+  const body = { prompt: promptText, continue_session: continueSession };
+  if (domainModeView !== "all") body.scope = domainModeView;
   const res = await fetch("/api/prompt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: promptText, continue_session: continueSession }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   if (res.ok) {
@@ -997,6 +1015,12 @@ document.getElementById("show-calls").addEventListener("change", (event) => {
 document.querySelectorAll('#code-mode-toggle input[name="code-mode"]').forEach((input) => {
   input.addEventListener("change", (event) => {
     if (event.target.checked) setCodeDisplayMode(event.target.value);
+  });
+});
+
+document.querySelectorAll('#domain-mode-toggle input[name="domain-mode"]').forEach((input) => {
+  input.addEventListener("change", (event) => {
+    if (event.target.checked) setDomainModeView(event.target.value);
   });
 });
 

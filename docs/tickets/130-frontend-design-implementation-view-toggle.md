@@ -1,6 +1,6 @@
 # 130. Frontend "Design" / "Implementation" mode toggle
 
-Status: ready
+Status: done
 Decision: docs/decisions/046-knowledge-base-graph-and-design-dialogue.md
 
 ## Goal
