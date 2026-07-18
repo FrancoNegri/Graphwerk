@@ -4,7 +4,7 @@ import time
 import pytest
 
 from graphwerk.cycle import FAILURE_PROMPT_TEMPLATE, SessionCycle
-from graphwerk.session import SessionBusyError
+from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 
 class StubSessionRunner:
@@ -32,6 +32,8 @@ class StubSessionRunner:
     def resume(self, prompt):
         if self._state == "running":
             raise SessionBusyError("a session is already running")
+        if not self._session_id:
+            raise NoSessionToResumeError("no prior session to resume")
         self.resume_prompts.append(prompt)
         self._begin_run()
         return self._snapshot()
@@ -73,9 +75,14 @@ class FixedStatusRunner:
         self.staged_root = staged_root
         self._snapshot = snapshot
         self.start_prompts = []
+        self.resume_prompts = []
 
     def start(self, prompt):
         self.start_prompts.append(prompt)
+        return dict(self._snapshot)
+
+    def resume(self, prompt):
+        self.resume_prompts.append(prompt)
         return dict(self._snapshot)
 
     def status(self):
@@ -283,6 +290,55 @@ def test_start_raises_busy_while_check_running(tmp_path):
 
     with pytest.raises(SessionBusyError):
         cycle.start("second")
+
+
+def test_continue_session_with_no_check_command_calls_resume_directly(tmp_path):
+    runner = FixedStatusRunner(tmp_path, {"state": "running", "detail": "", "session_id": "sess-1"})
+    cycle = SessionCycle(runner, check_command=None)
+
+    continued = cycle.continue_session("keep talking")
+
+    assert continued == {"state": "running", "detail": "", "session_id": "sess-1",
+                          "check_configured": False}
+    assert runner.resume_prompts == ["keep talking"]
+
+
+def test_continue_session_raises_busy_while_session_running(tmp_path):
+    runner = StubSessionRunner(tmp_path, [])  # never settles: stays "running"
+    cycle = SessionCycle(runner, check_command="true")
+
+    cycle.start("first")
+    assert cycle.status()["state"] == "running"
+
+    with pytest.raises(SessionBusyError):
+        cycle.continue_session("keep talking")
+
+
+def test_continue_session_raises_no_session_to_resume_without_a_prior_session(tmp_path):
+    runner = StubSessionRunner(tmp_path, [])
+    cycle = SessionCycle(runner, check_command="true")
+
+    with pytest.raises(NoSessionToResumeError):
+        cycle.continue_session("keep talking")
+
+
+def test_continue_session_resets_bookkeeping_and_lands_running_like_start(tmp_path):
+    runner = StubSessionRunner(tmp_path, [
+        {"state": "done", "session_id": "sess-1"},
+        {"state": "done", "session_id": "sess-2"},
+    ])
+    cycle = SessionCycle(runner, check_command="true")
+    cycle.start("first")
+    drive_to_terminal(cycle)
+
+    continued = cycle.continue_session("second turn")
+
+    assert continued["state"] == "running"
+    assert continued["attempt"] == 0
+    finished = drive_to_terminal(cycle)
+    assert finished["state"] == "done"
+    assert finished["session_id"] == "sess-2"
+    assert runner.resume_prompts == ["second turn"]
 
 
 def test_start_succeeds_again_after_a_terminal_state(tmp_path):

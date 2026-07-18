@@ -47,11 +47,21 @@ class SessionCycle:
             payload = dict(self.runner.start(prompt))
             payload["check_configured"] = False
             return payload
+        return self._begin_locked(self.runner.start, prompt)
+
+    def continue_session(self, prompt: str) -> dict:
+        if self.check_command is None:
+            payload = dict(self.runner.resume(prompt))
+            payload["check_configured"] = False
+            return payload
+        return self._begin_locked(self.runner.resume, prompt)
+
+    def _begin_locked(self, operation, prompt: str) -> dict:
         with self._lock:
             current = self._status_locked()
             if current["state"] not in TERMINAL_STATES:
                 raise SessionBusyError("a session is already running")
-            self.runner.start(prompt)
+            operation(prompt)
             self._check = None
             self._state = "running"
             self._attempt = 0

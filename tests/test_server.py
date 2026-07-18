@@ -10,7 +10,7 @@ from graphwerk.discard import DiscardEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
 from graphwerk.service import GraphService
-from graphwerk.session import SessionBusyError
+from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 
 class StubRunner:
@@ -19,6 +19,7 @@ class StubRunner:
         self.prompts = []
         self.resume_prompts = []
         self.busy = False
+        self.has_session = False
         self.staged_root = staged_root
 
     def start(self, prompt):
@@ -31,9 +32,14 @@ class StubRunner:
     def resume(self, prompt):
         if self.busy:
             raise SessionBusyError("a session is already running")
+        if not self.has_session:
+            raise NoSessionToResumeError("no prior session to resume")
         self.resume_prompts.append(prompt)
         self.snapshot = {"state": "running", "detail": "", "session_id": ""}
         return dict(self.snapshot)
+
+    def continue_session(self, prompt):
+        return self.resume(prompt)
 
     def status(self):
         return dict(self.snapshot)
@@ -79,6 +85,26 @@ def test_prompt_while_running_is_409(client, stub_runner):
     response = client.post("/api/prompt", json={"prompt": "another"})
 
     assert response.status_code == 409
+
+
+def test_prompt_with_continue_session_dispatches_to_resume(client, stub_runner):
+    stub_runner.has_session = True
+
+    response = client.post("/api/prompt",
+                           json={"prompt": "keep talking", "continue_session": True})
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "running"
+    assert stub_runner.resume_prompts == ["keep talking"]
+    assert stub_runner.prompts == []
+
+
+def test_prompt_continue_session_without_a_prior_session_is_409(client, stub_runner):
+    response = client.post("/api/prompt",
+                           json={"prompt": "keep talking", "continue_session": True})
+
+    assert response.status_code == 409
+    assert stub_runner.resume_prompts == []
 
 
 def test_failed_spawn_surfaces_runner_message(client, stub_runner):

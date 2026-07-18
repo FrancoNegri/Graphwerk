@@ -1,6 +1,6 @@
 # 127. `SessionCycle.continue_session(prompt)` and `/api/prompt` wiring
 
-Status: ready
+Status: done
 Decision: docs/decisions/046-knowledge-base-graph-and-design-dialogue.md
 
 ## Goal

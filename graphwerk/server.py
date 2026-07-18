@@ -15,7 +15,7 @@ from graphwerk.commit import CommitEngine, CommitError
 from graphwerk.cycle import TERMINAL_STATES, SessionCycle
 from graphwerk.discard import DiscardEngine
 from graphwerk.service import GraphService
-from graphwerk.session import SessionBusyError
+from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -26,6 +26,7 @@ class ApplyRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     prompt: str = ""
+    continue_session: bool = False
 
 
 class CommitRequest(BaseModel):
@@ -100,8 +101,13 @@ def create_app(service: GraphService, engine: ApplyEngine,
         if not req.prompt.strip():
             raise HTTPException(status_code=400, detail="prompt is required")
         try:
-            started = runner.start(req.prompt)
+            if req.continue_session:
+                started = runner.continue_session(req.prompt)
+            else:
+                started = runner.start(req.prompt)
         except SessionBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        except NoSessionToResumeError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
         if started["state"] == "failed":
             raise HTTPException(status_code=503, detail=started["detail"])
