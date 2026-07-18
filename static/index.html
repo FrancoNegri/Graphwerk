@@ -87,13 +87,20 @@
       </div>
     </aside>
   </main>
+  <div id="check-banner" hidden>
+    <div class="check-banner-row">
+      <span id="check-banner-text"></span>
+      <button id="check-banner-dismiss" title="dismiss">&times;</button>
+    </div>
+    <pre id="check-banner-tail" class="diff"></pre>
+  </div>
   <div id="prompt-bar">
     <form id="prompt-form">
       <input id="prompt-input" type="text" autocomplete="off"
         placeholder="Prompt the agent — its changes show up in the graph">
       <button id="prompt-send" type="submit">Run</button>
     </form>
-    <span id="prompt-busy" hidden><i class="spinner"></i>agent session running</span>
+    <span id="prompt-busy" hidden><i class="spinner"></i><span id="prompt-busy-text">agent session running</span></span>
     <span id="prompt-error" hidden></span>
     <div id="commit-controls">
       <span id="commit-error" hidden></span>

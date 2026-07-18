@@ -747,25 +747,66 @@ document.getElementById("banner-dismiss").addEventListener("click", () => {
   document.getElementById("banner").hidden = true;
 });
 
+// Busy spans the whole check-gate cycle (ADR 040), not just the agent
+// subprocess — the prompt bar re-enables only once the cycle hands back.
+const SESSION_BUSY_STATES = ["running", "checking", "resuming"];
+const SESSION_BUSY_LABELS = { running: "agent session running", checking: "validating…" };
+
 function renderSessionState(session) {
-  const running = session.state === "running";
-  document.getElementById("prompt-input").disabled = running;
-  document.getElementById("prompt-send").disabled = running;
-  document.getElementById("btn-commit").disabled = running;
-  document.getElementById("btn-discard").disabled = running;
-  document.getElementById("prompt-busy").hidden = !running;
+  const busy = SESSION_BUSY_STATES.includes(session.state);
+  document.getElementById("prompt-input").disabled = busy;
+  document.getElementById("prompt-send").disabled = busy;
+  document.getElementById("btn-commit").disabled = busy;
+  document.getElementById("btn-discard").disabled = busy;
+  renderSessionBusyIndicator(session, busy);
   const error = document.getElementById("prompt-error");
   error.hidden = session.state !== "failed";
   if (session.state === "failed") error.textContent = session.detail;
-  if (session.state === "done" && session.session_id
+  renderCheckBanner(session);
+  if ((session.state === "done" || session.state === "check_failed") && session.session_id
       && session.session_id !== completedSessionId) {
     completedSessionId = session.session_id;
     // the mined message in hand predates this session — refetch to re-mine
     minedCommitMessage = null;
     loadGraph();
+    if (session.state === "done" && "attempt" in session) toast("✓ check passed");
   }
   maybeFillCommitMessageBox();
 }
+
+function renderSessionBusyIndicator(session, busy) {
+  const busyEl = document.getElementById("prompt-busy");
+  busyEl.hidden = !busy;
+  if (!busy) return;
+  const label = session.state === "resuming"
+    ? `retrying — attempt ${session.attempt}…`
+    : (SESSION_BUSY_LABELS[session.state] || session.state);
+  document.getElementById("prompt-busy-text").textContent = label;
+}
+
+// Dismissal is per check failure: a new failed check reopens the banner.
+let dismissedCheckFailureKey = null;
+let shownCheckFailureKey = null;
+
+function renderCheckBanner(session) {
+  const banner = document.getElementById("check-banner");
+  if (session.state !== "check_failed") {
+    banner.hidden = true;
+    return;
+  }
+  shownCheckFailureKey = `${session.check_exit_code}:${session.check_tail}`;
+  banner.hidden = shownCheckFailureKey === dismissedCheckFailureKey;
+  if (banner.hidden) return;
+  document.getElementById("check-banner-text").textContent = session.check_exit_code === null
+    ? "check could not run"
+    : `check failed — exit code ${session.check_exit_code}`;
+  document.getElementById("check-banner-tail").textContent = session.check_tail;
+}
+
+document.getElementById("check-banner-dismiss").addEventListener("click", () => {
+  dismissedCheckFailureKey = shownCheckFailureKey;
+  document.getElementById("check-banner").hidden = true;
+});
 
 // The box is overwritten only when a *new* session's mined message arrives;
 // routine refetches never clobber the reviewer's edits (ADR 037).

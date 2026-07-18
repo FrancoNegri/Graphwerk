@@ -149,6 +149,31 @@ header {
   line-height: 1;
 }
 
+#check-banner {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.10);
+  border-top: 1px solid var(--danger);
+  color: #fca5a5;
+  font-size: 13px;
+}
+#check-banner[hidden] { display: none; }
+#check-banner .check-banner-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#check-banner-text { flex: 1; }
+#check-banner button {
+  width: auto;
+  margin: 0;
+  padding: 0 6px;
+  background: none;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+}
+#check-banner-tail { margin-top: 6px; max-height: 160px; overflow-y: auto; }
+
 main { flex: 1; display: flex; min-height: 0; }
 
 #cy { flex: 1; min-width: 0; }
