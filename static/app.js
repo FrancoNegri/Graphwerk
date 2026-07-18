@@ -395,6 +395,12 @@ function renderGraph(elements) {
   // fcose measures label-sized childless nodes before fonts resolve, which
   // caches them as zero-width/invisible; recomputing styles clears that.
   cy.nodes().updateStyle();
+  // The initial layout (passed via the `layout:` constructor option above)
+  // runs and emits "layoutstop" synchronously before this function gets a
+  // chance to register a listener for it, so paired-test placement is
+  // called directly here instead of via that event — after updateStyle()
+  // so the width()/height() reads below see resolved label sizes.
+  placePairedTestNodes();
   window.cy = cy; // console/debugging access
   cy.on("tap", "node", (evt) => {
     selectedId = evt.target.id();
@@ -413,7 +419,6 @@ function renderGraph(elements) {
   cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));
   cy.on("mouseover", "node", (evt) => evt.target.connectedEdges().addClass("revealed"));
   cy.on("mouseout", "node", (evt) => evt.target.connectedEdges().removeClass("revealed"));
-  cy.on("layoutstop", placePairedTestNodes);
   applyPinnedEdges();
 }
 

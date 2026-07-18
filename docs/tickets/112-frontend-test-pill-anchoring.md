@@ -37,3 +37,15 @@ primitive; see ADR 041's alternatives).
 - Horizontal collision/overlap avoidance between a paired column and its
   band neighbors — deferred per ADR 041.
 - Any tint or connector-line visual tie — declined per ADR 041.
+
+## Follow-up bug fix
+
+The shipped implementation wired `placePairedTestNodes` to the `layoutstop`
+event, but `renderGraph`'s initial layout runs and emits `layoutstop`
+synchronously *inside* the `cytoscape({...})` constructor call, before the
+`cy.on("layoutstop", ...)` listener a few lines later ever gets registered.
+Since `renderGraph` only ever runs one layout pass per rebuild, that
+listener never fired — paired test pills stayed wherever fcose's force
+layout dropped them. Fixed by calling `placePairedTestNodes()` directly
+right after `cy.nodes().updateStyle()` (so width()/height() reads see
+resolved label sizes) instead of listening for an event that never fires.
