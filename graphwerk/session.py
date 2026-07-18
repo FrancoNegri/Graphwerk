@@ -13,6 +13,10 @@ class SessionBusyError(RuntimeError):
     """A session is already running; only one child at a time."""
 
 
+class NoSessionToResumeError(RuntimeError):
+    """resume() called with no prior session id stored."""
+
+
 class SessionRunner:
     """Owns at most one `claude -p` child process and its outcome."""
 
@@ -42,22 +46,39 @@ class SessionRunner:
                        "--permission-mode", self.permission_mode]
             if self.system_prompt:
                 command += ["--append-system-prompt", self.system_prompt]
-            # stderr kept apart from stdout: a stray CLI warning must not
-            # corrupt the JSON result, and it's the useful detail on failure
-            self._child_output = tempfile.TemporaryFile()
-            self._child_errors = tempfile.TemporaryFile()
-            try:
-                self._child = subprocess.Popen(command, cwd=self.staged_root,
-                                               stdout=self._child_output,
-                                               stderr=self._child_errors)
-            except OSError as exc:
-                self._close_child_files()
-                self._state = "failed"
-                self._detail = f"could not launch {self.claude_cmd}: {exc}"
-                return self._status_locked()
-            self._state = "running"
-            self._detail = ""
+            return self._spawn(command)
+
+    def resume(self, prompt: str) -> dict:
+        with self._lock:
+            if self._status_locked()["state"] == "running":
+                raise SessionBusyError("a session is already running")
+            if not self._last_session_id:
+                raise NoSessionToResumeError("no prior session to resume")
+            command = [self.claude_cmd, "-p", prompt,
+                       "--resume", self._last_session_id,
+                       "--output-format", "json",
+                       "--permission-mode", self.permission_mode]
+            if self.system_prompt:
+                command += ["--append-system-prompt", self.system_prompt]
+            return self._spawn(command)
+
+    def _spawn(self, command: list[str]) -> dict:
+        # stderr kept apart from stdout: a stray CLI warning must not
+        # corrupt the JSON result, and it's the useful detail on failure
+        self._child_output = tempfile.TemporaryFile()
+        self._child_errors = tempfile.TemporaryFile()
+        try:
+            self._child = subprocess.Popen(command, cwd=self.staged_root,
+                                           stdout=self._child_output,
+                                           stderr=self._child_errors)
+        except OSError as exc:
+            self._close_child_files()
+            self._state = "failed"
+            self._detail = f"could not launch {self.claude_cmd}: {exc}"
             return self._status_locked()
+        self._state = "running"
+        self._detail = ""
+        return self._status_locked()
 
     def status(self) -> dict:
         with self._lock:

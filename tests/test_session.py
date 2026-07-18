@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from graphwerk.session import SessionBusyError, SessionRunner
+from graphwerk.session import NoSessionToResumeError, SessionBusyError, SessionRunner
 
 
 @pytest.fixture
@@ -277,3 +277,84 @@ def test_unparseable_output_detail_includes_a_snippet(staged_root, tmp_path):
 
     assert finished["state"] == "failed"
     assert "not-json-at-all" in finished["detail"]
+
+
+def test_resume_raises_when_no_prior_session(staged_root, tmp_path):
+    runner = SessionRunner(staged_root, claude_cmd=str(tmp_path / "unused"))
+
+    with pytest.raises(NoSessionToResumeError):
+        runner.resume("follow up")
+
+
+def test_resume_sends_resume_flag_with_last_session_id(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub),
+                           permission_mode="bypassPermissions")
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    resume_stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                                      'echo \'{"session_id": "sess-2"}\'', name="resume-stub")
+    runner.claude_cmd = str(resume_stub)
+    runner.resume("please fix the failures")
+    finished = wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p please fix the failures --resume sess-1 --output-format json "
+        "--permission-mode bypassPermissions")
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-2"}
+
+
+def test_resume_appends_system_prompt_when_set(staged_root, tmp_path):
+    record = tmp_path / "record.txt"
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub),
+                           system_prompt="follow the guidance")
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    resume_stub = make_stub(tmp_path, f'echo "$@" > {record}\n'
+                                      'echo \'{"session_id": "sess-2"}\'', name="resume-stub")
+    runner.claude_cmd = str(resume_stub)
+    runner.resume("please fix the failures")
+    wait_until_finished(runner)
+
+    assert record.read_text().strip() == (
+        "-p please fix the failures --resume sess-1 --output-format json "
+        "--permission-mode acceptEdits --append-system-prompt follow the guidance")
+
+
+def test_resume_while_running_raises_busy(staged_root, tmp_path):
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub))
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    release = tmp_path / "release"
+    slow_stub = make_stub(tmp_path, f'while [ ! -e {release} ]; do sleep 0.02; done\n'
+                                    'echo \'{"session_id": "sess-2"}\'', name="slow-stub")
+    runner.claude_cmd = str(slow_stub)
+    runner.start("kick off a long one")
+    try:
+        with pytest.raises(SessionBusyError):
+            runner.resume("try to resume mid-run")
+        assert runner.status()["state"] == "running"
+    finally:
+        release.touch()
+    assert wait_until_finished(runner)["state"] == "done"
+
+
+def test_resume_failure_keeps_the_prior_session_id(staged_root, tmp_path):
+    first_stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-1"}\'', name="first-stub")
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub))
+    runner.start("initial prompt")
+    wait_until_finished(runner)
+
+    failing_stub = make_stub(tmp_path, "exit 2", name="failing-resume-stub")
+    runner.claude_cmd = str(failing_stub)
+    runner.resume("please fix the failures")
+    finished = wait_until_finished(runner)
+
+    assert finished["state"] == "failed"
+    assert finished["session_id"] == "sess-1"
