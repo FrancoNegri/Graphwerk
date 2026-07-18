@@ -16,6 +16,12 @@ from graphwerk.staging import ChangeSetBuilder
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 
 
+def _domain_for(rel: str) -> str:
+    """Direct readout of the differ's own extractor dispatch (ticket 125):
+    ".md" goes to MarkdownExtractor, everything else to PythonAstExtractor."""
+    return "doc" if rel.endswith(".md") else "code"
+
+
 class ModuleFileResolver:
     """Maps imported module names to repo files, tolerating src/-style
     package roots by matching dotted-path suffixes ("pkg.store" finds
@@ -77,6 +83,7 @@ class GraphService:
             if change.status is Status.UNCHANGED and not change.symbols:
                 continue  # e.g. empty __init__.py — pure noise in the graph
             why = self.rationale.why_for(rel) if change.status in CHANGED else None
+            domain = _domain_for(rel)
             snap.nodes.append(
                 GraphNode(
                     id=rel,
@@ -91,6 +98,7 @@ class GraphService:
                     source=change.source,
                     code=self._code_view(change.base_source, change.staged_source),
                     is_test=is_test_path(rel),
+                    domain=domain,
                 )
             )
             index = change.staged or change.base
@@ -125,6 +133,7 @@ class GraphService:
                             staged_info.source if staged_info else None,
                         ),
                         is_test=is_test_path(rel),
+                        domain=domain,
                     )
                 )
                 simple = qualname.split(".")[-1]

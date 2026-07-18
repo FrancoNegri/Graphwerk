@@ -60,6 +60,7 @@ class GraphNode:
     code: list | None = None  # merged diff/highlight line view (see codeview.py)
     is_test: bool = False  # path matches the pytest discovery convention
     paired_file: str | None = None  # matched source file's node id, test files only
+    domain: str = "code"  # "doc" | "code" — which extractor produced this node's file (ADR 046)
 
     def to_dict(self) -> dict:
         payload = {
@@ -68,6 +69,7 @@ class GraphNode:
             "kind": self.kind,
             "path": self.path,
             "status": self.status.value,
+            "domain": self.domain,
             "parent": self.parent,
             "why": self.why,
             "why_confident": self.why_confident,

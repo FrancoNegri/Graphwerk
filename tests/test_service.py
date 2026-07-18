@@ -798,6 +798,18 @@ def test_mixed_python_and_markdown_tree_renders_both(tmp_path):
     assert "doc.md::Notes" in node_ids
 
 
+def test_mixed_tree_nodes_carry_domain_matching_their_extractor(tmp_path):
+    service = make_service(tmp_path, {
+        "a.py": "def f():\n    pass\n",
+        "doc.md": "# Title\n\n## Notes\nbody\n",
+    })
+    nodes = {node.id: node for node in service.snapshot().nodes}
+    assert nodes["a.py"].domain == "code"
+    assert nodes["a.py::f"].domain == "code"
+    assert nodes["doc.md"].domain == "doc"
+    assert nodes["doc.md::Notes"].domain == "doc"
+
+
 def test_state_hash_changes_when_a_markdown_heading_changes(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"
