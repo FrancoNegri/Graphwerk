@@ -144,3 +144,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [130](130-frontend-design-implementation-view-toggle.md) | Frontend "Design" / "Implementation" mode toggle | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [131](131-scope-guard-decision-function.md) | Scope-guard decision function | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
 | [132](132-wire-scope-guard-into-sessions.md) | Wire the scope guard into spawned sessions | done | [046](../decisions/046-knowledge-base-graph-and-design-dialogue.md) |
+| [133](133-design-session-guidance.md) | Design-session guidance module | ready | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
+| [134](134-sessionrunner-reply-field.md) | `SessionRunner` exposes the session's reply text | ready | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
+| [135](135-frontend-design-dialogue.md) | Frontend: design-mode dialogue box | ready | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
