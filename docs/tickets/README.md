@@ -147,5 +147,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [133](133-design-session-guidance.md) | Design-session guidance module | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
 | [134](134-sessionrunner-reply-field.md) | `SessionRunner` exposes the session's reply text | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
 | [135](135-frontend-design-dialogue.md) | Frontend: design-mode dialogue box | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
-| [136](136-transitive-call-edge-reachability.md) | Transitive import reachability for call-edge resolution | ready | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |
+| [136](136-transitive-call-edge-reachability.md) | Transitive import reachability for call-edge resolution | done | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |
 | [137](137-multi-hop-via-imports-provenance.md) | Multi-hop `via_imports` provenance for transitively-reached call edges | ready | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |

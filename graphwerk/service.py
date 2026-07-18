@@ -185,6 +185,7 @@ class GraphService:
         status_by_id = {n.id: n.status for n in snap.nodes}
         path_by_id = {n.id: n.path for n in snap.nodes}
         admitting_modules_cache: dict[tuple[str, bool], dict[str, list[str]]] = {}
+        reachable_files_cache: dict[tuple[str, bool], frozenset[str]] = {}
 
         def admitting_modules_by_file(rel: str, caller_deleted: bool) -> dict[str, list[str]]:
             key = (rel, caller_deleted)
@@ -202,10 +203,30 @@ class GraphService:
             admitting_modules_cache[key] = modules_by_file
             return modules_by_file
 
+        def reachable_files(rel: str, caller_deleted: bool) -> frozenset[str]:
+            """Files reachable from `rel` by repeatedly following resolved
+            imports, staying within the same tree at every hop (ADR 048).
+            `visited` also guards against cyclic import graphs."""
+            key = (rel, caller_deleted)
+            cached = reachable_files_cache.get(key)
+            if cached is not None:
+                return cached
+            visited = {rel}
+            frontier = [rel]
+            while frontier:
+                current = frontier.pop()
+                for target in admitting_modules_by_file(current, caller_deleted):
+                    if target not in visited:
+                        visited.add(target)
+                        frontier.append(target)
+            result = frozenset(visited)
+            reachable_files_cache[key] = result
+            return result
+
         def via_imports_entries(
             caller_rel: str, target_rel: str, modules_by_file: dict, caller_deleted: bool, source_id: str
         ) -> list | None:
-            if target_rel == caller_rel:
+            if target_rel == caller_rel or target_rel not in modules_by_file:
                 return None
             change = changes[caller_rel]
             index = change.base if caller_deleted else change.staged
@@ -235,7 +256,7 @@ class GraphService:
             )
             caller_rel = path_by_id.get(source_id)
             modules_by_file = admitting_modules_by_file(caller_rel, caller_deleted)
-            allowed_files = {caller_rel, *modules_by_file}
+            allowed_files = reachable_files(caller_rel, caller_deleted)
             for name in calls:
                 for target_id in name_to_ids.get(name, []):
                     if target_id == source_id or (source_id, target_id) in seen:

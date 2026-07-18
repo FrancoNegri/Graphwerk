@@ -499,6 +499,101 @@ def test_caller_resolves_to_same_named_symbol_in_its_own_file(tmp_path):
     assert ("a.py::run", "a.py::helper") in calls_edge_pairs(snapshot)
 
 
+def test_call_edge_resolves_through_two_hop_reexport_chain(tmp_path):
+    """Dogfood shape (ADR 048): pkg/__init__.py only re-exports Thing from
+    pkg/inner.py; caller.py imports Thing from pkg (not pkg.inner) and calls
+    it, so the edge only exists if reachability follows the re-export hop."""
+    service = make_service(tmp_path, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("caller.py::run", "pkg/inner.py::Thing") in calls_edge_pairs(snapshot)
+    edge = edge_between(snapshot, "caller.py::run", "pkg/inner.py::Thing")
+    assert edge.via_imports is None
+
+
+def test_call_edge_resolves_through_three_hop_reexport_chain(tmp_path):
+    """The traversal isn't hardcoded to exactly one extra hop."""
+    service = make_service(tmp_path, {
+        "outer/__init__.py": "from outer.mid import Thing\n",
+        "outer/mid/__init__.py": "from outer.mid.inner import Thing\n",
+        "outer/mid/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from outer import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("caller.py::run", "outer/mid/inner.py::Thing") in calls_edge_pairs(snapshot)
+
+
+def test_caller_does_not_resolve_transitively_to_unreachable_file_with_same_named_symbol(tmp_path):
+    """Extends the ADR 034 protection onto the new transitive traversal: a
+    same-named symbol in a file that isn't part of any resolvable import
+    chain from the caller must still not wire in."""
+    service = make_service(tmp_path, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+        "unrelated.py": "class Thing:\n    pass\n",
+    })
+    snapshot = service.snapshot()
+
+    pairs = calls_edge_pairs(snapshot)
+    assert ("caller.py::run", "unrelated.py::Thing") not in pairs
+    assert ("caller.py::run", "pkg/inner.py::Thing") in pairs
+
+
+def test_deleted_caller_resolves_transitive_target_through_base_tree_chain(tmp_path):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef gone():\n    return Thing()\n",
+    })
+    staged.mkdir()
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    assert ("caller.py::gone", "pkg/inner.py::Thing") in calls_edge_pairs(snapshot)
+
+
+def test_unchanged_caller_does_not_resolve_transitively_through_base_only_hop(tmp_path):
+    """Mirror of ADR 032 tree containment on the new traversal: the
+    intermediate re-export file existed in base but was removed in staged,
+    so a caller whose calls come from the staged tree must not resolve
+    through it even though the resolver can still map the module name to
+    that path."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {
+        "pkg/__init__.py": "from pkg.inner import Thing\n",
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    write_tree(staged, {
+        "pkg/inner.py": "class Thing:\n    pass\n",
+        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+    })
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
+    snapshot = service.snapshot()
+
+    assert ("caller.py::run", "pkg/inner.py::Thing") not in calls_edge_pairs(snapshot)
+
+
+def test_transitive_traversal_does_not_hang_on_cyclic_imports(tmp_path):
+    service = make_service(tmp_path, {
+        "a.py": "import b\n\ndef run():\n    return thing()\n",
+        "b.py": "import a\nimport c\n",
+        "c.py": "def thing():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("a.py::run", "c.py::thing") in calls_edge_pairs(snapshot)
+
+
 def test_cross_file_calls_edge_names_added_admitting_import(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

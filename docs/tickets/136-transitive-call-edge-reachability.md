@@ -1,6 +1,6 @@
 # 136. Transitive import reachability for call-edge resolution
 
-Status: ready
+Status: done
 Decision: docs/decisions/048-transitive-import-reachability-for-call-edges.md
 
 ## Goal
