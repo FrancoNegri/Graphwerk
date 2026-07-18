@@ -39,6 +39,7 @@ class SessionRunner:
         self._state = "idle"
         self._detail = ""
         self._last_session_id = ""
+        self._last_reply = ""
         # status() runs concurrently from FastAPI's threadpool (every open
         # tab polls /api/session); the lock keeps _settle to one run per child.
         self._lock = threading.Lock()
@@ -112,13 +113,14 @@ class SessionRunner:
             if exit_code is not None:
                 self._settle(exit_code)
         return {"state": self._state, "detail": self._detail,
-                "session_id": self._last_session_id}
+                "session_id": self._last_session_id, "reply": self._last_reply}
 
     def _settle(self, exit_code: int) -> None:
         output = _read_back(self._child_output)
         errors = _read_back(self._child_errors)
         self._close_child_files()
         self._child = None
+        self._last_reply = ""
         if exit_code != 0:
             self._state = "failed"
             self._detail = f"{self.claude_cmd} exited with code {exit_code}"
@@ -132,6 +134,7 @@ class SessionRunner:
                             f"session result: {_snippet(output)}")
             return
         self._last_session_id = session_id
+        self._last_reply = _reply_from(output)
         self._state = "done"
         self._detail = ""
 
@@ -189,21 +192,36 @@ def _snippet(text: str, limit: int = 300) -> str:
     return text[:limit] + ("…" if len(text) > limit else "")
 
 
-def _session_id_from(output: str) -> str | None:
+def _parsed_events(output: str) -> list[dict]:
     """claude ≤2.0's --output-format json printed one result object; 2.1+
-    prints the whole event list, whose closing "result" event owns the
-    session id. Accept both, falling back to any event that carries one."""
+    prints the whole event list. Normalizes both shapes to a list."""
     try:
         parsed = json.loads(output)
     except json.JSONDecodeError:
-        return None
+        return []
     if isinstance(parsed, dict):
         parsed = [parsed]
     if not isinstance(parsed, list):
-        return None
-    events = [entry for entry in parsed
-              if isinstance(entry, dict) and isinstance(entry.get("session_id"), str)]
+        return []
+    return [entry for entry in parsed if isinstance(entry, dict)]
+
+
+def _session_id_from(output: str) -> str | None:
+    """The closing "result" event owns the session id; fall back to any
+    event that carries one for older CLI versions that never emit it."""
+    events = [event for event in _parsed_events(output)
+              if isinstance(event.get("session_id"), str)]
     for event in reversed(events):
         if event.get("type") == "result":
             return event["session_id"]
     return events[-1]["session_id"] if events else None
+
+
+def _reply_from(output: str) -> str:
+    """The closing "result" event's `result` field is the assistant's final
+    reply text; "" when a run produced no result event."""
+    for event in reversed(_parsed_events(output)):
+        if event.get("type") == "result":
+            result = event.get("result")
+            return result if isinstance(result, str) else ""
+    return ""

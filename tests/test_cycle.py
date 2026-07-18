@@ -120,6 +120,20 @@ def test_no_check_command_reports_check_configured_false(tmp_path):
     assert status == underlying
 
 
+def test_reply_passes_through_both_the_unchecked_and_checked_paths(tmp_path):
+    runner = FixedStatusRunner(tmp_path, {"state": "done", "detail": "", "session_id": "sess-1",
+                                          "reply": "no changes needed, miner.py is still referenced"})
+
+    unchecked_cycle = SessionCycle(runner, check_command=None)
+    unchecked_cycle.start("is miner.py unused?")
+    assert unchecked_cycle.status()["reply"] == "no changes needed, miner.py is still referenced"
+
+    checked_cycle = SessionCycle(runner, check_command="true")
+    checked_cycle.start("is miner.py unused?")
+    finished = drive_to_terminal(checked_cycle)
+    assert finished["reply"] == "no changes needed, miner.py is still referenced"
+
+
 def test_check_command_configured_reports_check_configured_true(tmp_path):
     runner = StubSessionRunner(tmp_path, [{"state": "done", "session_id": "sess-1"}])
     cycle = SessionCycle(runner, check_command="true")

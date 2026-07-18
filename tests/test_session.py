@@ -37,7 +37,7 @@ def wait_until_finished(runner, timeout_seconds=5.0):
 def test_starts_idle(staged_root):
     runner = SessionRunner(staged_root)
 
-    assert runner.status() == {"state": "idle", "detail": "", "session_id": ""}
+    assert runner.status() == {"state": "idle", "detail": "", "session_id": "", "reply": ""}
 
 
 def test_successful_run_reports_done_with_session_id(staged_root, tmp_path):
@@ -49,7 +49,7 @@ def test_successful_run_reports_done_with_session_id(staged_root, tmp_path):
     # the stub may already have exited by the time start() reports back
     assert started["state"] in ("running", "done")
     finished = wait_until_finished(runner)
-    assert finished == {"state": "done", "detail": "", "session_id": "sess-42"}
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-42", "reply": ""}
 
 
 def test_child_runs_in_staged_root_with_headless_flags(staged_root, tmp_path):
@@ -259,7 +259,7 @@ def test_concurrent_status_polls_settle_exactly_once(staged_root):
 
     assert errors == []
     assert runner.status() == {"state": "done", "detail": "",
-                               "session_id": "sess-race"}
+                               "session_id": "sess-race", "reply": ""}
 
 
 def test_start_racing_a_settling_poll_sees_settled_state(staged_root, tmp_path):
@@ -281,7 +281,7 @@ def test_start_racing_a_settling_poll_sees_settled_state(staged_root, tmp_path):
 
     assert errors == []
     assert wait_until_finished(runner) == {"state": "done", "detail": "",
-                                           "session_id": "sess-next"}
+                                           "session_id": "sess-next", "reply": ""}
 
 
 def test_failed_run_keeps_last_successful_session_id(staged_root, tmp_path):
@@ -306,7 +306,7 @@ def test_stderr_warning_does_not_corrupt_the_session_result(staged_root, tmp_pat
     runner.start("hello")
     finished = wait_until_finished(runner)
 
-    assert finished == {"state": "done", "detail": "", "session_id": "sess-clean"}
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-clean", "reply": ""}
 
 
 def test_event_array_output_yields_the_result_events_session_id(staged_root, tmp_path):
@@ -319,7 +319,62 @@ def test_event_array_output_yields_the_result_events_session_id(staged_root, tmp
     runner.start("hello")
     finished = wait_until_finished(runner)
 
-    assert finished == {"state": "done", "detail": "", "session_id": "sess-events"}
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-events", "reply": ""}
+
+
+def test_result_events_result_field_is_exposed_as_reply(staged_root, tmp_path):
+    events = ('[{"type": "assistant", "session_id": "sess-reply"},'
+              ' {"type": "result", "subtype": "success", "session_id": "sess-reply",'
+              ' "result": "no changes needed, miner.py is still referenced"}]')
+    stub = make_stub(tmp_path, f"echo '{events}'")
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("is miner.py unused?")
+    finished = wait_until_finished(runner)
+
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-reply",
+                        "reply": "no changes needed, miner.py is still referenced"}
+
+
+def test_no_result_event_yields_empty_string_reply(staged_root, tmp_path):
+    stub = make_stub(tmp_path, 'echo \'{"session_id": "sess-no-result"}\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(stub))
+
+    runner.start("hello")
+    finished = wait_until_finished(runner)
+
+    assert finished["reply"] == ""
+
+
+def test_failed_run_reports_empty_string_reply_not_the_prior_turns(staged_root, tmp_path):
+    ok_stub = make_stub(tmp_path, 'echo \'[{"type": "result", "session_id": "sess-1", '
+                                  '"result": "first turn reply"}]\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(ok_stub))
+    runner.start("first")
+    assert wait_until_finished(runner)["reply"] == "first turn reply"
+
+    runner.claude_cmd = str(make_stub(tmp_path, "exit 1", name="failing-stub"))
+    runner.start("second")
+    finished = wait_until_finished(runner)
+
+    assert finished["state"] == "failed"
+    assert finished["reply"] == ""
+
+
+def test_second_turns_reply_replaces_the_first_no_accumulation(staged_root, tmp_path):
+    first_stub = make_stub(tmp_path, 'echo \'[{"type": "result", "session_id": "sess-1", '
+                                     '"result": "first reply"}]\'')
+    runner = SessionRunner(staged_root, claude_cmd=str(first_stub))
+    runner.start("first prompt")
+    assert wait_until_finished(runner)["reply"] == "first reply"
+
+    resume_stub = make_stub(tmp_path, 'echo \'[{"type": "result", "session_id": "sess-1", '
+                                      '"result": "second reply"}]\'', name="resume-stub")
+    runner.claude_cmd = str(resume_stub)
+    runner.resume("second prompt")
+    finished = wait_until_finished(runner)
+
+    assert finished["reply"] == "second reply"
 
 
 def test_nonzero_exit_detail_includes_stderr(staged_root, tmp_path):
@@ -368,7 +423,7 @@ def test_resume_sends_resume_flag_with_last_session_id(staged_root, tmp_path):
     assert record.read_text().strip() == (
         "-p please fix the failures --resume sess-1 --output-format json "
         "--permission-mode bypassPermissions")
-    assert finished == {"state": "done", "detail": "", "session_id": "sess-2"}
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-2", "reply": ""}
 
 
 def test_resume_appends_system_prompt_when_set(staged_root, tmp_path):
@@ -490,7 +545,7 @@ def test_design_scope_hook_denies_py_writes_and_allows_md_writes_without_corrupt
 
     assert json.loads(py_result.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert json.loads(md_result.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
-    assert finished == {"state": "done", "detail": "", "session_id": "sess-scoped"}
+    assert finished == {"state": "done", "detail": "", "session_id": "sess-scoped", "reply": ""}
 
 
 def test_rerunning_with_a_new_scope_replaces_the_old_hook_entry_rather_than_duplicating(staged_root, tmp_path):

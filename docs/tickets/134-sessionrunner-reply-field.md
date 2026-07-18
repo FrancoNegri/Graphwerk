@@ -1,6 +1,6 @@
 # 134. SessionRunner exposes the session's reply text
 
-Status: ready
+Status: done
 Decision: docs/decisions/047-design-scope-guidance-and-dialogue.md
 
 ## Goal
