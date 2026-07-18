@@ -39,9 +39,10 @@ def group_for_path(path: str) -> str:
 
 def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
     group_by_id = {node.id: group_for_path(node.path) for node in nodes if node.kind == "file"}
+    paired_file_by_test_id = pair_tests_with_files(nodes)
     layer_by_id: dict[str, int] = {}
     order_by_id: dict[str, int] = {}
-    for is_file_graph, neighbors_of in _layered_adjacencies(nodes, edges):
+    for is_file_graph, neighbors_of in _layered_adjacencies(nodes, edges, set(paired_file_by_test_id)):
         layers = _layers_by_longest_path(neighbors_of)
         layer_by_id.update(layers)
         orders = _orders_by_barycenter(layers, neighbors_of)
@@ -52,17 +53,18 @@ def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
         node.layer = layer_by_id.get(node.id)
         node.order = order_by_id.get(node.id)
         node.group = group_by_id.get(node.id)
+        node.paired_file = paired_file_by_test_id.get(node.id)
 
 
 def _layered_adjacencies(
-    nodes: list[GraphNode], edges: list[GraphEdge]
+    nodes: list[GraphNode], edges: list[GraphEdge], excluded_from_file_graph: set[str]
 ) -> list[tuple[bool, dict[str, set[str]]]]:
     """One independently layered/ordered graph each: files by imports, then
     every file's top-level functions by intra-file calls (ADR 003). Each
     entry is tagged with whether it's the file graph, the only one directory
     grouping (ADR 010) applies to."""
     return [
-        (True, _import_adjacency(nodes, edges)),
+        (True, _import_adjacency(nodes, edges, excluded_from_file_graph)),
         *((False, adjacency) for adjacency in _call_adjacencies_by_file(nodes, edges)),
     ]
 
@@ -119,15 +121,17 @@ def pair_tests_with_files(nodes: list[GraphNode]) -> dict[str, str]:
 
 
 def _import_adjacency(
-    nodes: list[GraphNode], edges: list[GraphEdge]
+    nodes: list[GraphNode], edges: list[GraphEdge], excluded: set[str]
 ) -> dict[str, set[str]]:
     imported_files_of: dict[str, set[str]] = {
-        node.id: set() for node in nodes if node.kind == "file"
+        node.id: set() for node in nodes if node.kind == "file" and node.id not in excluded
     }
     for edge in edges:
         if edge.kind != "imports" or edge.source == edge.target:
             continue
         if is_test_path(edge.source):
+            continue
+        if edge.source in excluded or edge.target in excluded:
             continue
         imported_files_of.setdefault(edge.source, set())
         imported_files_of.setdefault(edge.target, set())

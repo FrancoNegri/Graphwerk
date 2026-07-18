@@ -107,12 +107,15 @@ def test_import_chain_through_noise_filtered_file_keeps_true_depth():
 
 
 def test_import_from_test_file_does_not_demote_the_importee():
-    nodes = [file_node("app.py"), file_node("tests/test_app.py")]
-    edges = [imports("tests/test_app.py", "app.py")]
+    # tests/conftest.py has no mirroring source file, so it stays unpaired
+    # (ticket 111) and this exercises the pre-pairing import-edge filtering
+    # (ADR 023) on its own.
+    nodes = [file_node("app.py"), file_node("tests/conftest.py")]
+    edges = [imports("tests/conftest.py", "app.py")]
     assign_layers(nodes, edges)
     layers = layers_of(nodes)
     assert layers["app.py"] == 0
-    assert layers["tests/test_app.py"] == 0
+    assert layers["tests/conftest.py"] == 0
 
 
 def testis_test_path_matches_tests_segment_or_test_filename():
@@ -437,6 +440,51 @@ def test_pair_tests_with_files_omits_ambiguous_match():
     ]
     paired = pair_tests_with_files(nodes)
     assert paired == {}
+
+
+def paired_files_of(nodes: list[GraphNode]) -> dict[str, str | None]:
+    return {node.id: node.paired_file for node in nodes}
+
+
+def test_assign_layers_sets_paired_file_on_matched_test_node_only():
+    nodes = [file_node("app.py"), file_node("tests/test_app.py")]
+    assign_layers(nodes, [])
+    paired = paired_files_of(nodes)
+    assert paired["tests/test_app.py"] == "app.py"
+    assert paired["app.py"] is None
+
+
+def test_paired_test_file_gets_no_layer_or_order():
+    nodes = [file_node("app.py"), file_node("tests/test_app.py")]
+    assign_layers(nodes, [])
+    assert layers_of(nodes)["tests/test_app.py"] is None
+    assert orders_of(nodes)["tests/test_app.py"] is None
+
+
+def test_unpaired_test_file_still_gets_a_layer_and_order():
+    nodes = [file_node("app.py"), file_node("tests/conftest.py")]
+    assign_layers(nodes, [])
+    assert layers_of(nodes)["tests/conftest.py"] == 0
+    assert orders_of(nodes)["tests/conftest.py"] is not None
+    assert paired_files_of(nodes)["tests/conftest.py"] is None
+
+
+def test_source_files_own_layer_order_group_unaffected_by_having_a_paired_test():
+    with_test = [file_node("app.py"), file_node("tests/test_app.py")]
+    assign_layers(with_test, [])
+    without_test = [file_node("app.py")]
+    assign_layers(without_test, [])
+    assert layers_of(with_test)["app.py"] == layers_of(without_test)["app.py"]
+    assert orders_of(with_test)["app.py"] == orders_of(without_test)["app.py"]
+    assert groups_of(with_test)["app.py"] == groups_of(without_test)["app.py"]
+
+
+def test_paired_test_file_excluded_from_import_adjacency_entirely():
+    nodes = [file_node("app.py"), file_node("tests/test_app.py"), file_node("other.py")]
+    edges = [imports("other.py", "tests/test_app.py")]
+    assign_layers(nodes, edges)
+    assert layers_of(nodes)["other.py"] == 0
+    assert orders_of(nodes)["other.py"] is not None
 
 
 def test_pair_tests_with_files_omits_unmatched_test_file():

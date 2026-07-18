@@ -812,6 +812,18 @@ def test_snapshot_flags_test_file_and_symbol_nodes_as_is_test(tmp_path):
     assert flagged == {"tests/test_x.py", "tests/test_x.py::test_one"}
 
 
+def test_snapshot_sets_paired_file_and_excludes_paired_test_from_layering(tmp_path):
+    service = make_service(tmp_path, {
+        "x.py": "def f():\n    pass\n",
+        "tests/test_x.py": "def test_f():\n    pass\n",
+    })
+    nodes = {node.id: node for node in service.snapshot().nodes}
+    assert nodes["tests/test_x.py"].paired_file == "x.py"
+    assert nodes["tests/test_x.py"].layer is None
+    assert nodes["x.py"].paired_file is None
+    assert nodes["x.py"].layer == 0
+
+
 def test_snapshot_meta_carries_the_mined_commit_message(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"

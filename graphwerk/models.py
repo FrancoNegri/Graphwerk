@@ -57,6 +57,7 @@ class GraphNode:
     source: str | None = None  # full text of the node, changed or not
     code: list | None = None  # merged diff/highlight line view (see codeview.py)
     is_test: bool = False  # path matches the pytest discovery convention
+    paired_file: str | None = None  # matched source file's node id, test files only
 
     def to_dict(self) -> dict:
         payload = {
@@ -77,6 +78,8 @@ class GraphNode:
         }
         if self.is_test:
             payload["is_test"] = True
+        if self.paired_file is not None:
+            payload["paired_file"] = self.paired_file
         return payload
 
 

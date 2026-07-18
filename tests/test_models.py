@@ -67,6 +67,14 @@ def test_graph_node_is_test_omitted_from_dict_unless_true():
     assert node.to_dict()["is_test"] is True
 
 
+def test_graph_node_paired_file_omitted_from_dict_unless_set():
+    node = GraphNode(id="tests/test_a.py", label="tests/test_a.py", kind="file", path="tests/test_a.py")
+    assert node.paired_file is None
+    assert "paired_file" not in node.to_dict()
+    node.paired_file = "a.py"
+    assert node.to_dict()["paired_file"] == "a.py"
+
+
 def test_graph_edge_via_imports_defaults_to_none_and_is_serialized():
     edge = GraphEdge(source="a.py::f", target="b.py::g", kind="calls")
     assert edge.via_imports is None
