@@ -133,3 +133,5 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [119](119-checkrunner-summary-parsing.md) | `CheckRunner` parses an optional check-result summary file | ready | [044](../decisions/044-check-result-summary-reporting.md) |
 | [120](120-sessioncycle-summary-propagation.md) | `SessionCycle` propagates the check summary and names failures on resume | ready | [044](../decisions/044-check-result-summary-reporting.md) |
 | [121](121-frontend-check-summary-rendering.md) | Frontend renders the structured check summary | ready | [044](../decisions/044-check-result-summary-reporting.md) |
+| [122](122-sessioncycle-check-configured-flag.md) | `SessionCycle.status()` always reports `check_configured` | done | [045](../decisions/045-persistent-checks-status-and-naming.md) |
+| [123](123-frontend-persistent-checks-indicator.md) | Persistent "Checks" status indicator in the session bar | ready | [045](../decisions/045-persistent-checks-status-and-naming.md) |

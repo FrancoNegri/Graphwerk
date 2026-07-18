@@ -88,9 +88,32 @@ def test_no_check_command_is_a_transparent_passthrough(tmp_path):
 
     started = cycle.start("do the thing")
 
-    assert started == {"state": "running", "detail": "", "session_id": ""}
-    assert cycle.status() == runner.status() == {"state": "running", "detail": "", "session_id": ""}
+    assert started == {"state": "running", "detail": "", "session_id": "", "check_configured": False}
     assert "attempt" not in cycle.status()
+
+
+def test_no_check_command_reports_check_configured_false(tmp_path):
+    runner = FixedStatusRunner(tmp_path, {"state": "running", "detail": "", "session_id": ""})
+    cycle = SessionCycle(runner, check_command=None)
+
+    cycle.start("do the thing")
+    status = cycle.status()
+
+    assert status["check_configured"] is False
+    underlying = dict(runner.status())
+    underlying["check_configured"] = False
+    assert status == underlying
+
+
+def test_check_command_configured_reports_check_configured_true(tmp_path):
+    runner = StubSessionRunner(tmp_path, [{"state": "done", "session_id": "sess-1"}])
+    cycle = SessionCycle(runner, check_command="true")
+
+    started = cycle.start("do the thing")
+    finished = drive_to_terminal(cycle)
+
+    assert started["check_configured"] is True
+    assert finished["check_configured"] is True
 
 
 def test_passing_check_settles_cycle_to_done(tmp_path):

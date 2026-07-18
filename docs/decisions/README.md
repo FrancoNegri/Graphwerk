@@ -53,3 +53,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [042](042-regenerated-commit-message-per-cycle.md) | Commit message regenerated from the full diff after every session cycle | proposed |
 | [043](043-dangling-tests-bottom-layer.md) | Dangling test files sink to the bottom layer, not layer 0 | proposed |
 | [044](044-check-result-summary-reporting.md) | Structured check-result summary reporting | proposed |
+| [045](045-persistent-checks-status-and-naming.md) | Persistent, prominent "Checks" status; standing name for the concept | proposed |

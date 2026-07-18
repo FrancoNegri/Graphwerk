@@ -44,7 +44,9 @@ class SessionCycle:
 
     def start(self, prompt: str) -> dict:
         if self.check_command is None:
-            return self.runner.start(prompt)
+            payload = dict(self.runner.start(prompt))
+            payload["check_configured"] = False
+            return payload
         with self._lock:
             current = self._status_locked()
             if current["state"] not in TERMINAL_STATES:
@@ -61,7 +63,9 @@ class SessionCycle:
 
     def status(self) -> dict:
         if self.check_command is None:
-            return self.runner.status()
+            payload = dict(self.runner.status())
+            payload["check_configured"] = False
+            return payload
         with self._lock:
             return self._status_locked()
 
@@ -73,6 +77,7 @@ class SessionCycle:
         self._advance_locked(runner_status)
         payload = dict(runner_status)
         payload["state"] = self._state
+        payload["check_configured"] = True
         payload["attempt"] = self._attempt
         payload["check_exit_code"] = self._check_exit_code
         payload["check_tail"] = self._check_tail

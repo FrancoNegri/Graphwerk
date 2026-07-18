@@ -138,7 +138,8 @@ def test_gate_off_session_payload_is_backward_compatible(tmp_path):
     stub_runner.snapshot = {"state": "done", "detail": "", "session_id": "sess-1"}
 
     assert response.status_code == 200
-    assert client.get("/api/session").json() == {"state": "done", "detail": "", "session_id": "sess-1"}
+    assert client.get("/api/session").json() == {
+        "state": "done", "detail": "", "session_id": "sess-1", "check_configured": False}
 
 
 def test_gate_on_passing_check_reports_done(tmp_path):
