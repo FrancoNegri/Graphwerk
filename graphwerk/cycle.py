@@ -15,6 +15,14 @@ FAILURE_PROMPT_TEMPLATE = (
     "Fix the failures shown above."
 )
 
+FAILURE_PROMPT_WITH_FAILURES_TEMPLATE = (
+    "The check command `{command}` failed with exit code {exit_code}.\n\n"
+    "Known failing tests:\n{failures_list}\n\n"
+    "The output tail below may not show all of them.\n\n"
+    "Output tail:\n{tail}\n\n"
+    "Fix the failures shown above."
+)
+
 
 class SessionCycle:
     """Wraps a SessionRunner with a deterministic post-session check gate."""
@@ -28,6 +36,8 @@ class SessionCycle:
         self._attempt = 0
         self._check_exit_code = None
         self._check_tail = ""
+        self._check_summary = None
+        self._check_duration_s = None
         # status() runs concurrently from FastAPI's threadpool; guards the
         # same way SessionRunner/CheckRunner do (ticket 086).
         self._lock = threading.Lock()
@@ -45,6 +55,8 @@ class SessionCycle:
             self._attempt = 0
             self._check_exit_code = None
             self._check_tail = ""
+            self._check_summary = None
+            self._check_duration_s = None
             return self._status_locked()
 
     def status(self) -> dict:
@@ -64,6 +76,8 @@ class SessionCycle:
         payload["attempt"] = self._attempt
         payload["check_exit_code"] = self._check_exit_code
         payload["check_tail"] = self._check_tail
+        payload["check_summary"] = self._check_summary
+        payload["check_duration_s"] = self._check_duration_s
         return payload
 
     def _advance_locked(self, runner_status: dict) -> None:
@@ -89,16 +103,28 @@ class SessionCycle:
             return
         self._check_exit_code = check_status["exit_code"]
         self._check_tail = check_status["tail"]
+        self._check_summary = check_status.get("check_summary")
+        self._check_duration_s = check_status.get("duration_s")
         if check_status["state"] == "passed":
             self._state = "done"
         elif check_status["state"] == "error":
             self._state = "check_failed"
         elif self._attempt < self.max_retries:
             self._attempt += 1
-            self.runner.resume(FAILURE_PROMPT_TEMPLATE.format(
-                command=self.check_command,
-                exit_code=check_status["exit_code"],
-                tail=check_status["tail"]))
+            self.runner.resume(self._build_resume_prompt(check_status))
             self._state = "resuming"
         else:
             self._state = "check_failed"
+
+    def _build_resume_prompt(self, check_status: dict) -> str:
+        failures = (self._check_summary or {}).get("failures") or []
+        if not failures:
+            return FAILURE_PROMPT_TEMPLATE.format(
+                command=self.check_command,
+                exit_code=check_status["exit_code"],
+                tail=check_status["tail"])
+        return FAILURE_PROMPT_WITH_FAILURES_TEMPLATE.format(
+            command=self.check_command,
+            exit_code=check_status["exit_code"],
+            tail=check_status["tail"],
+            failures_list="\n".join(f"- {name}" for name in failures))
