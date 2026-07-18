@@ -116,3 +116,20 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [102](102-admitting-imports-render-with-rendercode.md) | Admitting-imports section renders the statement via `renderCode` | done | [038](../decisions/038-admitting-imports-render-as-real-statements.md) |
 | [103](103-flag-via-imports-inside-caller-code.md) | `via_imports` entries flag statements inside the caller's own code | done | [039](../decisions/039-admitting-imports-inline-in-call-pair.md) |
 | [104](104-render-admitting-imports-in-caller-section.md) | Calls panel renders admitting imports inside each pair's caller section | done | [039](../decisions/039-admitting-imports-inline-in-call-pair.md) |
+| [105](105-checkrunner.md) | `CheckRunner`: poll-settled check command with bounded output tail | ready | [040](../decisions/040-post-session-check-gate.md) |
+| [106](106-sessionrunner-resume.md) | `SessionRunner.resume(prompt)` re-enters the stored session | ready | [040](../decisions/040-post-session-check-gate.md) |
+| [107](107-sessioncycle-state-machine.md) | `SessionCycle`: session → check → bounded auto-resume state machine | ready | [040](../decisions/040-post-session-check-gate.md) |
+| [108](108-check-flags-and-session-endpoint.md) | `--check`/`--check-retries` flags; `/api/session` reports the cycle | ready | [040](../decisions/040-post-session-check-gate.md) |
+| [109](109-check-cycle-ui.md) | Session bar surfaces the check cycle | ready | [040](../decisions/040-post-session-check-gate.md) |
+| [110](110-pair-tests-with-files.md) | `pair_tests_with_files`: mirror-key matching between test and source files | ready | [041](../decisions/041-paired-test-file-placement.md) |
+| [111](111-paired-file-field-and-layering-exclusion.md) | `GraphNode.paired_file` payload field; paired tests excluded from file layering | ready | [041](../decisions/041-paired-test-file-placement.md) |
+| [112](112-frontend-test-pill-anchoring.md) | Frontend: anchor paired test pills below their file, left edge at center | ready | [041](../decisions/041-paired-test-file-placement.md) |
+| [113](113-commit-message-runner.md) | `CommitMessageRunner`: one-shot diff-summarizing `claude -p` call | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
+| [114](114-sessioncycle-summarizing-phase.md) | `SessionCycle` gains a `summarizing` phase | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
+| [115](115-wire-commit-message-regeneration.md) | Wire diff-based regeneration into the running server | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
+| [116](116-retire-transcript-mined-commit-message.md) | Retire the transcript-mined commit message; clear on commit/discard | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
+| [117](117-frontend-regenerated-message.md) | Frontend: commit box driven by the polled cycle, not client memory | ready | [042](../decisions/042-regenerated-commit-message-per-cycle.md) |
+| [118](118-dangling-tests-bottom-layer.md) | Dangling test files sink to the bottom file layer | ready | [043](../decisions/043-dangling-tests-bottom-layer.md) |
+| [119](119-checkrunner-summary-parsing.md) | `CheckRunner` parses an optional check-result summary file | ready | [044](../decisions/044-check-result-summary-reporting.md) |
+| [120](120-sessioncycle-summary-propagation.md) | `SessionCycle` propagates the check summary and names failures on resume | ready | [044](../decisions/044-check-result-summary-reporting.md) |
+| [121](121-frontend-check-summary-rendering.md) | Frontend renders the structured check summary | ready | [044](../decisions/044-check-result-summary-reporting.md) |

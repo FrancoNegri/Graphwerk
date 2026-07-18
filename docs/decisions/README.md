@@ -46,4 +46,10 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [035](035-calls-panel-surfaces-admitting-imports.md) | Call edges carry the imports that admit them; the calls panel shows them | proposed |
 | [036](036-hide-tests-exempts-changed-and-affected.md) | Hide-tests exempts changed and affected tests | proposed |
 | [037](037-bottom-session-bar-commit-discard.md) | Bottom session bar: commit message + commit-all / discard | proposed |
-| [038](038-admitting-imports-render-as-real-statements.md) | Admitting imports render as the real import statements | proposed |
+| [038](038-admitting-imports-render-as-real-statements.md) | Admitting imports render as the real import statements | accepted |
+| [039](039-admitting-imports-inline-in-call-pair.md) | Admitting imports render inside the call pair's caller section | proposed |
+| [040](040-post-session-check-gate.md) | Deterministic post-session check gate with bounded auto-resume | proposed |
+| [041](041-paired-test-file-placement.md) | Paired test-file placement: test pill anchored below its source file's center | proposed |
+| [042](042-regenerated-commit-message-per-cycle.md) | Commit message regenerated from the full diff after every session cycle | proposed |
+| [043](043-dangling-tests-bottom-layer.md) | Dangling test files sink to the bottom layer, not layer 0 | proposed |
+| [044](044-check-result-summary-reporting.md) | Structured check-result summary reporting | proposed |

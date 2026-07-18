@@ -33,6 +33,12 @@ Goal: the reject button actually re-prompts the live agent.
   apply/reject) happens in one place. *Pulled forward 2026-07-15 (user call):
   ADR 011, tickets 038-040 — kickoff-only, input box + status, no chat log;
   reject/resume stays here.*
+- Deterministic post-session check gate: after a spawned session completes,
+  run a configured check command (tests/build/lint) in the worktree; pass →
+  hand control back, fail → auto-resume the session with the failure output,
+  bounded retries. *Pulled forward 2026-07-17 (user call): ADR 040, tickets
+  105-109 — this ships the `--resume` machinery the reject flow will reuse;
+  the human reject → re-prompt UI stays here.*
 
 ## Phase 4 — Apply semantics (the hard problems)
 
