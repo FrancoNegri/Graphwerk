@@ -1,6 +1,6 @@
 # 155. Sidebar: only the code section scrolls
 
-Status: ready
+Status: done
 Decision: docs/decisions/057-sidebar-code-scroll-drop-reject-ui.md
 
 ## Goal
