@@ -58,3 +58,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [047](047-design-scope-guidance-and-dialogue.md) | Design-scope session guidance and a scoped dialogue surface | proposed |
 | [048](048-transitive-import-reachability-for-call-edges.md) | Call-edge reachability follows re-export chains, not just direct imports | proposed |
 | [049](049-build-app-factory-extracted-from-cli.md) | `build_app()` factory extracted from `cli.py` | accepted |
+| [050](050-apply-becomes-approval-scoped-commit.md) | Apply becomes approval; commit is scoped to approved files | proposed |
