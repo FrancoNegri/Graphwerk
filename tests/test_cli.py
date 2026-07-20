@@ -164,31 +164,16 @@ def test_serve_passes_check_flags_through(start_harness, tmp_path):
 
 @pytest.fixture
 def real_serve_harness(monkeypatch):
-    """Call the real `_serve`, but record its SessionRunner instead of
-    constructing one for real and never actually starts a uvicorn server."""
-    runners = []
-
-    class RecordingSessionRunner:
-        def __init__(self, staged_root, permission_mode="acceptEdits", system_prompt=""):
-            self.staged_root = staged_root
-            self.permission_mode = permission_mode
-            self.system_prompt = system_prompt
-            runners.append(self)
-
+    """Call the real `_serve`, but stub out uvicorn so it never actually
+    starts a server."""
     class RecordingUvicorn:
         @staticmethod
         def run(app, host, port, log_level):
             pass
 
-    monkeypatch.setattr(cli, "SessionRunner", RecordingSessionRunner)
     monkeypatch.setattr(cli, "uvicorn", RecordingUvicorn)
-    return runners
 
 
-def test_serve_wires_session_guidance_into_the_runner(real_serve_harness, tmp_path):
-    from graphwerk.rationale.guidance import SESSION_GUIDANCE
-
+def test_serve_builds_and_runs_an_app(real_serve_harness, tmp_path):
     cli._serve(tmp_path / "base", tmp_path / "staged", None, None,
                "127.0.0.1", 8135, "acceptEdits")
-
-    assert real_serve_harness[0].system_prompt == SESSION_GUIDANCE

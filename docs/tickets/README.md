@@ -149,3 +149,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [135](135-frontend-design-dialogue.md) | Frontend: design-mode dialogue box | done | [047](../decisions/047-design-scope-guidance-and-dialogue.md) |
 | [136](136-transitive-call-edge-reachability.md) | Transitive import reachability for call-edge resolution | done | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |
 | [137](137-multi-hop-via-imports-provenance.md) | Multi-hop `via_imports` provenance for transitively-reached call edges | done | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |
+| [138](138-build-app-factory.md) | `build_app()` factory extracted from `cli.py` | done | [049](../decisions/049-build-app-factory-extracted-from-cli.md) |
