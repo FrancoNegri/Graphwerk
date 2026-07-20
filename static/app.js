@@ -777,13 +777,18 @@ async function rejectNode(node) {
 // — whatever the language extractor calls its deepest units (ADR 051).
 const CHANGED_LEAF_KINDS = new Set(["function", "method"]);
 
+// Mirrors the Python-side CHANGED set (graphwerk/service.py) — "affected"
+// (unchanged itself, but calls into changed code) is a blast-radius signal,
+// not a change, and must not count as a "changed method" (ticket 146).
+const CHANGED_LEAF_STATUSES = new Set(["modified", "added", "deleted"]);
+
 // Changed leaf symbols nested under `containerId`, found by walking each
 // candidate's parent chain in the full (unfiltered) node index — independent
 // of the current graph view/collapse state, so it matches whatever the
 // backend actually diffed rather than what's currently rendered.
 function changedLeafDescendants(containerId) {
   return graphData.nodes.filter((n) =>
-    CHANGED_LEAF_KINDS.has(n.kind) && n.status !== "unchanged" && isDescendant(n.id, containerId)
+    CHANGED_LEAF_KINDS.has(n.kind) && CHANGED_LEAF_STATUSES.has(n.status) && isDescendant(n.id, containerId)
   );
 }
 
