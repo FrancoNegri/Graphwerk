@@ -1,6 +1,6 @@
 # 141. `CommitEngine.commit_all` scoped to approved files
 
-Status: ready
+Status: done
 Decision: docs/decisions/050-apply-becomes-approval-scoped-commit.md
 
 ## Goal

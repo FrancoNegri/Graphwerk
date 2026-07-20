@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.approval import ApprovalStore
 from graphwerk.models import Status
 from graphwerk.staging import ChangeSetBuilder
 
@@ -23,10 +24,11 @@ class CommitError(ValueError):
 
 class CommitEngine:
     def __init__(self, base_root: Path, apply_engine: ApplyEngine,
-                 change_set_builder: ChangeSetBuilder):
+                 change_set_builder: ChangeSetBuilder, approval_store: ApprovalStore):
         self.base_root = base_root
         self.apply_engine = apply_engine
         self.change_set_builder = change_set_builder
+        self.approval_store = approval_store
 
     def commit_all(self, message: str) -> dict:
         if not message.strip():
@@ -36,18 +38,22 @@ class CommitEngine:
                 f"{self.base_root} is not a git repository — committing needs one "
                 f"(the scripted demo trees are plain directories)"
             )
-        changed_paths = sorted(
+        changed_paths = {
             rel for rel, change in self.change_set_builder.build().items()
             if change.status in CHANGED_STATUSES
-        )
+        }
         if not changed_paths:
             raise CommitError("nothing to commit — the change set is empty")
-        for rel_path in changed_paths:
+        committed_paths = sorted(changed_paths & self.approval_store.approved_paths())
+        if not committed_paths:
+            raise CommitError("nothing approved to commit")
+        for rel_path in committed_paths:
             self.apply_engine.apply_file(rel_path)
-        self._git("add", "--", *changed_paths)
+        self._git("add", "--", *committed_paths)
         self._git("commit", "-m", message)
         short_hash = self._git("rev-parse", "--short", "HEAD").stdout.strip()
-        return {"paths": changed_paths, "commit": short_hash}
+        self.approval_store.clear(committed_paths)
+        return {"paths": committed_paths, "commit": short_hash}
 
     def _base_is_git_repo(self) -> bool:
         result = subprocess.run(

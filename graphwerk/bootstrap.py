@@ -28,7 +28,7 @@ def build_app(base: Path, staged: Path, sidecar: Path | None, transcript: Path |
     runner = SessionRunner(staged, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)
     cycle = SessionCycle(runner, check_command, max_retries=check_retries)
-    commit_engine = CommitEngine(base, engine, service.builder)
-    discard_engine = DiscardEngine(base, staged, service.builder)
     approval_store = ApprovalStore(staged)
+    commit_engine = CommitEngine(base, engine, service.builder, approval_store)
+    discard_engine = DiscardEngine(base, staged, service.builder)
     return create_app(service, engine, cycle, commit_engine, discard_engine, approval_store)
