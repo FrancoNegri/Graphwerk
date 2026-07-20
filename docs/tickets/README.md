@@ -165,4 +165,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [151](151-collapsed-calls-edge-strongest-status.md) | Collapsed `calls` edges pick the most severe underlying status | ready | [055](../decisions/055-collapsed-calls-edge-strongest-status.md) |
 | [152](152-added-caller-edge-status.md) | Added-caller `calls` edges report `ADDED` status | ready | [054](../decisions/054-deleted-caller-edge-status.md) |
 | [153](153-node-click-isolation.md) | Node click isolates its edge-neighborhood | done | [056](../decisions/056-node-click-isolates-neighbors.md) |
-| [154](154-edges-non-selectable.md) | Edges become non-selectable so clicking one doesn't clear the selected node | ready | [056](../decisions/056-node-click-isolates-neighbors.md) |
+| [154](154-edges-non-selectable.md) | Edges become non-selectable so clicking one doesn't clear the selected node | done | [056](../decisions/056-node-click-isolates-neighbors.md) |

@@ -1,6 +1,6 @@
 # 154. Edges become non-selectable so clicking one doesn't clear the selected node
 
-Status: ready
+Status: done
 Decision: docs/decisions/056-node-click-isolates-neighbors.md
 
 ## Goal

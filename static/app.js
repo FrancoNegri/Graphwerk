@@ -164,7 +164,11 @@ function toElements(data) {
     const id = `${source}->${target}:${e.kind}`;
     let edge = edgesById.get(id);
     if (!edge) {
-      edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] } };
+      // Non-selectable (ADR 056): Cytoscape's default single-selection model
+      // would otherwise deselect a tapped node the moment an edge is tapped.
+      // Nothing keys off edge:selected styling today, so this is a no-op
+      // everywhere else.
+      edge = { data: { id, source, target, kind: e.kind, status: e.status, calls: [] }, selectable: false };
       edgesById.set(id, edge);
     }
     edge.data.calls.push({ source: e.source, target: e.target, status: e.status, module: e.module, via_imports: e.via_imports });
