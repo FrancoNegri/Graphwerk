@@ -361,10 +361,10 @@ class GraphService:
         edge that itself targets changed code, and that edge already gets
         the target's real status below, so no edge is ever "affected" —
         an unrelated call from an affected node carries no information about
-        the change itself. A deleted source is a different case (ADR 054):
-        the call site itself no longer exists, so every edge out of it is
-        `deleted` regardless of the target, unless the target's own status
-        already outranks it."""
+        the change itself. A deleted or added source is a different case
+        (ADR 054): the call site either no longer exists or is wholly new,
+        so every edge out of it takes the source's own status regardless of
+        the target, unless the target's own status already outranks it."""
         status_by_id = {n.id: n.status for n in snap.nodes}
         for edge in snap.edges:
             if edge.kind != "calls":
@@ -372,8 +372,8 @@ class GraphService:
             target_status = status_by_id.get(edge.target)
             if target_status in CHANGED:
                 edge.status = target_status
-            elif status_by_id.get(edge.source) is Status.DELETED:
-                edge.status = Status.DELETED
+            elif status_by_id.get(edge.source) in {Status.DELETED, Status.ADDED}:
+                edge.status = status_by_id[edge.source]
 
 
 _IMPORT_STATUS_TO_OP = {Status.ADDED: "add", Status.DELETED: "del"}
