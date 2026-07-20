@@ -164,6 +164,7 @@ function toElements(data) {
       edgesById.set(id, edge);
     }
     edge.data.calls.push({ source: e.source, target: e.target, status: e.status, module: e.module, via_imports: e.via_imports });
+    if (statusRank(e.status) < statusRank(edge.data.status)) edge.data.status = e.status;
   }
   return { nodes, edges: [...edgesById.values()] };
 }
