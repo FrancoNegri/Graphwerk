@@ -37,7 +37,7 @@ let selectedEdgeId = null;
 // changed leaf function/method symbols, each shown full-context under its
 // own heading), or "changes-only" — a shared filter applied wherever
 // renderCode is called (ADR 028, ADR 051).
-let codeDisplayMode = "full";
+let codeDisplayMode = "changed-methods";
 // Every container (file or class) starts collapsed; a double-click expands
 // it for the session until the node goes away.
 const userExpandedIds = new Set();

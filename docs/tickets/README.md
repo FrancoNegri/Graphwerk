@@ -157,3 +157,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [143](143-graphnode-approved-field.md) | `GraphNode.approved` field in the snapshot | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [144](144-frontend-approve-toggle.md) | Frontend: approve/unapprove toggle + approved-count commit gate | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [145](145-changed-methods-code-mode.md) | "Changed methods" code display mode | done | [051](../decisions/051-changed-methods-code-display-mode.md) |
+| [146](146-changed-methods-excludes-affected.md) | "Changed methods" mode excludes `affected` (unchanged-but-calling) leaves | done | [051](../decisions/051-changed-methods-code-display-mode.md) |
+| [147](147-import-statements-capture-all-per-module.md) | `FileIndex.import_statements` captures every statement per module | done | [052](../decisions/052-import-statement-attribution-scoped-to-caller.md) |
+| [148](148-admitting-import-scoped-to-caller-span.md) | Admitting-import entry picks the statement scoped to its caller | done | [052](../decisions/052-import-statement-attribution-scoped-to-caller.md) |
+| [149](149-changed-methods-default-mode.md) | "Changed methods" is the default code-view mode | done | [053](../decisions/053-changed-methods-default-code-view.md) |
