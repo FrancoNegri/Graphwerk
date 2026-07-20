@@ -363,20 +363,6 @@ button {
 button:hover { filter: brightness(1.15); }
 button.danger { background: #7f1d1d; }
 
-textarea {
-  width: 100%;
-  margin-top: 14px;
-  background: #0b1220;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 8px;
-  font: inherit;
-  resize: vertical;
-}
-
-.note { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-
 #toast {
   position: fixed;
   bottom: 68px; /* clears the docked session bar */

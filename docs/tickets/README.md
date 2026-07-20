@@ -167,4 +167,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [153](153-node-click-isolation.md) | Node click isolates its edge-neighborhood | done | [056](../decisions/056-node-click-isolates-neighbors.md) |
 | [154](154-edges-non-selectable.md) | Edges become non-selectable so clicking one doesn't clear the selected node | done | [056](../decisions/056-node-click-isolates-neighbors.md) |
 | [155](155-sidebar-code-only-scroll.md) | Sidebar: only the code section scrolls | ready | [057](../decisions/057-sidebar-code-scroll-drop-reject-ui.md) |
-| [156](156-remove-reject-comment-ui.md) | Remove the reject-comment UI affordance | ready | [057](../decisions/057-sidebar-code-scroll-drop-reject-ui.md) |
+| [156](156-remove-reject-comment-ui.md) | Remove the reject-comment UI affordance | done | [057](../decisions/057-sidebar-code-scroll-drop-reject-ui.md) |

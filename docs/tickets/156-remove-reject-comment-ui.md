@@ -1,6 +1,6 @@
 # 156. Remove the reject-comment UI affordance
 
-Status: ready
+Status: done
 Decision: docs/decisions/057-sidebar-code-scroll-drop-reject-ui.md
 
 ## Goal

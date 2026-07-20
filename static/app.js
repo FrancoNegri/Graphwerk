@@ -708,10 +708,6 @@ function showDetails(node) {
   applyBtn.hidden = !changed;
   applyBtn.textContent = node.approved ? `Unapprove file ${node.path}` : `Approve file ${node.path}`;
   applyBtn.onclick = () => toggleApproval(node.path, node.approved);
-
-  document.getElementById("reject-box").hidden = !changed;
-  document.getElementById("reject-result").hidden = true;
-  document.getElementById("btn-reject").onclick = () => rejectNode(node);
 }
 
 function clearDetails() {
@@ -801,30 +797,6 @@ async function toggleApproval(path, currentlyApproved) {
   const data = await res.json();
   toast(res.ok ? `✓ ${data.approved ? "approved" : "unapproved"} ${path}` : `error: ${data.detail}`);
   if (res.ok) loadGraph();
-}
-
-async function rejectNode(node) {
-  const comment = document.getElementById("reject-comment").value.trim();
-  if (!comment) return toast("write a comment first — it becomes the re-prompt");
-  const res = await fetch("/api/reject", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id: node.id,
-      label: node.label,
-      status: node.status,
-      diff: node.diff || "",
-      comment,
-    }),
-  });
-  const data = await res.json();
-  if (res.ok) {
-    document.getElementById("reject-result").hidden = false;
-    document.getElementById("reject-prompt").textContent = data.prompt;
-    document.getElementById("reject-comment").value = "";
-  } else {
-    toast(`error: ${data.detail}`);
-  }
 }
 
 // The leaf symbol kinds "changed methods" mode narrows a container down to
