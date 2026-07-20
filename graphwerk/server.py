@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from starlette.middleware.gzip import GZipMiddleware
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.approval import ApprovalStore
 from graphwerk.commit import CommitEngine, CommitError
 from graphwerk.cycle import TERMINAL_STATES, SessionCycle
 from graphwerk.discard import DiscardEngine
@@ -44,7 +45,7 @@ class RejectRequest(BaseModel):
 
 def create_app(service: GraphService, engine: ApplyEngine,
                runner: SessionCycle, commit_engine: CommitEngine,
-               discard_engine: DiscardEngine) -> FastAPI:
+               discard_engine: DiscardEngine, approval_store: ApprovalStore) -> FastAPI:
     app = FastAPI(title="graphwerk")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -70,10 +71,13 @@ def create_app(service: GraphService, engine: ApplyEngine,
 
     @app.post("/api/apply")
     def apply(req: ApplyRequest):
-        try:
-            return {"result": engine.apply_file(req.path)}
-        except (ValueError, FileNotFoundError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+        approval_store.approve(req.path)
+        return {"path": req.path, "approved": True}
+
+    @app.post("/api/unapprove")
+    def unapprove(req: ApplyRequest):
+        approval_store.unapprove(req.path)
+        return {"path": req.path, "approved": False}
 
     @app.post("/api/commit")
     def commit(req: CommitRequest):

@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 import time
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.approval import ApprovalStore
 from graphwerk.commit import CommitEngine
 from graphwerk.cycle import SessionCycle
 from graphwerk.discard import DiscardEngine
@@ -66,7 +67,8 @@ def client(tmp_path, stub_runner):
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    return TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine))
+    approval_store = ApprovalStore(staged)
+    return TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
 
 
 def test_prompt_starts_a_run_and_returns_its_status(client, stub_runner):
@@ -170,7 +172,8 @@ def make_cycle_client(tmp_path, check_command, max_retries=1):
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    client = TestClient(create_app(service, engine, cycle, commit_engine, discard_engine))
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, cycle, commit_engine, discard_engine, approval_store))
     return client, stub_runner
 
 
@@ -276,7 +279,8 @@ def test_graph_endpoint_compresses_large_responses(tmp_path, stub_runner):
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine))
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
 
     response = client.get("/api/graph", headers={"Accept-Encoding": "gzip"})
 
@@ -304,7 +308,8 @@ def test_commit_endpoint_returns_paths_and_hash(tmp_path, stub_runner):
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine))
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
 
     response = client.post("/api/commit", json={"message": "Bump f"})
 
@@ -355,10 +360,56 @@ def test_discard_endpoint_reverts_the_staged_changes(tmp_path, stub_runner):
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine))
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
 
     response = client.post("/api/discard")
 
     assert response.status_code == 200
     assert response.json()["paths"] == ["mod.py"]
     assert (staged / "mod.py").read_text() == "def f():\n    return 1\n"
+
+
+def test_apply_endpoint_marks_approval_without_writing_to_base(tmp_path, stub_runner):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (base / "mod.py").write_text("def f():\n    return 1\n")
+    (staged / "mod.py").write_text("def f():\n    return 2\n")
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    commit_engine = CommitEngine(base, engine, service.builder)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
+
+    response = client.post("/api/apply", json={"path": "mod.py"})
+
+    assert response.status_code == 200
+    assert approval_store.is_approved("mod.py") is True
+    assert (base / "mod.py").read_text() == "def f():\n    return 1\n"
+
+
+def test_unapprove_endpoint_undoes_approval(tmp_path, stub_runner):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (staged / "mod.py").write_text("def f():\n    return 2\n")
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    commit_engine = CommitEngine(base, engine, service.builder)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    approval_store = ApprovalStore(staged)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
+    client.post("/api/apply", json={"path": "mod.py"})
+
+    response = client.post("/api/unapprove", json={"path": "mod.py"})
+
+    assert response.status_code == 200
+    assert approval_store.is_approved("mod.py") is False

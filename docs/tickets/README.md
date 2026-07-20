@@ -151,7 +151,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [137](137-multi-hop-via-imports-provenance.md) | Multi-hop `via_imports` provenance for transitively-reached call edges | done | [048](../decisions/048-transitive-import-reachability-for-call-edges.md) |
 | [138](138-build-app-factory.md) | `build_app()` factory extracted from `cli.py` | done | [049](../decisions/049-build-app-factory-extracted-from-cli.md) |
 | [139](139-approval-store.md) | `ApprovalStore`: fingerprint-guarded approval tracking | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
-| [140](140-wire-approve-unapprove-endpoints.md) | `/api/apply` marks approval; add `/api/unapprove` | ready | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
+| [140](140-wire-approve-unapprove-endpoints.md) | `/api/apply` marks approval; add `/api/unapprove` | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [141](141-commit-scoped-to-approved.md) | `CommitEngine.commit_all` scoped to approved files | ready | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [142](142-discard-reject-clear-approval.md) | Discard clears all approvals; reject unapproves its path | ready | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [143](143-graphnode-approved-field.md) | `GraphNode.approved` field in the snapshot | ready | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |

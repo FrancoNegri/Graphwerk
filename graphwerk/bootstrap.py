@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from graphwerk.apply import ApplyEngine
+from graphwerk.approval import ApprovalStore
 from graphwerk.commit import CommitEngine
 from graphwerk.cycle import SessionCycle
 from graphwerk.discard import DiscardEngine
@@ -29,4 +30,5 @@ def build_app(base: Path, staged: Path, sidecar: Path | None, transcript: Path |
     cycle = SessionCycle(runner, check_command, max_retries=check_retries)
     commit_engine = CommitEngine(base, engine, service.builder)
     discard_engine = DiscardEngine(base, staged, service.builder)
-    return create_app(service, engine, cycle, commit_engine, discard_engine)
+    approval_store = ApprovalStore(staged)
+    return create_app(service, engine, cycle, commit_engine, discard_engine, approval_store)

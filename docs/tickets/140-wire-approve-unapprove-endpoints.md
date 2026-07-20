@@ -1,6 +1,6 @@
 # 140. `/api/apply` marks approval; add `/api/unapprove`
 
-Status: ready
+Status: done
 Decision: docs/decisions/050-apply-becomes-approval-scoped-commit.md
 
 ## Goal
