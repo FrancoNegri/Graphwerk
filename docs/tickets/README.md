@@ -156,3 +156,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [142](142-discard-reject-clear-approval.md) | Discard clears all approvals; reject unapproves its path | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [143](143-graphnode-approved-field.md) | `GraphNode.approved` field in the snapshot | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
 | [144](144-frontend-approve-toggle.md) | Frontend: approve/unapprove toggle + approved-count commit gate | done | [050](../decisions/050-apply-becomes-approval-scoped-commit.md) |
+| [145](145-changed-methods-code-mode.md) | "Changed methods" code display mode | done | [051](../decisions/051-changed-methods-code-display-mode.md) |

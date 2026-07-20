@@ -33,8 +33,10 @@ let selectedId = null;
 // Which edge-calls panel is open, mirroring selectedId for nodes — lets the
 // code-mode toggle re-render whichever panel (node or edge) is current.
 let selectedEdgeId = null;
-// "full" (code + changes, today's default) or "changes-only" — a shared
-// filter applied wherever renderCode is called (ADR 028).
+// "full" (code + changes, today's default), "changed-methods" (only
+// changed leaf function/method symbols, each shown full-context under its
+// own heading), or "changes-only" — a shared filter applied wherever
+// renderCode is called (ADR 028, ADR 051).
 let codeDisplayMode = "full";
 // Every container (file or class) starts collapsed; a double-click expands
 // it for the session until the node goes away.
@@ -638,9 +640,14 @@ function showDetails(node) {
   document.getElementById("d-why-justifies").hidden = node.why_justifies !== false;
 
   const codeSection = document.getElementById("code-section");
-  const hasCode = Array.isArray(node.code) && node.code.length > 0;
+  const changedMethods = codeDisplayMode === "changed-methods" ? changedLeafDescendants(node.id) : [];
+  const hasCode = changedMethods.length > 0 || (Array.isArray(node.code) && node.code.length > 0);
   codeSection.hidden = !hasCode;
-  if (hasCode) document.getElementById("d-code").innerHTML = renderCode(node.code);
+  if (changedMethods.length > 0) {
+    document.getElementById("d-code").innerHTML = renderChangedMethods(changedMethods);
+  } else if (hasCode) {
+    document.getElementById("d-code").innerHTML = renderCode(node.code);
+  }
 
   const changed = ["modified", "added", "deleted"].includes(node.status);
   const applyBtn = document.getElementById("btn-apply");
@@ -764,6 +771,35 @@ async function rejectNode(node) {
   } else {
     toast(`error: ${data.detail}`);
   }
+}
+
+// The leaf symbol kinds "changed methods" mode narrows a container down to
+// — whatever the language extractor calls its deepest units (ADR 051).
+const CHANGED_LEAF_KINDS = new Set(["function", "method"]);
+
+// Changed leaf symbols nested under `containerId`, found by walking each
+// candidate's parent chain in the full (unfiltered) node index — independent
+// of the current graph view/collapse state, so it matches whatever the
+// backend actually diffed rather than what's currently rendered.
+function changedLeafDescendants(containerId) {
+  return graphData.nodes.filter((n) =>
+    CHANGED_LEAF_KINDS.has(n.kind) && n.status !== "unchanged" && isDescendant(n.id, containerId)
+  );
+}
+
+function isDescendant(nodeId, ancestorId) {
+  for (let id = nodesById[nodeId] && nodesById[nodeId].parent; id; id = nodesById[id] && nodesById[id].parent) {
+    if (id === ancestorId) return true;
+  }
+  return false;
+}
+
+// Stacks each changed leaf symbol's own already-computed `code` view under
+// a heading naming it, instead of the container's single merged view.
+function renderChangedMethods(symbols) {
+  return symbols
+    .map((symbol) => `<div class="changed-method"><h4>${esc(qualifiedLabel(symbol.id))}</h4>${renderCode(symbol.code)}</div>`)
+    .join("");
 }
 
 function renderCode(lines) {

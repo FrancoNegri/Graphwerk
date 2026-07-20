@@ -59,3 +59,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [048](048-transitive-import-reachability-for-call-edges.md) | Call-edge reachability follows re-export chains, not just direct imports | proposed |
 | [049](049-build-app-factory-extracted-from-cli.md) | `build_app()` factory extracted from `cli.py` | accepted |
 | [050](050-apply-becomes-approval-scoped-commit.md) | Apply becomes approval; commit is scoped to approved files | proposed |
+| [051](051-changed-methods-code-display-mode.md) | Changed-methods code display mode | proposed |
