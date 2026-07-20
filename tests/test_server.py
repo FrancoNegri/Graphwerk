@@ -414,3 +414,51 @@ def test_unapprove_endpoint_undoes_approval(tmp_path, stub_runner):
 
     assert response.status_code == 200
     assert approval_store.is_approved("mod.py") is False
+
+
+def test_discard_endpoint_clears_all_approvals(tmp_path, stub_runner):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (base / "mod.py").write_text("def f():\n    return 1\n")
+    (staged / "mod.py").write_text("def f():\n    return 2\n")
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    approval_store = ApprovalStore(staged)
+    commit_engine = CommitEngine(base, engine, service.builder, approval_store)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
+    client.post("/api/apply", json={"path": "mod.py"})
+
+    response = client.post("/api/discard")
+
+    assert response.status_code == 200
+    assert approval_store.approved_paths() == set()
+
+
+def test_reject_endpoint_unapproves_the_rejected_path(tmp_path, stub_runner):
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    base.mkdir()
+    staged.mkdir()
+    (base / "mod.py").write_text("def f():\n    return 1\n")
+    (staged / "mod.py").write_text("def f():\n    return 2\n")
+    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=staged, base_root=base)
+    service = GraphService(base, staged, rationale)
+    engine = ApplyEngine(base, staged)
+    approval_store = ApprovalStore(staged)
+    commit_engine = CommitEngine(base, engine, service.builder, approval_store)
+    discard_engine = DiscardEngine(base, staged, service.builder)
+    client = TestClient(create_app(service, engine, stub_runner, commit_engine, discard_engine, approval_store))
+    client.post("/api/apply", json={"path": "mod.py"})
+
+    response = client.post("/api/reject", json={
+        "id": "mod.py::f", "label": "f", "status": "modified", "diff": "", "comment": "not this",
+    })
+
+    assert response.status_code == 200
+    assert approval_store.is_approved("mod.py") is False

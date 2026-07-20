@@ -92,13 +92,16 @@ def create_app(service: GraphService, engine: ApplyEngine,
         # gate (ADR 037, ADR 040)
         if runner.status()["state"] not in TERMINAL_STATES:
             raise HTTPException(status_code=409, detail="a session is running — wait for it to finish")
-        return {"paths": discard_engine.discard_all()}
+        paths = discard_engine.discard_all()
+        approval_store.clear_all()
+        return {"paths": paths}
 
     @app.post("/api/reject")
     def reject(req: RejectRequest):
         if not req.comment.strip():
             raise HTTPException(status_code=400, detail="comment is required")
         prompt = engine.reject(req.id, req.label or req.id, req.status, req.comment, req.diff)
+        approval_store.unapprove(req.id.split("::")[0])
         return {"prompt": prompt}
 
     @app.post("/api/prompt")

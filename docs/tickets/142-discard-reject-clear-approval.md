@@ -1,6 +1,6 @@
 # 142. Discard clears all approvals; reject unapproves its path
 
-Status: ready
+Status: done
 Decision: docs/decisions/050-apply-becomes-approval-scoped-commit.md
 
 ## Goal
