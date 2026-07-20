@@ -161,3 +161,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [147](147-import-statements-capture-all-per-module.md) | `FileIndex.import_statements` captures every statement per module | done | [052](../decisions/052-import-statement-attribution-scoped-to-caller.md) |
 | [148](148-admitting-import-scoped-to-caller-span.md) | Admitting-import entry picks the statement scoped to its caller | done | [052](../decisions/052-import-statement-attribution-scoped-to-caller.md) |
 | [149](149-changed-methods-default-mode.md) | "Changed methods" is the default code-view mode | done | [053](../decisions/053-changed-methods-default-code-view.md) |
+| [150](150-deleted-caller-edge-status.md) | Deleted-caller `calls` edges report `DELETED` status | done | [054](../decisions/054-deleted-caller-edge-status.md) |

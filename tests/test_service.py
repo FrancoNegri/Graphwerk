@@ -489,6 +489,23 @@ def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path)
     assert edge.status == Status.UNCHANGED
 
 
+def test_calls_edge_from_deleted_source_to_unchanged_target_has_deleted_status(tmp_path):
+    """ADR 054: a call site that no longer exists shouldn't read as
+    unchanged just because the thing it used to call didn't change."""
+    base = tmp_path / "base"
+    staged = tmp_path / "staged"
+    write_tree(base, {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"})
+    write_tree(staged, {"a.py": "def helper():\n    return 1\n"})
+    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    snapshot = service.snapshot()
+
+    nodes = {n.id: n for n in snapshot.nodes}
+    assert nodes["a.py::helper"].status == Status.UNCHANGED
+
+    edge = edge_between(snapshot, "a.py::gone", "a.py::helper")
+    assert edge.status == Status.DELETED
+
+
 def test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_status(tmp_path):
     """A caller becomes AFFECTED via its call to a modified target; a
     different, unrelated call it also makes must not borrow that label —
