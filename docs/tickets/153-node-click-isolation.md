@@ -1,6 +1,6 @@
 # 153. Node click isolates its edge-neighborhood
 
-Status: ready
+Status: done
 Decision: docs/decisions/056-node-click-isolates-neighbors.md
 
 ## Goal

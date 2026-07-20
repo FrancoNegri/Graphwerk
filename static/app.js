@@ -53,6 +53,10 @@ let groupTints = new Map();
 // Edges kept visible by a click, independent of hover; cleared by tapping
 // empty canvas (mirrors clearDetails' existing selection-reset gesture).
 const pinnedEdgeIds = new Set();
+// The node whose neighborhood is currently isolated (ticket 153); null means
+// every node is visible. Cleared by tapping empty canvas, recomputed by
+// tapping a different node.
+let isolatedNodeId = null;
 // Recomputed on every loadGraph() from the server-held ApprovalStore (ADR
 // 050) — never client-tracked, so a reload always shows the real count.
 let approvedFileCount = 0;
@@ -318,6 +322,42 @@ function applyPinnedEdges() {
   }
 }
 
+// The tapped node itself, its compound ancestors, its own descendants (an
+// expanded container's contents), every node joined to it by an edge
+// currently in the Cytoscape instance (regardless of that edge's own
+// hover/pinned/unchanged display state), and those neighbors' own compound
+// ancestors (ADR 056).
+function computeIsolationKeepSet(nodeId) {
+  const node = cy.getElementById(nodeId);
+  const keep = new Set([nodeId]);
+  node.parents().forEach((ancestor) => keep.add(ancestor.id()));
+  node.descendants().forEach((descendant) => keep.add(descendant.id()));
+  node.connectedEdges().forEach((edge) => {
+    const neighbor = edge.source().same(node) ? edge.target() : edge.source();
+    keep.add(neighbor.id());
+    neighbor.parents().forEach((ancestor) => keep.add(ancestor.id()));
+  });
+  return keep;
+}
+
+function setIsolatedNode(nodeId) {
+  isolatedNodeId = nodeId;
+  applyNodeIsolation();
+}
+
+// Classes don't survive renderGraph's destroy/recreate; reapply after a
+// rebuild, mirroring applyPinnedEdges().
+function applyNodeIsolation() {
+  cy.nodes().removeClass("isolation-hidden");
+  if (!isolatedNodeId) return;
+  if (cy.getElementById(isolatedNodeId).empty()) {
+    isolatedNodeId = null;
+    return;
+  }
+  const keepSet = computeIsolationKeepSet(isolatedNodeId);
+  cy.nodes().filter((n) => !keepSet.has(n.id())).addClass("isolation-hidden");
+}
+
 function sameTopology(elements) {
   const wanted = new Set([
     ...elements.nodes.map((n) => n.data.id),
@@ -424,6 +464,12 @@ function renderGraph(elements) {
         style: { "border-style": "dashed", opacity: 0.6 },
       },
       {
+        // Node-click isolation (ADR 056): hides everything outside the
+        // tapped node's keep set without removing it from the graph.
+        selector: "node.isolation-hidden",
+        style: { display: "none" },
+      },
+      {
         selector: "edge",
         style: {
           width: 1.5,
@@ -476,6 +522,7 @@ function renderGraph(elements) {
     selectedId = evt.target.id();
     showDetails(nodesById[selectedId]);
     pinEdges(evt.target.connectedEdges());
+    setIsolatedNode(selectedId);
   });
   cy.on("tap", "edge", (evt) => pinEdges(evt.target));
   cy.on("tap", "edge[kind='calls']", (evt) => showEdgeCalls(evt.target));
@@ -484,12 +531,14 @@ function renderGraph(elements) {
     if (evt.target === cy) {
       clearDetails();
       unpinAllEdges();
+      setIsolatedNode(null);
     }
   });
   cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));
   cy.on("mouseover", "node", (evt) => evt.target.connectedEdges().addClass("revealed"));
   cy.on("mouseout", "node", (evt) => evt.target.connectedEdges().removeClass("revealed"));
   applyPinnedEdges();
+  applyNodeIsolation();
 }
 
 // fcose has no "my left edge equals your center" primitive (ADR 041), so a
