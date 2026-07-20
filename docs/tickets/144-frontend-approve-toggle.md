@@ -1,6 +1,6 @@
 # 144. Frontend: approve/unapprove toggle + approved-count commit gate
 
-Status: ready
+Status: done
 Decision: docs/decisions/050-apply-becomes-approval-scoped-commit.md
 
 ## Goal

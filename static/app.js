@@ -51,6 +51,12 @@ let groupTints = new Map();
 // Edges kept visible by a click, independent of hover; cleared by tapping
 // empty canvas (mirrors clearDetails' existing selection-reset gesture).
 const pinnedEdgeIds = new Set();
+// Recomputed on every loadGraph() from the server-held ApprovalStore (ADR
+// 050) — never client-tracked, so a reload always shows the real count.
+let approvedFileCount = 0;
+// Mirrors renderSessionState's busy check; kept alongside approvedFileCount
+// since the commit button's disabled state depends on both.
+let sessionBusy = false;
 
 async function loadGraph() {
   if (loadGraphInFlight) return;
@@ -73,6 +79,9 @@ async function loadGraph() {
 
     groupTints = buildGroupTints(data.nodes);
     renderGroupLegend(groupTints);
+
+    approvedFileCount = data.nodes.filter((n) => n.kind === "file" && n.approved).length;
+    renderCommitButton();
 
     const elements = toElements(data);
     if (cy && sameTopology(elements)) {
@@ -636,8 +645,8 @@ function showDetails(node) {
   const changed = ["modified", "added", "deleted"].includes(node.status);
   const applyBtn = document.getElementById("btn-apply");
   applyBtn.hidden = !changed;
-  applyBtn.textContent = `Apply file ${node.path}`;
-  applyBtn.onclick = () => applyFile(node.path);
+  applyBtn.textContent = node.approved ? `Unapprove file ${node.path}` : `Approve file ${node.path}`;
+  applyBtn.onclick = () => toggleApproval(node.path, node.approved);
 
   document.getElementById("reject-box").hidden = !changed;
   document.getElementById("reject-result").hidden = true;
@@ -721,14 +730,15 @@ function renderCallPair({ source, target, status, via_imports }) {
   return `<details class="call-pair"><summary>${summary}</summary>${body}</details>`;
 }
 
-async function applyFile(path) {
-  const res = await fetch("/api/apply", {
+async function toggleApproval(path, currentlyApproved) {
+  const endpoint = currentlyApproved ? "/api/unapprove" : "/api/apply";
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
   const data = await res.json();
-  toast(res.ok ? `✓ ${data.result}` : `error: ${data.detail}`);
+  toast(res.ok ? `✓ ${data.approved ? "approved" : "unapproved"} ${path}` : `error: ${data.detail}`);
   if (res.ok) loadGraph();
 }
 
@@ -842,7 +852,8 @@ function renderSessionState(session) {
   const busy = SESSION_BUSY_STATES.includes(session.state);
   document.getElementById("prompt-input").disabled = busy;
   document.getElementById("prompt-send").disabled = busy;
-  document.getElementById("btn-commit").disabled = busy;
+  sessionBusy = busy;
+  renderCommitButton();
   document.getElementById("btn-discard").disabled = busy;
   const continueCheckbox = document.getElementById("continue-session");
   continueCheckbox.disabled = busy || !session.session_id;
@@ -985,6 +996,12 @@ function showCommitError(message) {
   const error = document.getElementById("commit-error");
   error.hidden = !message;
   error.textContent = message || "";
+}
+
+function renderCommitButton() {
+  const btn = document.getElementById("btn-commit");
+  btn.textContent = `Commit ${approvedFileCount} approved file${approvedFileCount === 1 ? "" : "s"}`;
+  btn.disabled = sessionBusy || approvedFileCount === 0;
 }
 
 document.getElementById("btn-commit").addEventListener("click", async () => {
