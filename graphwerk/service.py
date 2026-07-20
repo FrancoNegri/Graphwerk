@@ -6,6 +6,7 @@ import hashlib
 from collections import deque
 from pathlib import Path
 
+from graphwerk.approval import ApprovalStore
 from graphwerk.codeview import build_code_view
 from graphwerk.highlight import highlight_lines
 from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
@@ -51,10 +52,12 @@ class ModuleFileResolver:
 
 
 class GraphService:
-    def __init__(self, base_root: Path, staged_root: Path, rationale: RationaleStore):
+    def __init__(self, base_root: Path, staged_root: Path, rationale: RationaleStore,
+                 approval_store: ApprovalStore):
         self.base_root = base_root
         self.staged_root = staged_root
         self.rationale = rationale
+        self.approval_store = approval_store
         self.builder = ChangeSetBuilder(base_root, staged_root)
         # (base_text, staged_text) -> code view; unbounded for the process
         # lifetime (ADR 019, out of scope: eviction/memory bounds).
@@ -100,6 +103,7 @@ class GraphService:
                     code=self._code_view(change.base_source, change.staged_source),
                     is_test=is_test_path(rel),
                     domain=domain,
+                    approved=self.approval_store.is_approved(rel),
                 )
             )
             index = change.staged or change.base

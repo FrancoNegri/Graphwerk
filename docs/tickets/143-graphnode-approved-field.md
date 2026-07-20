@@ -1,6 +1,6 @@
 # 143. `GraphNode.approved` field in the snapshot
 
-Status: ready
+Status: done
 Decision: docs/decisions/050-apply-becomes-approval-scoped-commit.md
 
 ## Goal

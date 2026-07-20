@@ -61,6 +61,7 @@ class GraphNode:
     is_test: bool = False  # path matches the pytest discovery convention
     paired_file: str | None = None  # matched source file's node id, test files only
     domain: str = "code"  # "doc" | "code" — which extractor produced this node's file (ADR 046)
+    approved: bool = False  # reviewer has approved this file for the next commit (ADR 050); file nodes only
 
     def to_dict(self) -> dict:
         payload = {
@@ -70,6 +71,7 @@ class GraphNode:
             "path": self.path,
             "status": self.status.value,
             "domain": self.domain,
+            "approved": self.approved,
             "parent": self.parent,
             "why": self.why,
             "why_confident": self.why_confident,

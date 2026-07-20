@@ -23,12 +23,12 @@ def build_app(base: Path, staged: Path, sidecar: Path | None, transcript: Path |
               check_command: str | None = None, check_retries: int = 1) -> FastAPI:
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
                                staged_root=staged, base_root=base)
-    service = GraphService(base, staged, rationale)
+    approval_store = ApprovalStore(staged)
+    service = GraphService(base, staged, rationale, approval_store)
     engine = ApplyEngine(base, staged)
     runner = SessionRunner(staged, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)
     cycle = SessionCycle(runner, check_command, max_retries=check_retries)
-    approval_store = ApprovalStore(staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
     return create_app(service, engine, cycle, commit_engine, discard_engine, approval_store)
