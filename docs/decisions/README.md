@@ -65,3 +65,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [054](054-deleted-caller-edge-status.md) | Deleted- and added-caller `calls` edges report the source's status, not just the target's | proposed |
 | [055](055-collapsed-calls-edge-strongest-status.md) | Collapsed `calls`-edge status picks the most severe underlying call, not the first | proposed |
 | [056](056-node-click-isolates-neighbors.md) | Node click isolates its edge-neighborhood; edges become non-selectable so they don't clear it | proposed |
+| [057](057-sidebar-code-scroll-drop-reject-ui.md) | Sidebar: code-only scroll region, drop the reject-comment UI | proposed |
