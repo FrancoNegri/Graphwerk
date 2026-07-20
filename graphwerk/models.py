@@ -33,9 +33,10 @@ class FileIndex:
     rel_path: str
     symbols: dict[str, SymbolInfo] = field(default_factory=dict)  # qualname -> info
     imports: set[str] = field(default_factory=set)  # imported module names
-    # module name -> (verbatim statement source, 1-based start line);
-    # first statement wins when a module is imported more than once (ADR 038)
-    import_statements: dict[str, tuple[str, int]] = field(default_factory=dict)
+    # module name -> every (verbatim statement source, 1-based start line)
+    # pair found for that module, in file order (ADR 052) — a module
+    # imported once still has a one-element list.
+    import_statements: dict[str, list[tuple[str, int]]] = field(default_factory=dict)
     # repo-root-relative target paths of this (Markdown) file's doc links
     references: set[str] = field(default_factory=set)
     parse_error: str | None = None

@@ -35,7 +35,7 @@ class PythonAstExtractor:
                 statement = ast.get_source_segment(source, node)
                 if statement is not None:
                     for module in modules:
-                        index.import_statements.setdefault(module, (statement, node.lineno))
+                        index.import_statements.setdefault(module, []).append((statement, node.lineno))
 
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):

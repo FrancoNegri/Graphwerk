@@ -115,7 +115,7 @@ def outer():
     assert set(index.symbols) == {"outer"}
 
 
-def _extract_statements(tmp_path: Path, source: str) -> dict[str, tuple[str, int]]:
+def _extract_statements(tmp_path: Path, source: str) -> dict[str, list[tuple[str, int]]]:
     path = tmp_path / "mod.py"
     path.write_text(source)
     return PythonAstExtractor().extract(path, "mod.py").import_statements
@@ -124,28 +124,50 @@ def _extract_statements(tmp_path: Path, source: str) -> dict[str, tuple[str, int
 def test_multi_module_import_maps_each_module_to_the_statement(tmp_path: Path) -> None:
     statements = _extract_statements(tmp_path, "import a, b\n")
 
-    assert statements == {"a": ("import a, b", 1), "b": ("import a, b", 1)}
+    assert statements == {"a": [("import a, b", 1)], "b": [("import a, b", 1)]}
 
 
 def test_from_import_with_alias_keeps_verbatim_statement_text(tmp_path: Path) -> None:
     source = "x = 1\nfrom pkg.mod import name as alias\n"
     statements = _extract_statements(tmp_path, source)
 
-    assert statements == {"pkg.mod": ("from pkg.mod import name as alias", 2)}
+    assert statements == {"pkg.mod": [("from pkg.mod import name as alias", 2)]}
 
 
 def test_parenthesized_multiline_import_is_captured_whole(tmp_path: Path) -> None:
     source = "from pkg import (a,\n    b)\n"
     statements = _extract_statements(tmp_path, source)
 
-    assert statements == {"pkg": ("from pkg import (a,\n    b)", 1)}
+    assert statements == {"pkg": [("from pkg import (a,\n    b)", 1)]}
 
 
-def test_module_imported_by_two_statements_keeps_the_first(tmp_path: Path) -> None:
+def test_module_imported_by_two_statements_keeps_both_in_source_order(tmp_path: Path) -> None:
     source = "import pkg.mod\nfrom pkg.mod import Thing\n"
     statements = _extract_statements(tmp_path, source)
 
-    assert statements == {"pkg.mod": ("import pkg.mod", 1)}
+    assert statements == {
+        "pkg.mod": [("import pkg.mod", 1), ("from pkg.mod import Thing", 2)]
+    }
+
+
+def test_module_imported_at_module_scope_and_inside_two_functions_indexes_three_entries(
+    tmp_path: Path,
+) -> None:
+    source = """import pkg.mod
+
+def one():
+    import pkg.mod
+
+def two():
+    import pkg.mod
+"""
+    statements = _extract_statements(tmp_path, source)
+
+    assert statements["pkg.mod"] == [
+        ("import pkg.mod", 1),
+        ("import pkg.mod", 4),
+        ("import pkg.mod", 7),
+    ]
 
 
 def test_type_checking_guarded_import_has_no_statement(tmp_path: Path) -> None:

@@ -231,11 +231,16 @@ class GraphService:
         def admitting_entry(rel: str, module: str, caller_deleted: bool, caller_symbol: SymbolInfo | None) -> dict:
             change = changes[rel]
             index = change.base if caller_deleted else change.staged
+            # First statement in the module's list — caller-scoped selection
+            # among multiple statements is ticket 148; this keeps today's
+            # first-wins behavior over the new list shape (ticket 147).
+            statements = index.import_statements.get(module)
+            statement = statements[0] if statements else None
             return {
                 "module": module,
                 "status": change.imports[module].value,
-                "code": _statement_code_lines(index.import_statements.get(module), change.imports[module]),
-                "in_caller_code": _statement_in_caller_span(index.import_statements.get(module), caller_symbol),
+                "code": _statement_code_lines(statement, change.imports[module]),
+                "in_caller_code": _statement_in_caller_span(statement, caller_symbol),
             }
 
         def import_chain(caller_rel: str, target_rel: str, caller_deleted: bool) -> list[tuple[str, str, str]] | None:
