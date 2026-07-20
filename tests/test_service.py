@@ -861,6 +861,43 @@ def test_deleted_caller_import_containment_resolves_in_base(tmp_path):
     assert entry["in_caller_code"] is True
 
 
+def test_two_callers_in_the_same_file_each_pick_their_own_local_import(tmp_path):
+    # Mirrors the agendabot dogfood shape (ticket 148): a module-level
+    # import of the same module sits alongside two callers who each
+    # locally re-import it under their own name-binding style — the
+    # admitting entry for each caller must resolve to *that caller's own*
+    # statement, not the module-level one and not the other caller's.
+    service = make_service(tmp_path, {
+        "caller.py": (
+            "import helper\n"
+            "\n"
+            "def run_a():\n"
+            "    import helper\n"
+            "    return helper.do_work()\n"
+            "\n"
+            "def run_b():\n"
+            "    from helper import do_work\n"
+            "    return do_work()\n"
+        ),
+        "helper.py": "def do_work():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    edge_a = edge_between(snapshot, "caller.py::run_a", "helper.py::do_work")
+    (entry_a,) = edge_a.via_imports
+    assert entry_a["in_caller_code"] is True
+    (line_a,) = entry_a["code"]
+    assert line_a["text"] == "import helper"
+    assert line_a["line"] == 4
+
+    edge_b = edge_between(snapshot, "caller.py::run_b", "helper.py::do_work")
+    (entry_b,) = edge_b.via_imports
+    assert entry_b["in_caller_code"] is True
+    (line_b,) = entry_b["code"]
+    assert line_b["text"] == "from helper import do_work"
+    assert line_b["line"] == 8
+
+
 def test_import_present_in_both_trees_renders_as_ctx_code_line(tmp_path):
     service = make_service(tmp_path, {
         "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",

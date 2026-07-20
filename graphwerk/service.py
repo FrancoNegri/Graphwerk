@@ -231,11 +231,7 @@ class GraphService:
         def admitting_entry(rel: str, module: str, caller_deleted: bool, caller_symbol: SymbolInfo | None) -> dict:
             change = changes[rel]
             index = change.base if caller_deleted else change.staged
-            # First statement in the module's list — caller-scoped selection
-            # among multiple statements is ticket 148; this keeps today's
-            # first-wins behavior over the new list shape (ticket 147).
-            statements = index.import_statements.get(module)
-            statement = statements[0] if statements else None
+            statement = _select_caller_statement(index.import_statements.get(module), caller_symbol)
             return {
                 "module": module,
                 "status": change.imports[module].value,
@@ -376,6 +372,23 @@ class GraphService:
 
 
 _IMPORT_STATUS_TO_OP = {Status.ADDED: "add", Status.DELETED: "del"}
+
+
+def _select_caller_statement(
+    statements: list[tuple[str, int]] | None, caller_symbol: SymbolInfo | None
+) -> tuple[str, int] | None:
+    """The module's statement whose span actually contains `caller_symbol`
+    (ADR 052) — the one that admits the call for *this* caller, since two
+    callers in the same file can each hold their own local import of the
+    same module. Falls back to the list's first statement when no
+    caller-scoped match exists (a plain top-of-file import, or
+    `caller_symbol=None` for a multi-hop chain's later hops)."""
+    if not statements:
+        return None
+    for statement in statements:
+        if _statement_in_caller_span(statement, caller_symbol):
+            return statement
+    return statements[0]
 
 
 def _statement_in_caller_span(statement: tuple[str, int] | None, caller_symbol: SymbolInfo | None) -> bool:
