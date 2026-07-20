@@ -62,4 +62,6 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [051](051-changed-methods-code-display-mode.md) | Changed-methods code display mode | proposed |
 | [052](052-import-statement-attribution-scoped-to-caller.md) | Import-statement attribution scoped to the admitting call site | proposed |
 | [053](053-changed-methods-default-code-view.md) | "Changed methods" becomes the default code-view mode | proposed |
-| [054](054-deleted-caller-edge-status.md) | Deleted-caller `calls` edges report `DELETED` status, not the target's | proposed |
+| [054](054-deleted-caller-edge-status.md) | Deleted- and added-caller `calls` edges report the source's status, not just the target's | proposed |
+| [055](055-collapsed-calls-edge-strongest-status.md) | Collapsed `calls`-edge status picks the most severe underlying call, not the first | proposed |
+| [056](056-node-click-isolates-neighbors.md) | Node click isolates its edge-neighborhood; edges become non-selectable so they don't clear it | proposed |
