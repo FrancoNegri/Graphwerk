@@ -61,11 +61,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "demo":
         from graphwerk.demo import build_demo
 
-        base, staged, sidecar = build_demo(Path(args.dir).resolve())
-        print(f"demo workspace ready:\n  base:   {base}\n  staged: {staged}")
+        repo, base_ref, sidecar = build_demo(Path(args.dir).resolve())
+        print(f"demo workspace ready: {repo}")
         if args.no_serve:
             return
-        _serve(staged, "main", sidecar, None, args.host, args.port, "acceptEdits")
+        _serve(repo, base_ref, sidecar, None, args.host, args.port, "acceptEdits")
     elif args.command == "start":
         _start(args)
     else:

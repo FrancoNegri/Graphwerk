@@ -198,6 +198,24 @@ def test_shadow_workspace_module_is_gone():
     import graphwerk.staging as staging
 
     assert not hasattr(staging, "ShadowWorkspace")
+
+
+def test_demo_serves_the_workspace_directory_itself(tmp_path, serve_harness):
+    demo_dir = tmp_path / "demo_workspace"
+
+    cli.main(["demo", "--dir", str(demo_dir)])
+
+    repo, base_ref = serve_harness[0][0], serve_harness[0][1]
+    assert repo == demo_dir
+    assert base_ref == head_sha(demo_dir)
+    assert not (tmp_path / "staged").exists()
+    assert not (demo_dir / "staged").exists()
+
+
+def test_demo_no_serve_does_not_call_serve(tmp_path, serve_harness):
+    cli.main(["demo", "--dir", str(tmp_path / "demo_workspace"), "--no-serve"])
+
+    assert serve_harness == []
     with pytest.raises(ModuleNotFoundError):
         import graphwerk.staging.workspace  # noqa: F401
 

@@ -1,8 +1,10 @@
-"""Scripted demo: sample repo + shadow worktree with staged changes + rationale.
+"""Scripted demo: one repo, an initial commit, and scripted edits on top.
 
 Simulates the state after telling Claude: "add payment validation and retries
 to checkout, print receipts, and drop the deprecated helper" — without needing
 a live session. Exercises every node state: modified, added, deleted, affected.
+ADR 058: graphwerk reviews one working directory against a base ref, so the
+demo builds one repo instead of a base/staged directory pair.
 """
 
 from __future__ import annotations
@@ -166,33 +168,32 @@ RATIONALE = {
 }
 
 
-def build_demo(workspace: Path) -> tuple[Path, Path, Path]:
-    """(Re)create demo repo + staged worktree. Returns (base, staged, sidecar)."""
-    base = workspace / "repo"
-    staged = workspace / "staged"
+def build_demo(workspace: Path) -> tuple[Path, str, Path]:
+    """(Re)create the demo repo with scripted edits applied, uncommitted, on
+    top of an initial commit. Returns (repo, base_ref, sidecar)."""
     if workspace.exists():
         shutil.rmtree(workspace)
-    base.mkdir(parents=True)
+    workspace.mkdir(parents=True)
 
     for rel, content in BASE_FILES.items():
-        path = base / rel
+        path = workspace / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
-    _git(base, "init", "-q", "-b", "main")
-    _git(base, "add", "-A")
-    _git(base, "-c", "user.email=demo@graphwerk.local", "-c", "user.name=graphwerk demo", "commit", "-qm", "initial shop app", "--no-verify")
-    _git(base, "worktree", "add", "-q", "-B", "graphwerk-staging", str(staged))
+    _git(workspace, "init", "-q", "-b", "main")
+    _git(workspace, "add", "-A")
+    _git(workspace, "-c", "user.email=demo@graphwerk.local", "-c", "user.name=graphwerk demo", "commit", "-qm", "initial shop app", "--no-verify")
+    base_ref = _git(workspace, "rev-parse", "HEAD").stdout.strip()
 
     for rel, content in STAGED_FILES.items():
-        (staged / rel).write_text(content, encoding="utf-8")
+        (workspace / rel).write_text(content, encoding="utf-8")
 
-    graphwerk_dir = staged / ".graphwerk"
+    graphwerk_dir = workspace / ".graphwerk"
     graphwerk_dir.mkdir(exist_ok=True)
     sidecar = graphwerk_dir / "rationale.json"
     sidecar.write_text(json.dumps(RATIONALE, indent=2), encoding="utf-8")
-    return base, staged, sidecar
+    return workspace, base_ref, sidecar
 
 
-def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True)
+def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True)

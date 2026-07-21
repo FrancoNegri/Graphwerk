@@ -1,6 +1,6 @@
 # 162. `graphwerk demo` builds one repo + a base ref, not two demo trees
 
-Status: ready
+Status: done
 Decision: docs/decisions/058-retire-worktree-single-directory-review.md
 
 ## Goal
