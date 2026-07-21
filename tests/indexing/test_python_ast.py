@@ -279,6 +279,38 @@ def two():
     ]
 
 
+def test_class_calls_exclude_method_body_calls(tmp_path: Path) -> None:
+    """Ticket 169: a method's own calls shouldn't also be attributed to the
+    class symbol, or the same call site produces a duplicate edge."""
+    path = tmp_path / "mod.py"
+    source = """
+class TestOnlyRouter:
+    def __init__(self):
+        get_calendar()
+"""
+    path.write_text(source)
+    index = PythonAstExtractor().extract(path, "mod.py")
+
+    assert index.symbols["TestOnlyRouter"].calls == set()
+    assert index.symbols["TestOnlyRouter.__init__"].calls == {"get_calendar"}
+
+
+def test_class_body_level_call_is_still_captured_on_the_class_symbol(tmp_path: Path) -> None:
+    path = tmp_path / "mod.py"
+    source = """
+class Config:
+    slots = build_default_slots()
+
+    def method(self):
+        pass
+"""
+    path.write_text(source)
+    index = PythonAstExtractor().extract(path, "mod.py")
+
+    assert index.symbols["Config"].calls == {"build_default_slots"}
+    assert index.symbols["Config.method"].calls == set()
+
+
 def test_type_checking_guarded_import_has_no_statement(tmp_path: Path) -> None:
     source = """
 from typing import TYPE_CHECKING

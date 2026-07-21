@@ -41,7 +41,9 @@ class PythonAstExtractor:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 index.symbols[node.name] = _symbol(node, node.name, "function", lines)
             elif isinstance(node, ast.ClassDef):
-                index.symbols[node.name] = _symbol(node, node.name, "class", lines)
+                index.symbols[node.name] = _symbol(
+                    node, node.name, "class", lines, calls=_class_body_called_names(node)
+                )
                 for child in node.body:
                     if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         qualname = f"{node.name}.{child.name}"
@@ -49,7 +51,9 @@ class PythonAstExtractor:
         return index
 
 
-def _symbol(node: ast.AST, qualname: str, kind: str, lines: list[str]) -> SymbolInfo:
+def _symbol(
+    node: ast.AST, qualname: str, kind: str, lines: list[str], calls: set[str] | None = None
+) -> SymbolInfo:
     start, end = node.lineno, node.end_lineno or node.lineno
     return SymbolInfo(
         qualname=qualname,
@@ -57,13 +61,35 @@ def _symbol(node: ast.AST, qualname: str, kind: str, lines: list[str]) -> Symbol
         lineno=start,
         end_lineno=end,
         source="".join(lines[start - 1 : end]),
-        calls=_called_names(node),
+        calls=calls if calls is not None else _called_names(node),
     )
 
 
 def _called_names(node: ast.AST) -> set[str]:
+    return _names_from_calls(ast.walk(node))
+
+
+def _class_body_called_names(node: ast.ClassDef) -> set[str]:
+    """A class's own `calls` = calls made directly in its body, not inside
+    any method (each method already gets its own `SymbolInfo.calls`, so
+    descending into method bodies here would double-count every call site
+    as two edges — see ADR 059)."""
+    return _names_from_calls(
+        sub for statement in node.body for sub in _iter_excluding_nested_defs(statement)
+    )
+
+
+def _iter_excluding_nested_defs(node: ast.AST) -> Iterator[ast.AST]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return
+    yield node
+    for child in ast.iter_child_nodes(node):
+        yield from _iter_excluding_nested_defs(child)
+
+
+def _names_from_calls(nodes: Iterator[ast.AST]) -> set[str]:
     names: set[str] = set()
-    for sub in ast.walk(node):
+    for sub in nodes:
         if isinstance(sub, ast.Call):
             func = sub.func
             if isinstance(func, ast.Name):

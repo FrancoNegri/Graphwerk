@@ -447,6 +447,28 @@ def test_if_nested_caller_deletion_surfaces_deleted_node_and_calls_edge(tmp_path
     assert edge.status == Status.DELETED
 
 
+def test_class_does_not_duplicate_its_methods_calls_edge(tmp_path):
+    """Ticket 169 dogfood scenario: a review showed both
+    `TestOnlyRouter -> get_calendar` and `TestOnlyRouter.__init__ ->
+    get_calendar` as separate edges for a single call site inside
+    `__init__` (ADR 059). Only the method's edge is real."""
+    service = make_service(tmp_path, {
+        "webhook.py": (
+            "from dependencies import get_calendar\n"
+            "\n"
+            "class TestOnlyRouter:\n"
+            "    def __init__(self):\n"
+            "        get_calendar()\n"
+        ),
+        "dependencies.py": "def get_calendar():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    pairs = calls_edge_pairs(snapshot)
+    assert ("webhook.py::TestOnlyRouter.__init__", "dependencies.py::get_calendar") in pairs
+    assert ("webhook.py::TestOnlyRouter", "dependencies.py::get_calendar") not in pairs
+
+
 def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_path):
     """The edge _mark_affected used to flip its source to AFFECTED still
     reports the target's real status, not "affected" — target status wins."""
