@@ -38,6 +38,13 @@ class Revision(Protocol):
         """Raw content of `rel` in this revision, or None if it doesn't exist here."""
         ...
 
+    def index_key(self, rel: str) -> object:
+        """A cache key that changes whenever the parsed `FileIndex` for `rel`
+        might need recomputing. Immutable revisions can key on the path
+        alone; a revision whose content can change between builds (the
+        working tree) must fold in a freshness signal."""
+        ...
+
 
 class GitRefRevision:
     """A revision pinned to a git ref, read via `git ls-tree`/`git show`
@@ -61,6 +68,9 @@ class GitRefRevision:
             self._bytes_cache[rel] = _git_show_bytes(self.repo_root, self.ref, rel)
         return self._bytes_cache[rel]
 
+    def index_key(self, rel: str) -> object:
+        return rel
+
 
 class WorkingTreeRevision:
     """The live working directory on disk (ADR 058: the developer's own
@@ -78,6 +88,9 @@ class WorkingTreeRevision:
 
     def read_bytes(self, rel: str) -> bytes | None:
         return _read_bytes(self.repo_root / rel)
+
+    def index_key(self, rel: str) -> object:
+        return (rel, *file_fingerprint(self.repo_root / rel))
 
 
 class FileChange:
@@ -113,15 +126,16 @@ class ChangeSetBuilder:
         self.staged = staged
         self._python_extractor = PythonAstExtractor()
         self._markdown_extractor = MarkdownExtractor()
-        # (rel_path, mtime_ns, size) -> FileIndex for the staged side;
-        # unbounded for the process lifetime (ADR 019, out of scope:
-        # eviction/memory bounds).
-        self._index_cache: dict[tuple[str, int, int], FileIndex] = {}
-        # rel_path -> FileIndex for the base side. Assumes the base
-        # revision's content is immutable for the builder's lifetime (true
-        # for GitRefRevision, one review session, one fixed ref — see
-        # docs/tickets/170 for why that's fine to assume here).
-        self._base_index_cache: dict[str, FileIndex] = {}
+        # Revision.index_key(rel) -> FileIndex, one cache per side (a rel
+        # path can carry different content on each side, so the namespaces
+        # must stay separate). Unbounded for the process lifetime (ADR 019,
+        # out of scope: eviction/memory bounds). Keyed by each revision's own
+        # index_key rather than bare rel_path, since a WorkingTreeRevision's
+        # key folds in mtime/size to catch on-disk edits, while a
+        # GitRefRevision's key is just the path — its content can't change
+        # for the builder's lifetime (docs/tickets/170).
+        self._index_cache: dict[object, FileIndex] = {}
+        self._base_index_cache: dict[object, FileIndex] = {}
 
     def build(self) -> dict[str, FileChange]:
         base_files = self._index_base()
@@ -195,29 +209,32 @@ class ChangeSetBuilder:
         return changes
 
     def _index_staged(self) -> dict[str, FileIndex]:
+        return self._index(self.staged, self._index_cache)
+
+    def _index_base(self) -> dict[str, FileIndex]:
+        return self._index(self.base, self._base_index_cache)
+
+    def _index(self, revision: Revision, cache: dict[object, FileIndex]) -> dict[str, FileIndex]:
         indexed: dict[str, FileIndex] = {}
-        for rel in self.staged.paths(INDEXABLE_EXTENSIONS):
-            path = self.repo_root / rel
-            extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
-            mtime_ns, size = file_fingerprint(path)
-            key = (rel, mtime_ns, size)
-            cached = self._index_cache.get(key)
+        for rel in revision.paths(INDEXABLE_EXTENSIONS):
+            key = revision.index_key(rel)
+            cached = cache.get(key)
             if cached is None:
-                cached = extractor.extract(path, rel)
-                self._index_cache[key] = cached
+                cached = self._extract(rel, revision)
+                cache[key] = cached
             indexed[rel] = cached
         return indexed
 
-    def _index_base(self) -> dict[str, FileIndex]:
-        indexed: dict[str, FileIndex] = {}
-        for rel in self.base.paths(INDEXABLE_EXTENSIONS):
-            cached = self._base_index_cache.get(rel)
-            if cached is None:
-                raw = self.base.read_bytes(rel)
-                cached = self._extract_from_bytes(rel, raw) if raw is not None else FileIndex(rel_path=rel)
-                self._base_index_cache[rel] = cached
-            indexed[rel] = cached
-        return indexed
+    def _extract(self, rel: str, revision: Revision) -> FileIndex:
+        """Reads straight off disk for a `WorkingTreeRevision` (a real path
+        exists, so the extractor's own read/decode/parse-error handling runs
+        as-is); any other revision has no real path of its own, so its bytes
+        get materialized to a temp file instead (`_extract_from_bytes`)."""
+        if isinstance(revision, WorkingTreeRevision):
+            extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
+            return extractor.extract(self.repo_root / rel, rel)
+        raw = revision.read_bytes(rel)
+        return self._extract_from_bytes(rel, raw) if raw is not None else FileIndex(rel_path=rel)
 
     def _extract_from_bytes(self, rel: str, raw: bytes) -> FileIndex:
         """Materializes a git blob to a temp file so the extractor's own

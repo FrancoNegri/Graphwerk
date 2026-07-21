@@ -1,3 +1,3 @@
-from graphwerk.rationale.miner import RationaleStore
+from graphwerk.rationale.miner import NullRationaleStore, RationaleStore
 
-__all__ = ["RationaleStore"]
+__all__ = ["NullRationaleStore", "RationaleStore"]

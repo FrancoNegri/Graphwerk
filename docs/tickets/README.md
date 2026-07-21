@@ -180,7 +180,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [168](168-extractor-descends-into-if-blocks-for-defs.md) | Symbol extraction descends into `if` blocks for function/class defs | done | none (bug fix) |
 | [169](169-class-symbol-calls-skip-method-bodies.md) | Class symbol `calls` should skip method bodies | done | [059](../decisions/059-class-symbol-calls-exclude-method-bodies.md) |
 | [170](170-revision-abstraction-in-differ.md) | `Revision` abstraction in the differ | done | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
-| [171](171-graphservice-per-pair-registry.md) | `GraphService` per-`(base, staged)`-pair registry | ready | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
+| [171](171-graphservice-per-pair-registry.md) | `GraphService` per-`(base, staged)`-pair registry | done | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
 | [172](172-api-refs-endpoint.md) | `GET /api/refs` endpoint | ready | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
 | [173](173-graph-hash-endpoints-accept-pair-params.md) | `/api/graph` and `/api/hash` accept `base`/`staged` query params | ready | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
 | [174](174-frontend-comparison-dropdowns.md) | Frontend: base / compare-to dropdowns | ready | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |

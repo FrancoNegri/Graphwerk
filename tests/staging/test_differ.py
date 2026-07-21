@@ -193,6 +193,48 @@ def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatc
     assert calls == []
 
 
+def test_git_ref_revision_on_the_staged_side_reads_that_refs_content(tmp_path, monkeypatch):
+    """Regression: staged used to be read straight off disk regardless of
+    which Revision it actually was (docs/tickets/171) — a `GitRefRevision`
+    on the staged side must produce that commit's content, not whatever is
+    currently on disk, and must never touch the working tree."""
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "def f():\n    return 1\n"})
+    first_ref = commit_repo(repo)
+    write_tree(repo, {"a.py": "def f():\n    return 2\n"})
+    second_ref = commit_repo(repo)
+    write_tree(repo, {"a.py": "def f():\n    return 3\n"})  # uncommitted, must be ignored
+
+    changes = ChangeSetBuilder(repo, GitRefRevision(repo, first_ref), GitRefRevision(repo, second_ref)).build()
+
+    assert changes["a.py"].staged_source == "def f():\n    return 2\n"
+    # The parsed symbol table is where the old bug actually lived: it read
+    # straight off disk ("return 3") regardless of which Revision was
+    # passed as staged, even though staged_source/text above were already
+    # correct (build() reads bytes through the Revision directly).
+    assert "return 2" in changes["a.py"].staged.symbols["f"].source
+    assert "return 3" not in changes["a.py"].staged.symbols["f"].source
+
+
+def test_working_tree_revision_on_the_base_side_detects_edits_across_builds(tmp_path):
+    """The base-side FileIndex cache used to assume the base is always
+    immutable (true only for `GitRefRevision`); with a `WorkingTreeRevision`
+    on the base side, a second `build()` after an on-disk edit must
+    reparse rather than serve the first build's stale symbol table."""
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "def f():\n    return 1\n"})
+    first_ref = commit_repo(repo)
+    write_tree(repo, {"a.py": "def f():\n    return 2\n"})  # uncommitted
+
+    builder = ChangeSetBuilder(repo, WorkingTreeRevision(repo), GitRefRevision(repo, first_ref))
+    builder.build()
+
+    (repo / "a.py").write_text("def f():\n    return 9\n")
+    changes = builder.build()
+
+    assert "return 9" in changes["a.py"].base.symbols["f"].source
+
+
 def test_if_nested_function_symbol_status_added(tmp_path):
     changes = build_changes(
         tmp_path,

@@ -65,6 +65,32 @@ class RationaleStatus:
         }
 
 
+class NullRationaleStore:
+    """A `RationaleStore`-shaped no-op for comparisons where `staged` isn't
+    the working directory (ADR 060): mining the live session's transcript
+    against an unrelated historical diff would misattribute narration, so
+    every lookup simply reports nothing rather than guessing."""
+
+    def __init__(self):
+        self.commit_message: str | None = None
+        self.status = RationaleStatus()
+
+    def reload(self, changed_symbols: dict[str, list[str]] | None = None) -> None:
+        pass
+
+    def why_for(self, rel_path: str, qualname: str | None = None) -> str | None:
+        return None
+
+    def confident_for(self, rel_path: str, qualname: str | None = None) -> bool:
+        return True
+
+    def justifies_for(self, rel_path: str, qualname: str | None = None) -> bool | None:
+        return None
+
+    def status_message(self, changed_nodes_exist: bool) -> str | None:
+        return None
+
+
 class RationaleStore:
     def __init__(self, sidecar_path: Path | None = None, transcript_path: Path | None = None,
                  staged_root: Path | None = None):

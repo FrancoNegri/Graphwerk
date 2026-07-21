@@ -12,9 +12,18 @@ from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status, SymbolInfo
 from graphwerk.rationale import RationaleStore
-from graphwerk.staging import ChangeSetBuilder, GitRefRevision, WorkingTreeRevision
+from graphwerk.staging import ChangeSetBuilder, GitRefRevision, Revision, WorkingTreeRevision
 
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
+
+# The pseudo-ref meaning "the working directory, uncommitted" (ADR 060) — a
+# space can never appear in a real git ref name, so this can't collide with
+# one. Recognized on either side of a comparison, not just "staged".
+WORKING_TREE_TOKEN = "working directory"
+
+
+def resolve_revision(repo_root: Path, token: str) -> Revision:
+    return WorkingTreeRevision(repo_root) if token == WORKING_TREE_TOKEN else GitRefRevision(repo_root, token)
 
 
 def _domain_for(rel: str) -> str:
@@ -51,11 +60,15 @@ class ModuleFileResolver:
 
 
 class GraphService:
-    def __init__(self, repo_root: Path, base_ref: str, rationale: RationaleStore):
+    def __init__(self, repo_root: Path, base_ref: str, rationale: RationaleStore,
+                 staged_ref: str = WORKING_TREE_TOKEN):
         self.repo_root = repo_root
         self.base_ref = base_ref
+        self.staged_ref = staged_ref
         self.rationale = rationale
-        self.builder = ChangeSetBuilder(repo_root, GitRefRevision(repo_root, base_ref), WorkingTreeRevision(repo_root))
+        self.builder = ChangeSetBuilder(
+            repo_root, resolve_revision(repo_root, base_ref), resolve_revision(repo_root, staged_ref)
+        )
         # (base_text, staged_text) -> code view; unbounded for the process
         # lifetime (ADR 019, out of scope: eviction/memory bounds).
         self._code_view_cache: dict[tuple[str | None, str | None], list | None] = {}
