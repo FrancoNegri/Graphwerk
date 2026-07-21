@@ -41,7 +41,7 @@ count as an architectural decision — run `north-star` first.
 ```bash
 .venv/bin/python -m graphwerk demo                 # scripted demo + serve :8135
 .venv/bin/python -m graphwerk demo --no-serve      # reset demo trees (works while serving)
-.venv/bin/python -m graphwerk serve --base X --staged Y [--transcript JSONL]
+.venv/bin/python -m graphwerk serve --repo X [--base-ref REF] [--transcript JSONL]
 ```
 
 - The user browses from another LAN device — start servers with

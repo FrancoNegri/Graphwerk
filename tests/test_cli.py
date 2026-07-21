@@ -1,96 +1,155 @@
 import subprocess
-from pathlib import Path
 
 import pytest
 
 from graphwerk import cli
 
 
+def _git(repo, *args):
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+
 @pytest.fixture
 def git_repo(tmp_path):
     repo = tmp_path / "myrepo"
     repo.mkdir()
-    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    _git(repo, "init", "-q")
+    (repo / "a.py").write_text("def f():\n    return 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@t.com", "-c", "user.name=t", "commit", "-qm", "init")
     return repo
 
 
 @pytest.fixture
-def start_harness(monkeypatch):
-    """Record ShadowWorkspace.ensure and _serve calls instead of running them."""
+def serve_harness(monkeypatch):
+    """Record calls to _serve instead of actually building an app/server."""
     calls = []
 
-    class RecordingWorkspace:
-        @classmethod
-        def ensure(cls, repo_root, staging_root, branch="graphwerk-staging"):
-            calls.append(("ensure", repo_root, staging_root, branch))
-
-    def recording_serve(base, staged, sidecar, transcript, host, port,
+    def recording_serve(repo, base_ref, sidecar, transcript, host, port,
                         agent_permissions, check_command=None, check_retries=1):
-        calls.append(("serve", base, staged, sidecar, transcript, host, port,
+        calls.append((repo, base_ref, sidecar, transcript, host, port,
                       agent_permissions, check_command, check_retries))
 
-    monkeypatch.setattr(cli, "ShadowWorkspace", RecordingWorkspace)
     monkeypatch.setattr(cli, "_serve", recording_serve)
     return calls
 
 
-def ensure_call(calls):
-    return next(call for call in calls if call[0] == "ensure")
+def head_sha(repo):
+    result = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
+                            capture_output=True, text=True, check=True)
+    return result.stdout.strip()
 
 
-def test_start_defaults_staging_to_sibling_and_branch(git_repo, start_harness):
-    cli.main(["start", "--repo", str(git_repo)])
+def test_serve_defaults_repo_to_cwd_and_base_ref_to_head(git_repo, serve_harness, monkeypatch):
+    monkeypatch.chdir(git_repo)
 
-    _, repo_root, staging_root, branch = ensure_call(start_harness)
-    assert repo_root == git_repo
-    assert staging_root == git_repo.parent / "myrepo-graphwerk-staging"
-    assert branch == "graphwerk-staging"
+    cli.main(["serve"])
+
+    repo, base_ref = serve_harness[0][0], serve_harness[0][1]
+    assert repo == git_repo
+    assert base_ref == head_sha(git_repo)
 
 
-def test_start_defaults_repo_to_cwd(git_repo, start_harness, monkeypatch):
+def test_serve_honors_explicit_repo_and_base_ref(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo), "--base-ref", "some-other-ref"])
+
+    repo, base_ref = serve_harness[0][0], serve_harness[0][1]
+    assert repo == git_repo
+    assert base_ref == "some-other-ref"
+
+
+def test_serve_rejects_old_base_and_staged_flags(git_repo):
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["serve", "--base", str(git_repo), "--staged", str(git_repo)])
+
+    assert excinfo.value.code not in (0, None)
+
+
+def test_serve_sidecar_and_transcript_defaults(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo)])
+
+    call = serve_harness[0]
+    assert call[2] == git_repo / ".graphwerk" / "rationale.json"
+    assert call[3] is None
+
+
+def test_serve_passes_agent_permissions_through(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo), "--agent-permissions", "plan"])
+
+    assert serve_harness[0][6] == "plan"
+
+
+def test_serve_defaults_agent_permissions_to_accept_edits(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo)])
+
+    assert serve_harness[0][6] == "acceptEdits"
+
+
+def test_serve_defaults_check_gate_off(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo)])
+
+    assert serve_harness[0][7:] == (None, 1)
+
+
+def test_serve_passes_check_flags_through(git_repo, serve_harness):
+    cli.main(["serve", "--repo", str(git_repo), "--check", "make check", "--check-retries", "2"])
+
+    assert serve_harness[0][7:] == ("make check", 2)
+
+
+def test_start_defaults_repo_to_cwd_and_base_ref_to_head(git_repo, serve_harness, monkeypatch):
     monkeypatch.chdir(git_repo)
 
     cli.main(["start"])
 
-    _, repo_root, staging_root, _ = ensure_call(start_harness)
-    assert repo_root == git_repo
-    assert staging_root == git_repo.parent / "myrepo-graphwerk-staging"
+    repo, base_ref = serve_harness[0][0], serve_harness[0][1]
+    assert repo == git_repo
+    assert base_ref == head_sha(git_repo)
 
 
-def test_start_prints_claude_invocation_before_serving(git_repo, start_harness, capsys):
+def test_start_honors_explicit_repo_and_base_ref(git_repo, serve_harness):
+    cli.main(["start", "--repo", str(git_repo), "--base-ref", "some-other-ref"])
+
+    repo, base_ref = serve_harness[0][0], serve_harness[0][1]
+    assert repo == git_repo
+    assert base_ref == "some-other-ref"
+
+
+def test_start_no_longer_accepts_staging_or_branch_flags(git_repo):
+    with pytest.raises(SystemExit):
+        cli.main(["start", "--repo", str(git_repo), "--staging", "/tmp/x"])
+
+    with pytest.raises(SystemExit):
+        cli.main(["start", "--repo", str(git_repo), "--branch", "feature-x"])
+
+
+def test_start_does_not_create_a_worktree(git_repo, serve_harness):
     cli.main(["start", "--repo", str(git_repo)])
 
-    staging = git_repo.parent / "myrepo-graphwerk-staging"
-    assert f"cd {staging} && claude" in capsys.readouterr().out
-    assert [call[0] for call in start_harness] == ["ensure", "serve"]
+    result = subprocess.run(["git", "-C", str(git_repo), "worktree", "list"],
+                            capture_output=True, text=True, check=True)
+    assert len(result.stdout.strip().splitlines()) == 1  # only the repo itself
 
 
-def test_start_serves_repo_against_worktree_with_transcript_autodiscovery(git_repo, start_harness):
+def test_start_prints_claude_invocation_for_the_repo_itself(git_repo, serve_harness, capsys):
+    cli.main(["start", "--repo", str(git_repo)])
+
+    out = capsys.readouterr().out
+    assert f"cd {git_repo} && claude" in out
+
+
+def test_start_serves_the_repo_directory_itself(git_repo, serve_harness):
     cli.main(["start", "--repo", str(git_repo), "--host", "0.0.0.0", "--port", "9000"])
 
-    staging = git_repo.parent / "myrepo-graphwerk-staging"
-    _, base, staged, sidecar, transcript, host, port, _, _, _ = next(
-        call for call in start_harness if call[0] == "serve")
-    assert base == git_repo
-    assert staged == staging
-    assert sidecar == staging / ".graphwerk" / "rationale.json"
+    repo, base_ref, sidecar, transcript, host, port = serve_harness[0][:6]
+    assert repo == git_repo
+    assert base_ref == head_sha(git_repo)
+    assert sidecar == git_repo / ".graphwerk" / "rationale.json"
     assert transcript is None
     assert (host, port) == ("0.0.0.0", 9000)
 
 
-def test_start_honors_explicit_staging_and_branch(git_repo, start_harness, tmp_path):
-    staging = tmp_path / "elsewhere"
-
-    cli.main(["start", "--repo", str(git_repo),
-              "--staging", str(staging), "--branch", "feature-x"])
-
-    _, repo_root, staging_root, branch = ensure_call(start_harness)
-    assert repo_root == git_repo
-    assert staging_root == staging
-    assert branch == "feature-x"
-
-
-def test_start_rejects_non_git_repo(tmp_path, start_harness):
+def test_start_rejects_non_git_repo(tmp_path, serve_harness):
     not_a_repo = tmp_path / "plain-dir"
     not_a_repo.mkdir()
 
@@ -99,67 +158,48 @@ def test_start_rejects_non_git_repo(tmp_path, start_harness):
 
     assert excinfo.value.code not in (0, None)
     assert "not a git repository" in str(excinfo.value)
-    assert start_harness == []
+    assert serve_harness == []
 
 
-def serve_call(calls):
-    return next(call for call in calls if call[0] == "serve")
-
-
-def test_start_defaults_agent_permissions_to_accept_edits(git_repo, start_harness):
+def test_start_defaults_agent_permissions_to_accept_edits(git_repo, serve_harness):
     cli.main(["start", "--repo", str(git_repo)])
 
-    assert serve_call(start_harness)[7] == "acceptEdits"
+    assert serve_harness[0][6] == "acceptEdits"
 
 
-def test_start_passes_agent_permissions_through(git_repo, start_harness):
-    cli.main(["start", "--repo", str(git_repo),
-              "--agent-permissions", "bypassPermissions"])
+def test_start_passes_agent_permissions_through(git_repo, serve_harness):
+    cli.main(["start", "--repo", str(git_repo), "--agent-permissions", "bypassPermissions"])
 
-    assert serve_call(start_harness)[7] == "bypassPermissions"
-
-
-def test_serve_passes_agent_permissions_through(start_harness, tmp_path):
-    cli.main(["serve", "--base", str(tmp_path / "base"),
-              "--staged", str(tmp_path / "staged"),
-              "--agent-permissions", "plan"])
-
-    assert serve_call(start_harness)[7] == "plan"
+    assert serve_harness[0][6] == "bypassPermissions"
 
 
-def test_serve_defaults_agent_permissions_to_accept_edits(start_harness, tmp_path):
-    cli.main(["serve", "--base", str(tmp_path / "base"),
-              "--staged", str(tmp_path / "staged")])
-
-    assert serve_call(start_harness)[7] == "acceptEdits"
-
-
-def test_start_defaults_check_gate_off(git_repo, start_harness):
+def test_start_defaults_check_gate_off(git_repo, serve_harness):
     cli.main(["start", "--repo", str(git_repo)])
 
-    assert serve_call(start_harness)[8:] == (None, 1)
+    assert serve_harness[0][7:] == (None, 1)
 
 
-def test_start_passes_check_flags_through(git_repo, start_harness):
-    cli.main(["start", "--repo", str(git_repo),
-              "--check", "pytest -x", "--check-retries", "3"])
+def test_start_passes_check_flags_through(git_repo, serve_harness):
+    cli.main(["start", "--repo", str(git_repo), "--check", "pytest -x", "--check-retries", "3"])
 
-    assert serve_call(start_harness)[8:] == ("pytest -x", 3)
-
-
-def test_serve_defaults_check_gate_off(start_harness, tmp_path):
-    cli.main(["serve", "--base", str(tmp_path / "base"),
-              "--staged", str(tmp_path / "staged")])
-
-    assert serve_call(start_harness)[8:] == (None, 1)
+    assert serve_harness[0][7:] == ("pytest -x", 3)
 
 
-def test_serve_passes_check_flags_through(start_harness, tmp_path):
-    cli.main(["serve", "--base", str(tmp_path / "base"),
-              "--staged", str(tmp_path / "staged"),
-              "--check", "make check", "--check-retries", "2"])
+def test_serve_and_start_do_not_error_on_uncommitted_local_changes(git_repo, serve_harness):
+    (git_repo / "a.py").write_text("def f():\n    return 2\n")  # uncommitted change
 
-    assert serve_call(start_harness)[8:] == ("make check", 2)
+    cli.main(["serve", "--repo", str(git_repo)])
+    cli.main(["start", "--repo", str(git_repo)])
+
+    assert len(serve_harness) == 2
+
+
+def test_shadow_workspace_module_is_gone():
+    import graphwerk.staging as staging
+
+    assert not hasattr(staging, "ShadowWorkspace")
+    with pytest.raises(ModuleNotFoundError):
+        import graphwerk.staging.workspace  # noqa: F401
 
 
 @pytest.fixture
@@ -174,6 +214,5 @@ def real_serve_harness(monkeypatch):
     monkeypatch.setattr(cli, "uvicorn", RecordingUvicorn)
 
 
-def test_serve_builds_and_runs_an_app(real_serve_harness, tmp_path):
-    cli._serve(tmp_path / "base", tmp_path / "staged", None, None,
-               "127.0.0.1", 8135, "acceptEdits")
+def test_serve_builds_and_runs_an_app(real_serve_harness, git_repo):
+    cli._serve(git_repo, "HEAD", None, None, "127.0.0.1", 8135, "acceptEdits")

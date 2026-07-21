@@ -1,6 +1,6 @@
 # 158. Retire the worktree from `start`/`serve`
 
-Status: ready
+Status: done
 Decision: docs/decisions/058-retire-worktree-single-directory-review.md
 
 ## Goal
