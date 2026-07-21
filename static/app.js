@@ -85,8 +85,6 @@ async function loadGraph() {
         ele.data("status", n.data.status);
         if (n.data.group != null) ele.data("group", n.data.group);
         if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
-        if (n.data.hasDeletedDescendant) ele.data("hasDeletedDescendant", true);
-        else ele.removeData("hasDeletedDescendant");
       }
       for (const e of elements.edges) {
         const ele = cy.getElementById(e.data.id);
@@ -108,7 +106,6 @@ async function loadGraph() {
 function toElements(data) {
   const parentOf = new Map(data.nodes.map((n) => [n.id, n.parent]));
   const strongestStatus = strongestDescendantStatusByAncestor(data.nodes, parentOf);
-  const hasDeletedDescendant = hasDeletedDescendantByAncestor(data.nodes, parentOf);
   const collapsedContainerIds = effectiveCollapsedContainerIds(data.nodes, parentOf);
 
   // A node hidden inside a collapsed container is represented by that
@@ -140,7 +137,6 @@ function toElements(data) {
       if (n.paired_file != null) nodeData.pairedFile = n.paired_file;
       if (collapsedContainerIds.has(n.id)) {
         nodeData.collapsedStatus = strongestStatus.get(n.id) || "unchanged";
-        if (hasDeletedDescendant.has(n.id)) nodeData.hasDeletedDescendant = true;
       }
       return { data: nodeData };
     });
@@ -179,21 +175,6 @@ function strongestDescendantStatusByAncestor(nodes, parentOf) {
     }
   }
   return strongest;
-}
-
-// Independent of strongestDescendantStatusByAncestor's rank-based winner
-// (ADR 059): a deletion buried under a higher-ranked modified/added sibling
-// must still surface once collapsed, so this tracks it separately rather
-// than folding it into the rank comparison above.
-function hasDeletedDescendantByAncestor(nodes, parentOf) {
-  const hasDeleted = new Set();
-  for (const node of nodes) {
-    if (node.status !== "deleted") continue;
-    for (let ancestor = parentOf.get(node.id); ancestor; ancestor = parentOf.get(ancestor)) {
-      hasDeleted.add(ancestor);
-    }
-  }
-  return hasDeleted;
 }
 
 function effectiveCollapsedContainerIds(nodes, parentOf) {
@@ -472,7 +453,7 @@ function renderGraph(elements) {
         },
       },
       {
-        selector: "node[status='deleted'], node[collapsedStatus='deleted'], node[hasDeletedDescendant]",
+        selector: "node[status='deleted'], node[collapsedStatus='deleted']",
         style: { "border-style": "dashed", opacity: 0.6 },
       },
       {

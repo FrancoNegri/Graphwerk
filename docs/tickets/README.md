@@ -177,4 +177,3 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [163](163-sync-adr-readme-statuses.md) | Sync `docs/decisions/README.md`'s Status column with the ADR files | done | [audit 002](../audit/runs/002-2026-07-21.md) |
 | [164](164-drop-dead-misplaced-session-warning.md) | Drop the dead misplaced-session warning and its retired-flag wording | done | [audit 002](../audit/runs/002-2026-07-21.md) |
 | [165](165-relabel-graph-payload-paths.md) | Relabel `/api/graph`'s base/staged paths in the UI | done | [audit 002](../audit/runs/002-2026-07-21.md) |
-| [167](167-collapsed-container-deletion-cue.md) | Collapsed containers ghost-border when they contain a deleted descendant | done | [059](../decisions/059-collapsed-container-deletion-visibility.md) |
