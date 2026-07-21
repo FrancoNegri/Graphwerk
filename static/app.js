@@ -74,6 +74,26 @@ function currentPairQuery() {
   return `?${params.toString()}`;
 }
 
+// True whenever the selected "compare to" option is the working-directory
+// pseudo-ref (its `data-kind`, set from /api/refs in populateRefSelect —
+// see selectDefaultRef's matching comment for why kind rather than a
+// literal value comparison). Defaults to true before refs have loaded, to
+// match today's pre-dropdown behavior (ticket 173) of always being live.
+function stagedIsLive() {
+  const select = document.getElementById("staged-select");
+  const option = select.options[select.selectedIndex];
+  return !option || option.dataset.kind === "working_tree";
+}
+
+// Gates the prompt box and session-status affordances on the selected pair
+// being live (ADR 060, ticket 175): a frozen historical pair has no session
+// to prompt or report status for.
+function applySessionUiVisibility() {
+  const live = stagedIsLive();
+  document.getElementById("prompt-bar").hidden = !live;
+  if (!live) document.getElementById("check-banner").hidden = true;
+}
+
 async function loadRefs() {
   const res = await fetch("/api/refs");
   const refs = await res.json();
@@ -130,6 +150,7 @@ async function loadGraph() {
     if (selectedStagedRef == null) {
       selectedStagedRef = selectDefaultRef(document.getElementById("staged-select"), data.staged, { fallbackToWorkingTree: true });
     }
+    applySessionUiVisibility();
     nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
     for (const id of [...userExpandedIds]) {
       const node = nodesById[id];
@@ -1142,23 +1163,29 @@ document.getElementById("base-select").addEventListener("change", (event) => {
 
 document.getElementById("staged-select").addEventListener("change", (event) => {
   selectedStagedRef = event.target.value;
+  applySessionUiVisibility();
   loadGraph();
 });
 
 const POLL_INTERVAL_MS = 1500;
 
 async function pollHashAndSession() {
-  try {
-    const res = await fetch(`/api/hash${currentPairQuery()}`);
-    const data = await res.json();
-    if (data.hash !== currentHash) loadGraph();
-    const sessionRes = await fetch("/api/session");
-    renderSessionState(await sessionRes.json());
-  } catch {
-    /* server briefly unreachable; keep polling */
-  } finally {
-    setTimeout(pollHashAndSession, POLL_INTERVAL_MS);
+  // A frozen historical pair can't change and has no live session to report
+  // on (ADR 060) — skip the requests, but keep the timer alive so switching
+  // "compare to" back to the working directory resumes polling on its own,
+  // without needing a separate restart hook.
+  if (stagedIsLive()) {
+    try {
+      const res = await fetch(`/api/hash${currentPairQuery()}`);
+      const data = await res.json();
+      if (data.hash !== currentHash) loadGraph();
+      const sessionRes = await fetch("/api/session");
+      renderSessionState(await sessionRes.json());
+    } catch {
+      /* server briefly unreachable; keep polling */
+    }
   }
+  setTimeout(pollHashAndSession, POLL_INTERVAL_MS);
 }
 
 setTimeout(pollHashAndSession, POLL_INTERVAL_MS);

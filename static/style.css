@@ -81,6 +81,7 @@ header {
   background: var(--panel);
   border-top: 1px solid var(--border);
 }
+#prompt-bar[hidden] { display: none; }
 
 #prompt-form { display: flex; flex: 1; max-width: 720px; gap: 8px; }
 
