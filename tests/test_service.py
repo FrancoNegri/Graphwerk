@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 from graphwerk.approval import ApprovalStore
@@ -12,6 +13,37 @@ def write_tree(root: Path, files: dict[str, str]) -> None:
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+    return result.stdout
+
+
+def commit_repo(repo: Path) -> str:
+    """(Re)commits the repo's current contents as its base ref, returning the commit sha."""
+    repo.mkdir(parents=True, exist_ok=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=test@graphwerk.local", "-c", "user.name=test",
+         "commit", "-q", "-m", "base", "--allow-empty")
+    return _git(repo, "rev-parse", "HEAD").strip()
+
+
+def make_repo(tmp_path: Path, base_files: dict[str, str],
+              staged_files: dict[str, str] | None = None) -> tuple[Path, str]:
+    """Commits `base_files` as the base ref, then (if given) rewrites the
+    working tree to `staged_files` — paths in `base_files` but not
+    `staged_files` are deleted from disk, simulating an on-disk removal.
+    `staged_files=None` leaves the working tree exactly as committed."""
+    repo = tmp_path / "repo"
+    write_tree(repo, base_files)
+    base_ref = commit_repo(repo)
+    if staged_files is not None:
+        for rel in set(base_files) - set(staged_files):
+            (repo / rel).unlink()
+        write_tree(repo, staged_files)
+    return repo, base_ref
 
 
 def import_edges(snapshot) -> set[tuple[str, str]]:
@@ -31,11 +63,8 @@ def without_code(via_imports: list) -> list:
 
 def make_service(tmp_path: Path, files: dict[str, str],
                  approval_store: ApprovalStore | None = None) -> GraphService:
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, files)
-    write_tree(staged, files)
-    return GraphService(base, staged, RationaleStore(staged_root=staged), approval_store or ApprovalStore(staged))
+    repo, base_ref = make_repo(tmp_path, files)
+    return GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store or ApprovalStore(repo))
 
 
 def test_src_layout_import_resolves_to_package_root_file(tmp_path):
@@ -68,21 +97,20 @@ def test_exact_dotted_path_wins_over_ambiguous_suffix():
 
 
 def test_symbol_nodes_carry_staged_source(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
     assert nodes["a.py::f"].source == "def f():\n    return 2\n"
 
 
 def test_deleted_symbol_carries_base_source(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def gone():\n    return 1\n\ndef kept():\n    pass\n"})
-    write_tree(staged, {"a.py": "def kept():\n    pass\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def gone():\n    return 1\n\ndef kept():\n    pass\n"},
+        {"a.py": "def kept():\n    pass\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
     assert nodes["a.py::gone"].source == "def gone():\n    return 1\n"
 
@@ -95,11 +123,9 @@ def test_file_nodes_carry_full_source_text(tmp_path):
 
 
 def test_modified_symbol_code_interleaves_del_lines_with_spans(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     code = nodes["a.py::f"].code
@@ -119,11 +145,8 @@ def test_unchanged_node_code_is_all_context(tmp_path):
 
 
 def test_added_file_nodes_code_is_all_added(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    base.mkdir()
-    write_tree(staged, {"new.py": "def f():\n    return 1\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(tmp_path, {}, {"new.py": "def f():\n    return 1\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     for node_id in ("new.py", "new.py::f"):
@@ -133,11 +156,8 @@ def test_added_file_nodes_code_is_all_added(tmp_path):
 
 
 def test_deleted_file_nodes_code_is_all_removed(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"old.py": "def f():\n    return 1\n"})
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(tmp_path, {"old.py": "def f():\n    return 1\n"}, {})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     for node_id in ("old.py", "old.py::f"):
@@ -147,26 +167,23 @@ def test_deleted_file_nodes_code_is_all_removed(tmp_path):
 
 
 def test_unreadable_file_node_code_is_none(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    base.mkdir()
-    staged.mkdir()
-    (base / "junk.py").write_bytes(b"\xff\xfe not utf-8 \xff")
-    (staged / "junk.py").write_bytes(b"\xff\xfe still not utf-8 \xff")
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "junk.py").write_bytes(b"\xff\xfe not utf-8 \xff")
+    base_ref = commit_repo(repo)
+    (repo / "junk.py").write_bytes(b"\xff\xfe still not utf-8 \xff")
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["junk.py"].code is None
 
 
 def test_snapshot_marks_file_node_approved_from_approval_store(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(staged)
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    approval_store = ApprovalStore(repo)
     approval_store.approve("a.py")
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), approval_store)
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
 
     nodes = {n.id: n for n in service.snapshot().nodes}
 
@@ -174,11 +191,9 @@ def test_snapshot_marks_file_node_approved_from_approval_store(tmp_path):
 
 
 def test_snapshot_unapproved_file_node_is_not_approved(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
 
     nodes = {n.id: n for n in service.snapshot().nodes}
 
@@ -186,13 +201,11 @@ def test_snapshot_unapproved_file_node_is_not_approved(tmp_path):
 
 
 def test_snapshot_symbol_node_is_never_approved(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(staged)
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    approval_store = ApprovalStore(repo)
     approval_store.approve("a.py")
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), approval_store)
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
 
     nodes = {n.id: n for n in service.snapshot().nodes}
 
@@ -200,16 +213,14 @@ def test_snapshot_symbol_node_is_never_approved(tmp_path):
 
 
 def test_snapshot_approval_evaporates_after_the_staged_file_changes(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(staged)
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    approval_store = ApprovalStore(repo)
     approval_store.approve("a.py")
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), approval_store)
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
     assert service.snapshot().nodes[0].approved is True
 
-    (staged / "a.py").write_text("def f():\n    return 3\n" * 50)
+    (repo / "a.py").write_text("def f():\n    return 3\n" * 50)
 
     nodes = {n.id: n for n in service.snapshot().nodes}
     assert nodes["a.py"].approved is False
@@ -241,15 +252,13 @@ def test_snapshot_meta_carries_rationale_status(tmp_path, monkeypatch):
 
 def test_snapshot_meta_message_flags_changes_without_any_rationale_source(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
 
     message = service.snapshot().meta["rationale"]["message"]
     assert message is not None
-    assert str(staged) in message
+    assert str(repo) in message
 
 
 def write_transcript(path: Path, entries: list) -> None:
@@ -269,22 +278,23 @@ def edit_block(file_path: Path) -> dict:
 
 
 def test_snapshot_marks_low_confidence_why_from_proximity_fallback(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"business.py": "def core():\n    return 1\n", "deps.py": "def helper():\n    return 1\n"})
-    write_tree(staged, {"business.py": "def core():\n    return 2\n", "deps.py": "def helper():\n    return 2\n"})
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"business.py": "def core():\n    return 1\n", "deps.py": "def helper():\n    return 1\n"},
+        {"business.py": "def core():\n    return 2\n", "deps.py": "def helper():\n    return 2\n"},
+    )
 
     transcript = tmp_path / "session.jsonl"
     write_transcript(transcript, [
         assistant_entry(
             text_block("Now building the business logic module."),
-            edit_block(staged / "business.py"),
-            edit_block(staged / "deps.py"),
+            edit_block(repo / "business.py"),
+            edit_block(repo / "deps.py"),
         ),
         assistant_entry(text_block("Final: `business.py` implements the core rules.")),
     ])
-    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
-    service = GraphService(base, staged, rationale, ApprovalStore(staged))
+    rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
+    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["business.py"].why_confident is True
@@ -292,21 +302,19 @@ def test_snapshot_marks_low_confidence_why_from_proximity_fallback(tmp_path):
 
 
 def test_snapshot_symbol_node_carries_why_confidence(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"business.py": "def core():\n    return 1\n"})
-    write_tree(staged, {"business.py": "def core():\n    return 2\n"})
+    repo, base_ref = make_repo(
+        tmp_path, {"business.py": "def core():\n    return 1\n"}, {"business.py": "def core():\n    return 2\n"})
 
     transcript = tmp_path / "session.jsonl"
     write_transcript(transcript, [
         assistant_entry(
             text_block("Working on it."),
-            edit_block(staged / "business.py"),
+            edit_block(repo / "business.py"),
         ),
         assistant_entry(text_block("Final: `core` now returns the updated value.")),
     ])
-    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
-    service = GraphService(base, staged, rationale, ApprovalStore(staged))
+    rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
+    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["business.py::core"].why_confident is True
@@ -320,45 +328,41 @@ def test_unchanged_node_has_no_why_confidence(tmp_path):
 
 
 def test_snapshot_marks_describes_only_why_from_a_guidance_bullet(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"deps.py": "def helper():\n    return 1\n"})
-    write_tree(staged, {"deps.py": "def helper():\n    return 2\n"})
+    repo, base_ref = make_repo(
+        tmp_path, {"deps.py": "def helper():\n    return 1\n"}, {"deps.py": "def helper():\n    return 2\n"})
 
     transcript = tmp_path / "session.jsonl"
     write_transcript(transcript, [
         assistant_entry(
             text_block("Working on it."),
-            edit_block(staged / "deps.py"),
+            edit_block(repo / "deps.py"),
         ),
         assistant_entry(text_block("- `deps.py`: FastAPI dependency-injection providers.")),
     ])
-    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
-    service = GraphService(base, staged, rationale, ApprovalStore(staged))
+    rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
+    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["deps.py"].why_justifies is False
 
 
 def test_snapshot_marks_justifying_why_from_a_guidance_bullet(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"flags.py": "def helper():\n    return 1\n"})
-    write_tree(staged, {"flags.py": "def helper():\n    return 2\n"})
+    repo, base_ref = make_repo(
+        tmp_path, {"flags.py": "def helper():\n    return 1\n"}, {"flags.py": "def helper():\n    return 2\n"})
 
     transcript = tmp_path / "session.jsonl"
     write_transcript(transcript, [
         assistant_entry(
             text_block("Working on it."),
-            edit_block(staged / "flags.py"),
+            edit_block(repo / "flags.py"),
         ),
         assistant_entry(text_block(
             "- `flags.py`: shared env-derived flags, split out since several "
             "other modules need them."
         )),
     ])
-    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
-    service = GraphService(base, staged, rationale, ApprovalStore(staged))
+    rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
+    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["flags.py"].why_justifies is True
@@ -372,11 +376,12 @@ def test_unchanged_node_has_no_why_justifies(tmp_path):
 
 
 def test_calls_edge_into_modified_target_has_modified_status(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"})
-    write_tree(staged, {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"},
+        {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::caller", "a.py::target")
@@ -384,11 +389,12 @@ def test_calls_edge_into_modified_target_has_modified_status(tmp_path):
 
 
 def test_calls_edge_into_added_target_has_added_status(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def caller():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def caller():\n    return new_func()\n\ndef new_func():\n    return 2\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def caller():\n    return 1\n"},
+        {"a.py": "def caller():\n    return new_func()\n\ndef new_func():\n    return 2\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::caller", "a.py::new_func")
@@ -403,25 +409,27 @@ def test_unchanged_caller_does_not_resolve_to_deleted_target_it_no_longer_calls(
     """Mirror phantom case (ADR 032): a caller whose calls came from
     staged_info must not resolve to a deleted (base-only) target it never
     actually called in the staged tree, even if the name still matches."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def gone():\n    return 1\n\ndef caller():\n    return gone()\n"})
-    write_tree(staged, {"a.py": "def caller():\n    return gone()\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def gone():\n    return 1\n\ndef caller():\n    return gone()\n"},
+        {"a.py": "def caller():\n    return gone()\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     assert ("a.py::caller", "a.py::gone") not in calls_edge_pairs(snapshot)
 
 
 def test_unchanged_caller_does_not_resolve_to_deleted_target_in_another_file(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "a.py": "def caller():\n    return helper()\n",
-        "b.py": "def helper():\n    return 1\n",
-    })
-    write_tree(staged, {"a.py": "def caller():\n    return helper()\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "a.py": "def caller():\n    return helper()\n",
+            "b.py": "def helper():\n    return 1\n",
+        },
+        {"a.py": "def caller():\n    return helper()\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     assert ("a.py::caller", "b.py::helper") not in calls_edge_pairs(snapshot)
@@ -431,11 +439,12 @@ def test_deleted_caller_does_not_resolve_to_added_target_with_same_name(tmp_path
     """Phantom case (ADR 032): a deleted (base-only) caller must not resolve
     to an added (staged-only) target that only exists in the other tree,
     e.g. a relocated symbol's old and new copies sharing a simple name."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def gone():\n    return helper()\n"})
-    write_tree(staged, {"b.py": "def helper():\n    return 1\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def gone():\n    return helper()\n"},
+        {"b.py": "def helper():\n    return 1\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     assert ("a.py::gone", "b.py::helper") not in calls_edge_pairs(snapshot)
@@ -444,11 +453,12 @@ def test_deleted_caller_does_not_resolve_to_added_target_with_same_name(tmp_path
 def test_deleted_caller_still_resolves_to_deleted_target_it_actually_called(tmp_path):
     """Regression guard (ADR 032): the deleted -> deleted pairing that
     reconstructs a gutted file's real internal wiring stays intact."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"})
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"},
+        {},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::gone", "a.py::helper")
@@ -458,11 +468,12 @@ def test_deleted_caller_still_resolves_to_deleted_target_it_actually_called(tmp_
 def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_path):
     """The edge _mark_affected used to flip its source to AFFECTED still
     reports the target's real status, not "affected" — target status wins."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"})
-    write_tree(staged, {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"},
+        {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -472,17 +483,18 @@ def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_pat
 
 
 def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
-        "b.py": "def other():\n    return 1\n",
-    })
-    write_tree(staged, {
-        "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
-        "b.py": "def other():\n    return 2\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
+            "b.py": "def other():\n    return 1\n",
+        },
+        {
+            "a.py": "def helper():\n    return 1\n\ndef runner():\n    return helper()\n",
+            "b.py": "def other():\n    return 2\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::runner", "a.py::helper")
@@ -492,11 +504,12 @@ def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path)
 def test_calls_edge_from_deleted_source_to_unchanged_target_has_deleted_status(tmp_path):
     """ADR 054: a call site that no longer exists shouldn't read as
     unchanged just because the thing it used to call didn't change."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"})
-    write_tree(staged, {"a.py": "def helper():\n    return 1\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"},
+        {"a.py": "def helper():\n    return 1\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -509,11 +522,12 @@ def test_calls_edge_from_deleted_source_to_unchanged_target_has_deleted_status(t
 def test_calls_edge_from_added_source_to_unchanged_target_has_added_status(tmp_path):
     """ADR 054 (amended): a call site that only exists in staged shouldn't
     read as unchanged just because the thing it calls didn't change."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def helper():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def helper():\n    return 1\n\ndef new_caller():\n    return helper()\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "def helper():\n    return 1\n"},
+        {"a.py": "def helper():\n    return 1\n\ndef new_caller():\n    return helper()\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -527,23 +541,24 @@ def test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_statu
     """A caller becomes AFFECTED via its call to a modified target; a
     different, unrelated call it also makes must not borrow that label —
     only the call that actually leads into changed code should."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "a.py": (
-            "def target():\n    return 1\n\n"
-            "def unrelated():\n    return 1\n\n"
-            "def caller():\n    target()\n    return unrelated()\n"
-        ),
-    })
-    write_tree(staged, {
-        "a.py": (
-            "def target():\n    return 2\n\n"
-            "def unrelated():\n    return 1\n\n"
-            "def caller():\n    target()\n    return unrelated()\n"
-        ),
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "a.py": (
+                "def target():\n    return 1\n\n"
+                "def unrelated():\n    return 1\n\n"
+                "def caller():\n    target()\n    return unrelated()\n"
+            ),
+        },
+        {
+            "a.py": (
+                "def target():\n    return 2\n\n"
+                "def unrelated():\n    return 1\n\n"
+                "def caller():\n    target()\n    return unrelated()\n"
+            ),
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -701,15 +716,16 @@ def test_caller_does_not_resolve_transitively_to_unreachable_file_with_same_name
 
 
 def test_deleted_caller_resolves_transitive_target_through_base_tree_chain(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "pkg/__init__.py": "from pkg.inner import Thing\n",
-        "pkg/inner.py": "class Thing:\n    pass\n",
-        "caller.py": "from pkg import Thing\n\ndef gone():\n    return Thing()\n",
-    })
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "pkg/__init__.py": "from pkg.inner import Thing\n",
+            "pkg/inner.py": "class Thing:\n    pass\n",
+            "caller.py": "from pkg import Thing\n\ndef gone():\n    return Thing()\n",
+        },
+        {},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     assert ("caller.py::gone", "pkg/inner.py::Thing") in calls_edge_pairs(snapshot)
@@ -721,18 +737,19 @@ def test_unchanged_caller_does_not_resolve_transitively_through_base_only_hop(tm
     so a caller whose calls come from the staged tree must not resolve
     through it even though the resolver can still map the module name to
     that path."""
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "pkg/__init__.py": "from pkg.inner import Thing\n",
-        "pkg/inner.py": "class Thing:\n    pass\n",
-        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
-    })
-    write_tree(staged, {
-        "pkg/inner.py": "class Thing:\n    pass\n",
-        "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "pkg/__init__.py": "from pkg.inner import Thing\n",
+            "pkg/inner.py": "class Thing:\n    pass\n",
+            "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+        },
+        {
+            "pkg/inner.py": "class Thing:\n    pass\n",
+            "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     assert ("caller.py::run", "pkg/inner.py::Thing") not in calls_edge_pairs(snapshot)
@@ -750,17 +767,18 @@ def test_transitive_traversal_does_not_hang_on_cyclic_imports(tmp_path):
 
 
 def test_cross_file_calls_edge_names_added_admitting_import(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "caller.py": "def run():\n    return 1\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    write_tree(staged, {
-        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "caller.py": "def run():\n    return 1\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+        {
+            "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
@@ -800,14 +818,15 @@ def test_imports_edge_has_no_via_imports(tmp_path):
 
 
 def test_deleted_caller_derives_via_imports_from_base_imports(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+        {},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -815,17 +834,18 @@ def test_deleted_caller_derives_via_imports_from_base_imports(tmp_path):
 
 
 def test_added_import_entry_carries_statement_as_add_code_line(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "caller.py": "def run():\n    return 1\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    write_tree(staged, {
-        "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "caller.py": "def run():\n    return 1\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+        {
+            "caller.py": "import helper\n\ndef run():\n    return helper.do_work()\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
@@ -838,14 +858,15 @@ def test_added_import_entry_carries_statement_as_add_code_line(tmp_path):
 
 
 def test_deleted_caller_import_entry_code_comes_from_base_statement(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "caller.py": "import helper\n\ndef gone():\n    return helper.do_work()\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+        {},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -880,14 +901,15 @@ def test_import_nested_inside_caller_is_in_caller_code(tmp_path):
 
 
 def test_deleted_caller_import_containment_resolves_in_base(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "caller.py": "def gone():\n    import helper\n    return helper.do_work()\n",
-        "helper.py": "def do_work():\n    return 1\n",
-    })
-    staged.mkdir()
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "caller.py": "def gone():\n    import helper\n    return helper.do_work()\n",
+            "helper.py": "def do_work():\n    return 1\n",
+        },
+        {},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -946,17 +968,18 @@ def test_import_present_in_both_trees_renders_as_ctx_code_line(tmp_path):
 
 
 def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "producer.py": "def f():\n    return 1\n",
-        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
-    })
-    write_tree(staged, {
-        "producer.py": "def f():\n    return 2\n",
-        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "producer.py": "def f():\n    return 1\n",
+            "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+        },
+        {
+            "producer.py": "def f():\n    return 2\n",
+            "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -964,17 +987,18 @@ def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_pat
 
 
 def test_imports_edge_for_added_import_has_added_status_and_module(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "producer.py": "def f():\n    return 1\n",
-        "consumer.py": "def g():\n    return 1\n",
-    })
-    write_tree(staged, {
-        "producer.py": "def f():\n    return 1\n",
-        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "producer.py": "def f():\n    return 1\n",
+            "consumer.py": "def g():\n    return 1\n",
+        },
+        {
+            "producer.py": "def f():\n    return 1\n",
+            "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -983,17 +1007,18 @@ def test_imports_edge_for_added_import_has_added_status_and_module(tmp_path):
 
 
 def test_imports_edge_for_removed_import_still_appears_with_deleted_status(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "producer.py": "def f():\n    return 1\n",
-        "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
-    })
-    write_tree(staged, {
-        "producer.py": "def f():\n    return 1\n",
-        "consumer.py": "def g():\n    return 1\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "producer.py": "def f():\n    return 1\n",
+            "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
+        },
+        {
+            "producer.py": "def f():\n    return 1\n",
+            "consumer.py": "def g():\n    return 1\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -1039,17 +1064,18 @@ def test_ticket_linking_its_decision_adr_produces_a_references_edge(tmp_path):
 
 
 def test_reference_edge_added_status_reflects_new_link(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {
-        "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
-        "docs/tickets/124-thing.md": "# 124. Ticket\nno link yet\n",
-    })
-    write_tree(staged, {
-        "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
-        "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/046-thing.md\n",
-    })
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
+            "docs/tickets/124-thing.md": "# 124. Ticket\nno link yet\n",
+        },
+        {
+            "docs/decisions/046-thing.md": "# 046. Thing\nbody\n",
+            "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/046-thing.md\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     snapshot = service.snapshot()
     edge = edge_between(
         snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
@@ -1098,14 +1124,11 @@ def test_mixed_tree_nodes_carry_domain_matching_their_extractor(tmp_path):
 
 
 def test_state_hash_changes_when_a_markdown_heading_changes(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"doc.md": "# Title\n\n## Section\nold body\n"})
-    write_tree(staged, {"doc.md": "# Title\n\n## Section\nold body\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(tmp_path, {"doc.md": "# Title\n\n## Section\nold body\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     before = service.state_hash()
 
-    (staged / "doc.md").write_text("# Title\n\n## Section\nnew body\n")
+    (repo / "doc.md").write_text("# Title\n\n## Section\nnew body\n")
 
     assert service.state_hash() != before
 
@@ -1159,14 +1182,12 @@ def test_second_snapshot_call_recomputes_no_code_views(tmp_path, monkeypatch):
 
 
 def test_touching_one_files_text_recomputes_only_its_code_views(tmp_path, monkeypatch):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
     service.snapshot()
 
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    write_tree(repo, {"a.py": "def f():\n    return 2\n"})
     calls = spy_on_build_code_view(monkeypatch)
     service.snapshot()
 
@@ -1197,10 +1218,8 @@ def test_snapshot_sets_paired_file_and_excludes_paired_test_from_layering(tmp_pa
 
 
 def test_snapshot_meta_carries_the_mined_commit_message(tmp_path):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    write_tree(base, {"a.py": "def f():\n    return 1\n"})
-    write_tree(staged, {"a.py": "def f():\n    return 2\n"})
+    repo, base_ref = make_repo(
+        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
 
     transcript = tmp_path / "session.jsonl"
     write_transcript(transcript, [
@@ -1210,8 +1229,8 @@ def test_snapshot_meta_carries_the_mined_commit_message(tmp_path):
             "Commit-message: Bump f's return value"
         )),
     ])
-    rationale = RationaleStore(staged_root=staged, transcript_path=transcript)
-    service = GraphService(base, staged, rationale, ApprovalStore(staged))
+    rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
+    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
 
     assert service.snapshot().meta["commit_message"] == "Bump f's return value"
 

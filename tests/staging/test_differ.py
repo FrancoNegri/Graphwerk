@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from graphwerk.indexing.python_ast import PythonAstExtractor
@@ -18,15 +19,39 @@ def spy_on_extract(monkeypatch) -> list[str]:
     return calls
 
 
+def write_tree(root: Path, files: dict[str, str]) -> None:
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+    return result.stdout
+
+
+def commit_repo(repo: Path) -> str:
+    """(Re)commits the repo's current contents as its base ref, returning the commit sha."""
+    repo.mkdir(parents=True, exist_ok=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=test@graphwerk.local", "-c", "user.name=test",
+         "commit", "-q", "-m", "base", "--allow-empty")
+    return _git(repo, "rev-parse", "HEAD").strip()
+
+
 def build_changes(tmp_path: Path, base: dict[str, str], staged: dict[str, str]):
-    for root_name, files in (("base", base), ("staged", staged)):
-        root = tmp_path / root_name
-        root.mkdir(exist_ok=True)
-        for rel, text in files.items():
-            path = root / rel
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
-    return ChangeSetBuilder(tmp_path / "base", tmp_path / "staged").build()
+    """Commits `base` as the base ref, then rewrites the working tree to
+    `staged` (paths in `base` but not `staged` are deleted from disk,
+    simulating an on-disk removal)."""
+    repo = tmp_path / "repo"
+    write_tree(repo, base)
+    base_ref = commit_repo(repo)
+    for rel in set(base) - set(staged):
+        (repo / rel).unlink()
+    write_tree(repo, staged)
+    return ChangeSetBuilder(repo, base_ref).build()
 
 
 def test_modified_file_change_carries_staged_text(tmp_path):
@@ -82,11 +107,11 @@ def test_deleted_file_has_no_staged_source(tmp_path):
 
 
 def test_undecodable_file_yields_none_sources_without_raising(tmp_path):
-    for root_name in ("base", "staged"):
-        root = tmp_path / root_name
-        root.mkdir()
-        (root / "junk.py").write_bytes(b"\xff\xfe\x00 not utf-8 \xff")
-    changes = ChangeSetBuilder(tmp_path / "base", tmp_path / "staged").build()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "junk.py").write_bytes(b"\xff\xfe\x00 not utf-8 \xff")
+    base_ref = commit_repo(repo)
+    changes = ChangeSetBuilder(repo, base_ref).build()
 
     change = changes["junk.py"]
     assert change.base_source is None
@@ -154,14 +179,12 @@ def test_removed_doc_link_is_a_deleted_reference(tmp_path):
 
 
 def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatch):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    for root in (base, staged):
-        root.mkdir()
-        (root / "a.py").write_text("def f():\n    return 1\n")
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "def f():\n    return 1\n"})
+    base_ref = commit_repo(repo)
 
     calls = spy_on_extract(monkeypatch)
-    builder = ChangeSetBuilder(base, staged)
+    builder = ChangeSetBuilder(repo, base_ref)
     builder.build()
     calls.clear()
 
@@ -200,19 +223,42 @@ def test_unchanged_file_imports_are_all_unchanged(tmp_path):
 
 
 def test_touching_one_file_reparses_only_that_file(tmp_path, monkeypatch):
-    base = tmp_path / "base"
-    staged = tmp_path / "staged"
-    for root in (base, staged):
-        root.mkdir()
-        (root / "a.py").write_text("def f():\n    return 1\n")
-        (root / "b.py").write_text("def g():\n    return 1\n")
+    repo = tmp_path / "repo"
+    write_tree(repo, {
+        "a.py": "def f():\n    return 1\n",
+        "b.py": "def g():\n    return 1\n",
+    })
+    base_ref = commit_repo(repo)
 
     calls = spy_on_extract(monkeypatch)
-    builder = ChangeSetBuilder(base, staged)
+    builder = ChangeSetBuilder(repo, base_ref)
     builder.build()
     calls.clear()
 
-    (staged / "a.py").write_text("def f():\n    return 1\n    # a longer body now\n")
+    (repo / "a.py").write_text("def f():\n    return 1\n    # a longer body now\n")
     builder.build()
 
     assert calls == ["a.py"]
+
+
+def test_base_ref_lists_only_paths_that_existed_at_that_commit(tmp_path):
+    """A file added on disk after the base commit must not be treated as
+    though it existed at the base ref (ticket 157 acceptance: new files at
+    a ref that never had them are handled without error)."""
+    changes = build_changes(tmp_path, base={"a.py": "x = 1\n"}, staged={"a.py": "x = 1\n", "new.py": "y = 2\n"})
+
+    assert changes["new.py"].status is Status.ADDED
+    assert changes["new.py"].base_source is None
+
+
+def test_missing_base_ref_treats_every_file_as_added(tmp_path):
+    """A ref that doesn't resolve (e.g. a repo with no commits, or a bogus
+    ref) degrades to an empty base tree instead of raising."""
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n"})
+    subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True, capture_output=True)
+
+    changes = ChangeSetBuilder(repo, "HEAD").build()
+
+    assert changes["a.py"].status is Status.ADDED
+    assert changes["a.py"].base_source is None

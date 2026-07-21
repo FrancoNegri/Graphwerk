@@ -24,7 +24,12 @@ def build_app(base: Path, staged: Path, sidecar: Path | None, transcript: Path |
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
                                staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(base, staged, rationale, approval_store)
+    # `staged` is the working directory GraphService now diffs against a git
+    # ref (ADR 058); it's the current worktree/demo layout's own branch tip,
+    # which never advances past its own base commit, so "HEAD" is exactly
+    # the fixed base_ref ADR 058 wants. Ticket 158 replaces this whole
+    # base/staged split with one repo dir + an explicit --base-ref flag.
+    service = GraphService(staged, "HEAD", rationale, approval_store)
     engine = ApplyEngine(base, staged)
     runner = SessionRunner(staged, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)

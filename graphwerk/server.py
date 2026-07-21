@@ -59,8 +59,10 @@ def create_app(service: GraphService, engine: ApplyEngine,
         # returning JSONResponse directly skips FastAPI's jsonable_encoder
         # pass, which otherwise dominates response time on large graphs.
         return JSONResponse({
-            "base": str(service.base_root),
-            "staged": str(service.staged_root),
+            # base is now a git ref, not a directory (ADR 058); ticket 158
+            # revisits this payload shape alongside the CLI flags that feed it
+            "base": service.base_ref,
+            "staged": str(service.repo_root),
             "hash": service.state_hash(),
             **service.snapshot().to_dict(),
         })

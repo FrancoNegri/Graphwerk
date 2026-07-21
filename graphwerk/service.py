@@ -52,13 +52,13 @@ class ModuleFileResolver:
 
 
 class GraphService:
-    def __init__(self, base_root: Path, staged_root: Path, rationale: RationaleStore,
+    def __init__(self, repo_root: Path, base_ref: str, rationale: RationaleStore,
                  approval_store: ApprovalStore):
-        self.base_root = base_root
-        self.staged_root = staged_root
+        self.repo_root = repo_root
+        self.base_ref = base_ref
         self.rationale = rationale
         self.approval_store = approval_store
-        self.builder = ChangeSetBuilder(base_root, staged_root)
+        self.builder = ChangeSetBuilder(repo_root, base_ref)
         # (base_text, staged_text) -> code view; unbounded for the process
         # lifetime (ADR 019, out of scope: eviction/memory bounds).
         self._code_view_cache: dict[tuple[str | None, str | None], list | None] = {}
@@ -165,12 +165,13 @@ class GraphService:
         return {rel: qualnames for rel, qualnames in by_file.items() if qualnames}
 
     def state_hash(self) -> str:
-        """Cheap fingerprint of both trees; the UI polls this to know when to refetch."""
+        """Cheap fingerprint of the working tree; the UI polls this to know
+        when to refetch. The base ref is fixed for the builder's lifetime
+        (ADR 058), so only the working tree can change."""
         digest = hashlib.md5()
-        for root in (self.base_root, self.staged_root):
-            for path, rel in (*iter_python_files(root), *iter_markdown_files(root)):
-                stat = path.stat()
-                digest.update(f"{rel}:{stat.st_mtime_ns}:{stat.st_size};".encode())
+        for path, rel in (*iter_python_files(self.repo_root), *iter_markdown_files(self.repo_root)):
+            stat = path.stat()
+            digest.update(f"{rel}:{stat.st_mtime_ns}:{stat.st_size};".encode())
         return digest.hexdigest()
 
     def _add_call_edges(

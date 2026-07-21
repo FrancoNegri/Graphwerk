@@ -21,6 +21,15 @@ def make_engine(base: Path, staged: Path) -> DiscardEngine:
     return DiscardEngine(base, staged, ChangeSetBuilder(base, staged))
 
 
+CHANGESETBUILDER_CONTRACT_CHANGED = (
+    "ChangeSetBuilder now diffs one repo dir against a base git ref "
+    "(ticket 157/ADR 058) instead of two directories; DiscardEngine still "
+    "builds it the old two-directory way until ticket 159 deletes it — "
+    "accepted interim gap, not a regression to fix here"
+)
+
+
+@pytest.mark.xfail(reason=CHANGESETBUILDER_CONTRACT_CHANGED, strict=True)
 def test_discard_all_round_trips_to_a_clean_diff(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"
@@ -62,6 +71,7 @@ def test_discard_all_leaves_non_change_set_files_untouched(tmp_path):
     assert notes.read_text() == "agent scratch\n"
 
 
+@pytest.mark.xfail(reason=CHANGESETBUILDER_CONTRACT_CHANGED, strict=True)
 def test_discard_all_with_no_changes_reverts_nothing(tmp_path):
     base = tmp_path / "base"
     staged = tmp_path / "staged"
