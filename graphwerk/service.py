@@ -12,7 +12,7 @@ from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status, SymbolInfo
 from graphwerk.rationale import RationaleStore
-from graphwerk.staging import ChangeSetBuilder
+from graphwerk.staging import ChangeSetBuilder, GitRefRevision, WorkingTreeRevision
 
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 
@@ -55,7 +55,7 @@ class GraphService:
         self.repo_root = repo_root
         self.base_ref = base_ref
         self.rationale = rationale
-        self.builder = ChangeSetBuilder(repo_root, base_ref)
+        self.builder = ChangeSetBuilder(repo_root, GitRefRevision(repo_root, base_ref), WorkingTreeRevision(repo_root))
         # (base_text, staged_text) -> code view; unbounded for the process
         # lifetime (ADR 019, out of scope: eviction/memory bounds).
         self._code_view_cache: dict[tuple[str | None, str | None], list | None] = {}

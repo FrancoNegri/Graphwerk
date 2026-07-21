@@ -3,7 +3,7 @@ from pathlib import Path
 
 from graphwerk.indexing.python_ast import PythonAstExtractor
 from graphwerk.models import Status
-from graphwerk.staging import ChangeSetBuilder
+from graphwerk.staging import ChangeSetBuilder, GitRefRevision, WorkingTreeRevision
 
 
 def spy_on_extract(monkeypatch) -> list[str]:
@@ -51,7 +51,7 @@ def build_changes(tmp_path: Path, base: dict[str, str], staged: dict[str, str]):
     for rel in set(base) - set(staged):
         (repo / rel).unlink()
     write_tree(repo, staged)
-    return ChangeSetBuilder(repo, base_ref).build()
+    return ChangeSetBuilder(repo, GitRefRevision(repo, base_ref), WorkingTreeRevision(repo)).build()
 
 
 def test_modified_file_change_carries_staged_text(tmp_path):
@@ -111,7 +111,7 @@ def test_undecodable_file_yields_none_sources_without_raising(tmp_path):
     repo.mkdir()
     (repo / "junk.py").write_bytes(b"\xff\xfe\x00 not utf-8 \xff")
     base_ref = commit_repo(repo)
-    changes = ChangeSetBuilder(repo, base_ref).build()
+    changes = ChangeSetBuilder(repo, GitRefRevision(repo, base_ref), WorkingTreeRevision(repo)).build()
 
     change = changes["junk.py"]
     assert change.base_source is None
@@ -184,7 +184,7 @@ def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatc
     base_ref = commit_repo(repo)
 
     calls = spy_on_extract(monkeypatch)
-    builder = ChangeSetBuilder(repo, base_ref)
+    builder = ChangeSetBuilder(repo, GitRefRevision(repo, base_ref), WorkingTreeRevision(repo))
     builder.build()
     calls.clear()
 
@@ -258,7 +258,7 @@ def test_touching_one_file_reparses_only_that_file(tmp_path, monkeypatch):
     base_ref = commit_repo(repo)
 
     calls = spy_on_extract(monkeypatch)
-    builder = ChangeSetBuilder(repo, base_ref)
+    builder = ChangeSetBuilder(repo, GitRefRevision(repo, base_ref), WorkingTreeRevision(repo))
     builder.build()
     calls.clear()
 
@@ -285,7 +285,93 @@ def test_missing_base_ref_treats_every_file_as_added(tmp_path):
     write_tree(repo, {"a.py": "x = 1\n"})
     subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True, capture_output=True)
 
-    changes = ChangeSetBuilder(repo, "HEAD").build()
+    changes = ChangeSetBuilder(repo, GitRefRevision(repo, "HEAD"), WorkingTreeRevision(repo)).build()
 
     assert changes["a.py"].status is Status.ADDED
     assert changes["a.py"].base_source is None
+
+
+def test_git_ref_revision_lists_paths_and_reads_bytes_at_the_ref(tmp_path):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n", "doc.md": "# T\n"})
+    ref = commit_repo(repo)
+    (repo / "a.py").write_text("x = 2\n")  # uncommitted edit; ref content must not reflect it
+
+    revision = GitRefRevision(repo, ref)
+
+    assert revision.paths((".py", ".md")) == {"a.py", "doc.md"}
+    assert revision.read_bytes("a.py") == b"x = 1\n"
+    assert revision.read_bytes("doc.md") == b"# T\n"
+    assert revision.read_bytes("missing.py") is None
+
+
+def test_git_ref_revision_paths_filters_by_extension(tmp_path):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n", "doc.md": "# T\n"})
+    ref = commit_repo(repo)
+
+    revision = GitRefRevision(repo, ref)
+
+    assert revision.paths((".py",)) == {"a.py"}
+
+
+def test_working_tree_revision_lists_paths_and_reads_bytes_from_disk(tmp_path):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n", "doc.md": "# T\n"})
+
+    revision = WorkingTreeRevision(repo)
+
+    assert revision.paths((".py", ".md")) == {"a.py", "doc.md"}
+    assert revision.read_bytes("a.py") == b"x = 1\n"
+    assert revision.read_bytes("missing.py") is None
+
+
+def test_git_ref_revision_caches_bytes_per_instance(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n"})
+    ref = commit_repo(repo)
+    revision = GitRefRevision(repo, ref)
+    revision.read_bytes("a.py")  # warm the cache before the subprocess spy is installed
+
+    original_run = subprocess.run
+    calls: list[object] = []
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    assert revision.read_bytes("a.py") == b"x = 1\n"
+
+    assert calls == []
+
+
+def test_git_ref_revision_caches_paths_per_instance(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n"})
+    ref = commit_repo(repo)
+    revision = GitRefRevision(repo, ref)
+    revision.paths((".py",))  # warm the cache before the subprocess spy is installed
+
+    original_run = subprocess.run
+    calls: list[object] = []
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    assert revision.paths((".py",)) == {"a.py"}
+
+    assert calls == []
+
+
+def test_working_tree_revision_reflects_current_disk_contents(tmp_path):
+    repo = tmp_path / "repo"
+    write_tree(repo, {"a.py": "x = 1\n"})
+    revision = WorkingTreeRevision(repo)
+    assert revision.read_bytes("a.py") == b"x = 1\n"
+
+    (repo / "a.py").write_text("x = 2\n")
+
+    assert revision.read_bytes("a.py") == b"x = 2\n"

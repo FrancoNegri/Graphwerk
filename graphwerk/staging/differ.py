@@ -1,11 +1,12 @@
-"""Symbol-level diff between a base git ref and the working directory.
+"""Symbol-level diff between two revisions of a repo.
 
 Rather than mapping textual hunks onto symbols, both versions of each file are
 parsed and symbols are compared by qualified name — sidestepping hunk/symbol
-alignment entirely (docs/03-architecture-notes.md, hard problem #1). "Staged"
-content is simply what's on disk in `repo_root`; "base" content is read via
-git plumbing (`git show <base_ref>:<path>`) instead of a second directory
-walk (ADR 058).
+alignment entirely (docs/03-architecture-notes.md, hard problem #1). Each side
+of the comparison is a `Revision`: `GitRefRevision` reads via git plumbing
+(`git show <ref>:<path>`) instead of a second directory walk (ADR 058);
+`WorkingTreeRevision` reads whatever's on disk. `ChangeSetBuilder` doesn't
+care which is which — see docs/tickets/170.
 """
 
 from __future__ import annotations
@@ -14,11 +15,69 @@ import difflib
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Protocol
 
 from graphwerk.indexing.markdown import MarkdownExtractor
 from graphwerk.indexing.python_ast import PythonAstExtractor
-from graphwerk.indexing.walk import file_fingerprint, iter_markdown_files, iter_python_files
+from graphwerk.indexing.walk import file_fingerprint, iter_files_with_extension
 from graphwerk.models import FileIndex, Status
+
+INDEXABLE_EXTENSIONS = (".py", ".md")
+
+
+class Revision(Protocol):
+    """One side of a comparison: a set of relative paths, and the raw bytes
+    at each. Nothing about parsing or diffing — that stays in
+    `ChangeSetBuilder`, which is the only thing that knows about symbols."""
+
+    def paths(self, extensions: tuple[str, ...]) -> frozenset[str]:
+        """Relative paths in this revision whose name ends in one of `extensions`."""
+        ...
+
+    def read_bytes(self, rel: str) -> bytes | None:
+        """Raw content of `rel` in this revision, or None if it doesn't exist here."""
+        ...
+
+
+class GitRefRevision:
+    """A revision pinned to a git ref, read via `git ls-tree`/`git show`
+    plumbing instead of a real directory (ADR 058). A commit's content never
+    changes, so both paths and bytes are cached for this instance's
+    lifetime once read."""
+
+    def __init__(self, repo_root: Path, ref: str):
+        self.repo_root = repo_root
+        self.ref = ref
+        self._paths_cache: dict[tuple[str, ...], frozenset[str]] = {}
+        self._bytes_cache: dict[str, bytes | None] = {}
+
+    def paths(self, extensions: tuple[str, ...]) -> frozenset[str]:
+        if extensions not in self._paths_cache:
+            self._paths_cache[extensions] = frozenset(_git_ls_tree(self.repo_root, self.ref, extensions))
+        return self._paths_cache[extensions]
+
+    def read_bytes(self, rel: str) -> bytes | None:
+        if rel not in self._bytes_cache:
+            self._bytes_cache[rel] = _git_show_bytes(self.repo_root, self.ref, rel)
+        return self._bytes_cache[rel]
+
+
+class WorkingTreeRevision:
+    """The live working directory on disk (ADR 058: the developer's own
+    checkout, never a graphwerk-owned copy). Always read fresh — the whole
+    point of this revision is that its content can change between builds."""
+
+    def __init__(self, repo_root: Path):
+        self.repo_root = repo_root
+
+    def paths(self, extensions: tuple[str, ...]) -> frozenset[str]:
+        found: set[str] = set()
+        for extension in extensions:
+            found.update(rel for _, rel in iter_files_with_extension(self.repo_root, extension))
+        return frozenset(found)
+
+    def read_bytes(self, rel: str) -> bytes | None:
+        return _read_bytes(self.repo_root / rel)
 
 
 class FileChange:
@@ -48,31 +107,31 @@ class FileChange:
 
 
 class ChangeSetBuilder:
-    def __init__(self, repo_root: Path, base_ref: str):
+    def __init__(self, repo_root: Path, base: Revision, staged: Revision):
         self.repo_root = repo_root
-        self.base_ref = base_ref
+        self.base = base
+        self.staged = staged
         self._python_extractor = PythonAstExtractor()
         self._markdown_extractor = MarkdownExtractor()
-        # (rel_path, mtime_ns, size) -> FileIndex for the working tree;
+        # (rel_path, mtime_ns, size) -> FileIndex for the staged side;
         # unbounded for the process lifetime (ADR 019, out of scope:
         # eviction/memory bounds).
         self._index_cache: dict[tuple[str, int, int], FileIndex] = {}
-        # rel_path -> FileIndex for the base ref. A commit's blob content
-        # never changes, so this never needs invalidating for the builder's
-        # lifetime (one review session, one fixed base_ref).
+        # rel_path -> FileIndex for the base side. Assumes the base
+        # revision's content is immutable for the builder's lifetime (true
+        # for GitRefRevision, one review session, one fixed ref — see
+        # docs/tickets/170 for why that's fine to assume here).
         self._base_index_cache: dict[str, FileIndex] = {}
-        self._base_bytes_cache: dict[str, bytes | None] = {}
-        self._base_ref_paths_cache: frozenset[str] | None = None
 
     def build(self) -> dict[str, FileChange]:
-        base_files = self._index_base_ref()
-        staged_files = self._index_tree(self.repo_root)
+        base_files = self._index_base()
+        staged_files = self._index_staged()
         changes: dict[str, FileChange] = {}
 
         for rel in sorted(set(base_files) | set(staged_files)):
             base, staged = base_files.get(rel), staged_files.get(rel)
-            base_bytes = self._base_bytes(rel)
-            staged_bytes = _read_bytes(self.repo_root / rel)
+            base_bytes = self.base.read_bytes(rel)
+            staged_bytes = self.staged.read_bytes(rel)
             base_text = _decode(base_bytes)
             staged_text = _decode(staged_bytes)
             if base is not None and staged is None:
@@ -135,9 +194,10 @@ class ChangeSetBuilder:
             changes[rel] = change
         return changes
 
-    def _index_tree(self, root: Path) -> dict[str, FileIndex]:
+    def _index_staged(self) -> dict[str, FileIndex]:
         indexed: dict[str, FileIndex] = {}
-        for path, rel in (*iter_python_files(root), *iter_markdown_files(root)):
+        for rel in self.staged.paths(INDEXABLE_EXTENSIONS):
+            path = self.repo_root / rel
             extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
             mtime_ns, size = file_fingerprint(path)
             key = (rel, mtime_ns, size)
@@ -148,12 +208,12 @@ class ChangeSetBuilder:
             indexed[rel] = cached
         return indexed
 
-    def _index_base_ref(self) -> dict[str, FileIndex]:
+    def _index_base(self) -> dict[str, FileIndex]:
         indexed: dict[str, FileIndex] = {}
-        for rel in self._base_ref_paths():
+        for rel in self.base.paths(INDEXABLE_EXTENSIONS):
             cached = self._base_index_cache.get(rel)
             if cached is None:
-                raw = self._base_bytes(rel)
+                raw = self.base.read_bytes(rel)
                 cached = self._extract_from_bytes(rel, raw) if raw is not None else FileIndex(rel_path=rel)
                 self._base_index_cache[rel] = cached
             indexed[rel] = cached
@@ -172,20 +232,6 @@ class ChangeSetBuilder:
         finally:
             tmp_path.unlink(missing_ok=True)
         return index
-
-    def _base_ref_paths(self) -> frozenset[str]:
-        if self._base_ref_paths_cache is None:
-            self._base_ref_paths_cache = frozenset(
-                _git_ls_tree(self.repo_root, self.base_ref, (".py", ".md"))
-            )
-        return self._base_ref_paths_cache
-
-    def _base_bytes(self, rel: str) -> bytes | None:
-        if rel not in self._base_ref_paths():
-            return None
-        if rel not in self._base_bytes_cache:
-            self._base_bytes_cache[rel] = _git_show_bytes(self.repo_root, self.base_ref, rel)
-        return self._base_bytes_cache[rel]
 
     def _symbol_diff(self, base: FileIndex | None, staged: FileIndex | None, qualname: str) -> str:
         base_src = base.symbols[qualname].source if base and qualname in base.symbols else ""

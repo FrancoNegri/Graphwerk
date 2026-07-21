@@ -1,3 +1,3 @@
-from graphwerk.staging.differ import ChangeSetBuilder
+from graphwerk.staging.differ import ChangeSetBuilder, GitRefRevision, Revision, WorkingTreeRevision
 
-__all__ = ["ChangeSetBuilder"]
+__all__ = ["ChangeSetBuilder", "GitRefRevision", "Revision", "WorkingTreeRevision"]
