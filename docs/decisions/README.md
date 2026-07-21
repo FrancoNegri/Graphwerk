@@ -9,7 +9,7 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 
 | # | Title | Status |
 |---|-------|--------|
-| [001](001-phase-2-real-session.md) | Phase 2 — review a real Claude session end to end | proposed |
+| [001](001-phase-2-real-session.md) | Phase 2 — review a real Claude session end to end | accepted |
 | [002](002-graph-layout-legibility.md) | Graph layout legibility: collapse-by-default + import-depth layers | proposed |
 | [003](003-symbol-layered-placement.md) | Symbol-level layered placement within an expanded file | proposed |
 | [004](004-always-show-source.md) | Show source for any selected node, not just diffs | proposed |
@@ -29,7 +29,7 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [018](018-orthogonal-edge-routing.md) | Orthogonal (taxi) edge routing; defer bespoke hub treatment until judged with directory grouping | rejected |
 | [019](019-snapshot-recompute-caching.md) | Cache repeated snapshot recomputation (indexing + code view) | accepted |
 | [020](020-edge-hover-reveal-and-zoom-feel.md) | Hide unchanged edges behind hover reveal; tune wheel-zoom feel | proposed |
-| [021](021-src-layout-grouping.md) | Skip generic wrapper directories when grouping files by top-level directory | proposed |
+| [021](021-src-layout-grouping.md) | Skip generic wrapper directories when grouping files by top-level directory | accepted |
 | [022](022-entry-points-anchor-top-layer.md) | Layer from entry points downward, not from leaves upward | proposed |
 | [023](023-import-adjacency-drops-noise-filtered-and-test-edges.md) | Import adjacency must survive noise-filtered nodes and ignore test-sourced edges | proposed |
 | [024](024-extract-nested-imports.md) | Extract imports from the whole file, not just the top level | proposed |
