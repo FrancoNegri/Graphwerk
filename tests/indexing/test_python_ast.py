@@ -115,6 +115,115 @@ def outer():
     assert set(index.symbols) == {"outer"}
 
 
+def _extract_symbols(tmp_path: Path, source: str) -> set[str]:
+    path = tmp_path / "mod.py"
+    path.write_text(source)
+    return set(PythonAstExtractor().extract(path, "mod.py").symbols)
+
+
+def test_function_inside_module_level_if_block_is_indexed(tmp_path: Path) -> None:
+    source = """
+if TEST_MODE:
+    def configure_calendar_slots():
+        pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"configure_calendar_slots"}
+
+
+def test_class_inside_module_level_if_block_is_indexed_with_method_qualnames(tmp_path: Path) -> None:
+    source = """
+if TEST_MODE:
+    class Config:
+        def method(self):
+            pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"Config", "Config.method"}
+
+
+def test_function_inside_elif_block_is_indexed(tmp_path: Path) -> None:
+    source = """
+if PLATFORM == "a":
+    pass
+elif PLATFORM == "b":
+    def configure():
+        pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"configure"}
+
+
+def test_function_inside_else_block_is_indexed(tmp_path: Path) -> None:
+    source = """
+if PLATFORM == "a":
+    pass
+else:
+    def configure():
+        pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"configure"}
+
+
+def test_function_inside_nested_if_blocks_is_indexed(tmp_path: Path) -> None:
+    source = """
+if OUTER:
+    if INNER:
+        def configure():
+            pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"configure"}
+
+
+def test_function_inside_type_checking_guard_is_excluded(tmp_path: Path) -> None:
+    source = """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    def only_for_type_checkers():
+        pass
+"""
+    assert _extract_symbols(tmp_path, source) == set()
+
+
+def test_function_inside_type_checking_else_branch_is_still_indexed(tmp_path: Path) -> None:
+    source = """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    def only_for_type_checkers():
+        pass
+else:
+    def runtime_fallback():
+        pass
+"""
+    assert _extract_symbols(tmp_path, source) == {"runtime_fallback"}
+
+
+def test_function_defined_inside_an_if_inside_a_function_body_is_not_indexed(tmp_path: Path) -> None:
+    """Explicitly out of scope (ticket 168): descending into function/class
+    bodies for nested defs would turn closures/local helpers into top-level
+    symbols, a different, unscoped change."""
+    source = """
+def outer():
+    if TEST_MODE:
+        def inner():
+            pass
+    return inner
+"""
+    assert _extract_symbols(tmp_path, source) == {"outer"}
+
+
+def test_if_nested_function_calls_are_collected(tmp_path: Path) -> None:
+    path = tmp_path / "mod.py"
+    source = """
+if TEST_MODE:
+    def configure_calendar_slots():
+        return get_calendar()
+"""
+    path.write_text(source)
+    index = PythonAstExtractor().extract(path, "mod.py")
+
+    assert index.symbols["configure_calendar_slots"].calls == {"get_calendar"}
+
+
 def _extract_statements(tmp_path: Path, source: str) -> dict[str, list[tuple[str, int]]]:
     path = tmp_path / "mod.py"
     path.write_text(source)

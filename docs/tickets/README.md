@@ -177,3 +177,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [163](163-sync-adr-readme-statuses.md) | Sync `docs/decisions/README.md`'s Status column with the ADR files | done | [audit 002](../audit/runs/002-2026-07-21.md) |
 | [164](164-drop-dead-misplaced-session-warning.md) | Drop the dead misplaced-session warning and its retired-flag wording | done | [audit 002](../audit/runs/002-2026-07-21.md) |
 | [165](165-relabel-graph-payload-paths.md) | Relabel `/api/graph`'s base/staged paths in the UI | done | [audit 002](../audit/runs/002-2026-07-21.md) |
+| [168](168-extractor-descends-into-if-blocks-for-defs.md) | Symbol extraction descends into `if` blocks for function/class defs | done | none (bug fix) |

@@ -193,6 +193,33 @@ def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatc
     assert calls == []
 
 
+def test_if_nested_function_symbol_status_added(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "if TEST_MODE:\n    pass\n"},
+        staged={"a.py": "if TEST_MODE:\n    def configure():\n        pass\n"},
+    )
+    assert changes["a.py"].symbols["configure"][0] == Status.ADDED
+
+
+def test_if_nested_function_symbol_status_deleted(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "if TEST_MODE:\n    def configure():\n        pass\n"},
+        staged={"a.py": "if TEST_MODE:\n    pass\n"},
+    )
+    assert changes["a.py"].symbols["configure"][0] == Status.DELETED
+
+
+def test_if_nested_function_symbol_status_modified(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"a.py": "if TEST_MODE:\n    def configure():\n        return 1\n"},
+        staged={"a.py": "if TEST_MODE:\n    def configure():\n        return 2\n"},
+    )
+    assert changes["a.py"].symbols["configure"][0] == Status.MODIFIED
+
+
 def test_modified_file_imports_split_into_added_removed_unchanged(tmp_path):
     changes = build_changes(
         tmp_path,

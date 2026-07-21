@@ -37,7 +37,7 @@ class PythonAstExtractor:
                     for module in modules:
                         index.import_statements.setdefault(module, []).append((statement, node.lineno))
 
-        for node in tree.body:
+        for node in _iter_symbol_definitions(tree.body):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 index.symbols[node.name] = _symbol(node, node.name, "function", lines)
             elif isinstance(node, ast.ClassDef):
@@ -90,6 +90,23 @@ def _iter_executable_nodes(node: ast.AST) -> Iterator[ast.AST]:
     else:
         for child in ast.iter_child_nodes(node):
             yield from _iter_executable_nodes(child)
+
+
+def _iter_symbol_definitions(
+    statements: list[ast.stmt],
+) -> Iterator[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef]:
+    """Yields the FunctionDef/AsyncFunctionDef/ClassDef nodes directly in
+    `statements`, descending into `if`/`elif`/`else` blocks (mirroring the
+    imports pass) but not into function/class bodies — a def nested inside
+    an `if` is still a real top-level symbol, a def nested inside a
+    function is a closure/local helper and stays out of scope."""
+    for statement in statements:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            yield statement
+        elif isinstance(statement, ast.If):
+            if not _is_type_checking_guard(statement.test):
+                yield from _iter_symbol_definitions(statement.body)
+            yield from _iter_symbol_definitions(statement.orelse)
 
 
 def _is_type_checking_guard(test: ast.expr) -> bool:

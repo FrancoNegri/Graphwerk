@@ -415,6 +415,38 @@ def test_deleted_caller_still_resolves_to_deleted_target_it_actually_called(tmp_
     assert edge.status == Status.DELETED
 
 
+def test_if_nested_caller_deletion_surfaces_deleted_node_and_calls_edge(tmp_path):
+    """Ticket 168 dogfood scenario: a caller defined inside a module-level
+    `if` block must become a real node with a `deleted` status when it's
+    removed, not vanish from both trees with no signal anywhere."""
+    repo, base_ref = make_repo(
+        tmp_path,
+        {
+            "webhook.py": (
+                "from dependencies import get_calendar\n"
+                "\n"
+                "if TEST_MODE:\n"
+                "    def configure_calendar_slots():\n"
+                "        return get_calendar()\n"
+            ),
+            "dependencies.py": "def get_calendar():\n    return 1\n",
+        },
+        {
+            "webhook.py": "from dependencies import get_calendar\n\nif TEST_MODE:\n    pass\n",
+            "dependencies.py": "def get_calendar():\n    return 1\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
+    snapshot = service.snapshot()
+
+    nodes = {n.id: n for n in snapshot.nodes}
+    assert nodes["webhook.py::configure_calendar_slots"].status == Status.DELETED
+    edge = edge_between(
+        snapshot, "webhook.py::configure_calendar_slots", "dependencies.py::get_calendar"
+    )
+    assert edge.status == Status.DELETED
+
+
 def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_path):
     """The edge _mark_affected used to flip its source to AFFECTED still
     reports the target's real status, not "affected" — target status wins."""
