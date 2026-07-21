@@ -3,6 +3,14 @@
 v1 proved the review surface: graph staging area, node states, per-change "why",
 file-level apply, reject-as-re-prompt payload. What follows, in proposed order.
 
+**2026-07-21 (ADR 058):** the shadow-worktree isolation and the apply/
+approval/commit/discard engine that Phase 2 and Phase 3 built below are
+retired — graphwerk no longer stages or mutates files, and reviews the
+developer's own working directory against a recorded base ref instead.
+The bullets below are left as the historical record of what actually
+shipped in those phases; Phase 4 (below) is where the retirement's
+consequences are spelled out.
+
 ## Phase 2 — Real session, end to end (dogfooding) ← **NEXT (chosen July 2026)**
 
 Goal: retire the scripted demo as the only path; review actual Claude Code work.
@@ -40,16 +48,25 @@ Goal: the reject button actually re-prompts the live agent.
   105-109 — this ships the `--resume` machinery the reject flow will reuse;
   the human reject → re-prompt UI stays here.*
 
-## Phase 4 — Apply semantics (the hard problems)
+## Phase 4 — Apply semantics — retired by ADR 058
 
-Goal: graduate from file-level apply.
+*Retired 2026-07-21 (user call): ADR 058, tickets 157-162. The worktree,
+the apply/approval/commit/discard engine (ADR 037, ADR 050), and the
+node-level apply gesture are all removed — graphwerk stops mutating files
+entirely and becomes a review lens over the developer's own git working
+directory. Landing a change is the developer's own `git commit`; undoing
+one is their own `git stash`/`checkout`/`reset`. This makes every goal
+below moot rather than solved:*
 
-- Symbol-level apply: reconstruct the base file with only the selected
-  symbol's change (the differ already works symbol-by-symbol; the writer is
-  the new part). Fall back to file-level on overlap.
-- Change-dependency edges: staged changes that reference each other's symbols
-  get explicit edges + "apply group" (killer feature from the concept doc).
-- Conflict detection: warn when the base file moved under a staged change.
+- ~~Symbol-level apply: reconstruct the base file with only the selected
+  symbol's change.~~ No apply operation exists to extend.
+- Change-dependency edges: kept as a *visual* feature (still valuable to
+  see two changes reference each other) — the "apply group" action is
+  gone along with apply itself.
+- ~~Conflict detection: warn when the base file moved under a staged
+  change.~~ No longer graphwerk's problem — a diverged base is an
+  ordinary git branch situation, resolved with ordinary `git merge`/
+  `git rebase`.
 
 ## Phase 5 — Breadth and polish
 

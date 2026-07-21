@@ -66,3 +66,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [055](055-collapsed-calls-edge-strongest-status.md) | Collapsed `calls`-edge status picks the most severe underlying call, not the first | proposed |
 | [056](056-node-click-isolates-neighbors.md) | Node click isolates its edge-neighborhood; edges become non-selectable so they don't clear it | proposed |
 | [057](057-sidebar-code-scroll-drop-reject-ui.md) | Sidebar: code-only scroll region, drop the reject-comment UI | proposed |
+| [058](058-retire-worktree-single-directory-review.md) | Retire the shadow worktree: graphwerk becomes a single-directory review lens over git | proposed |

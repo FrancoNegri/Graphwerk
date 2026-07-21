@@ -11,26 +11,45 @@ The naive design — an MCP server that absorbs Claude's `Edit`/`Write` calls so
 
 If writes are silently staged elsewhere, the agent's next read returns stale content, multi-step edits stack incoherently, and nothing can be verified. The result is *worse changes* arriving at the review layer. Any design must keep the agent's feedback loop intact.
 
-## The fix: shadow workspace (git worktree)
+## The fix (v1–Phase 3): shadow workspace (git worktree) — retired by ADR 058
 
-Let Claude work in a real but isolated copy of the repo — a **git worktree** (first-class in Claude Code). The agent operates at full capability: real files, real builds, real test runs.
+v1 through Phase 3 let Claude work in a real but isolated copy of the repo
+— a **git worktree** (first-class in Claude Code) — so the agent operated
+at full capability (real files, real builds, real test runs) while the
+graph app treated the delta between the worktree and the developer's
+branch as an unlanded staging area, applied node by node.
 
-The graph app then treats the *delta between the worktree and the developer's branch* as the staged change set:
+**ADR 058 retires this.** Walking through what that isolation actually
+bought (docs/02, product concept) against what it cost (a second
+directory to manage, and an unsolved "base moved under staged" conflict
+problem it created) concluded the isolation was mostly protecting
+graphwerk's own apply/commit engine, not the developer. Removing the
+apply/commit engine (below) removes the reason to keep the second
+directory too. Claude now works directly in the developer's one working
+directory, exactly as a stock Claude Code session does — from a console
+invocation or the graph app's prompt box.
 
-1. **Watch** the worktree for file changes (fs events).
-2. **Diff** worktree vs. base branch.
-3. **Map hunks to symbols** with tree-sitter → each changed class/function becomes a colored node (green = modified, blue = new, red = deleted, yellow = affected caller; ADR 030).
-4. **Apply** = cherry-pick that node's hunks into the developer's working tree.
+The graph app instead treats the *delta between the working directory and
+the git ref it started from* as the change set to review:
 
-Same UX as the original idea; the agent never knows the staging layer exists.
+1. **Watch** the working directory for file changes (fs events).
+2. **Diff** the working directory vs. the recorded base ref (`git show
+   <ref>:<path>` for base content — no second checkout needed).
+3. **Map hunks to symbols** with tree-sitter → each changed class/function
+   becomes a colored node (green = modified, blue = new, red = deleted,
+   yellow = affected caller; ADR 030).
+4. **Land** = the developer's own plain `git commit` (or `git stash`/
+   `checkout`/`reset` to undo) — graphwerk performs no write of its own.
 
 **Fallback/secondary mechanism:** Claude Code PreToolUse hooks *can* intercept and deny `Edit`/`Write` and forward payloads — useful as a signaling channel (e.g., notifying the graph app in real time which tool calls happen), but not as the place changes live.
 
 ## Re-triggering parts of a prompt
 
-Rejecting a node with a comment must become a follow-up message **in the same Claude session**, so the agent keeps its context:
+Telling the agent a specific change is wrong becomes a follow-up message **in the same Claude session**, so the agent keeps its context:
 
 > "The change to `PaymentService` breaks the retry logic because X — redo just that part."
+
+Shipped as the prompt box (ADR 011): the developer types this straight into the graph app, which sends it to the same running session via `SessionRunner`/`SessionCycle`. A structured per-node "reject" affordance existed briefly in v1 and was removed (ADR 057) once the free-form prompt box covered the same need without a redundant second control.
 
 This requires programmatic session control, which nudges the architecture from "passive MCP sidecar" toward **"the graph app is the orchestrator"**:
 
@@ -49,16 +68,28 @@ Each changed node should carry the rationale for its change. Three capture mecha
 
 Caveats: one edit can serve multiple intents (refactor + fix), and narration quality varies — treat rationale as review *assistance*, never as verified truth. The rationale also feeds the rejection flow: "you said X, but the code does Y" is a sharper re-prompt than "redo this."
 
-## The two hard problems
+## The two hard problems (retired as apply problems by ADR 058)
 
-1. **Partial apply within a file.** Two changed methods in one class render as separate nodes, but their hunks can overlap or share context lines. Applying one without the other requires careful hunk surgery (or falling back to file-level apply granularity in v1).
-2. **Change interdependence.** Applying the new `PaymentValidator` class without the call-site change in `CheckoutService` leaves the build broken. Mitigation and killer feature in one: the graph already has call edges, so draw **dependency edges between staged changes** and offer "apply group" as the unit of application.
+These were framed as apply-engine problems through Phase 3; ADR 058
+removes the apply engine, so neither is graphwerk's problem to solve
+anymore — recorded here for history:
+
+1. **Partial apply within a file.** Two changed methods in one class
+   render as separate nodes, but their hunks can overlap or share context
+   lines — applying one without the other would need careful hunk
+   surgery. Moot once there's no apply operation; a partial land is just
+   whatever the developer chooses to `git add -p`/commit themselves.
+2. **Change interdependence.** A new `PaymentValidator` class is useless
+   without the call-site change in `CheckoutService` that uses it. The
+   graph still draws this as a **dependency edge between changed nodes**
+   (still valuable to *see*), but there's no "apply group" action to
+   offer — the developer commits both, or neither, with their own git.
 
 ## Proposed stack
 
 | Concern | Choice | Why |
 |---|---|---|
-| Isolation | git worktree | Agent works normally; delta is the staging area |
+| Isolation | none — the developer's working directory | ADR 058: agent works in the real repo; delta is against a recorded base ref, not a second tree |
 | Parsing / symbol mapping | tree-sitter | Broad language coverage, fast incremental parsing |
 | Graph rendering | Cytoscape.js | Compound nodes (file ⊃ class ⊃ function) natively |
 | Agent control | Claude Agent SDK | Persistent sessions for targeted re-prompting |
@@ -75,3 +106,5 @@ Goal: test whether the graph is actually a better review surface than a diff, *b
 4. **No apply button yet.** If reviewing on the graph doesn't beat reading the diff, stop there.
 
 Phase 2 (if validated): file-level apply via `git checkout <worktree> -- <file>` equivalents → hunk-level apply → change-dependency edges → SDK-driven re-prompting.
+
+*(Historical: this is the worktree-based path v1 through Phase 3 actually built. ADR 058 retires the worktree and the apply engine described above; see "The fix" section earlier in this doc for the current model.)*

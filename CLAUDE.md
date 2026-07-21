@@ -52,8 +52,12 @@ count as an architectural decision — run `north-star` first.
 
 ## Architecture invariants
 
-- The agent must keep a real filesystem to work in (git worktree) — never
-  intercept/absorb its writes (docs/03, "the trap").
+- The agent must keep a real filesystem to work in — never intercept/
+  absorb its writes (docs/03, "the trap"). As of ADR 058, that filesystem
+  is the developer's own working directory, not an isolated git worktree:
+  graphwerk no longer stages or mutates files, only diffs the working
+  directory against a recorded base git ref. Landing/undoing a change is
+  the developer's own plain git operation, not a graphwerk endpoint.
 - The differ compares symbols by qualified name across two parsed trees —
   no hunk-to-symbol mapping. Keep new features consistent with that model.
 - `FileIndex`/`SymbolInfo` is the language-neutral contract; new languages

@@ -168,3 +168,9 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [154](154-edges-non-selectable.md) | Edges become non-selectable so clicking one doesn't clear the selected node | done | [056](../decisions/056-node-click-isolates-neighbors.md) |
 | [155](155-sidebar-code-only-scroll.md) | Sidebar: only the code section scrolls | done | [057](../decisions/057-sidebar-code-scroll-drop-reject-ui.md) |
 | [156](156-remove-reject-comment-ui.md) | Remove the reject-comment UI affordance | done | [057](../decisions/057-sidebar-code-scroll-drop-reject-ui.md) |
+| [157](157-differ-reads-base-via-git-ref.md) | Differ reads base content via a git ref, not a second directory | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [158](158-retire-worktree-from-start-and-serve.md) | Retire the worktree from `start`/`serve` | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [159](159-delete-mutation-engines-and-endpoints.md) | Delete the file-mutation engines and their endpoints | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [160](160-drop-approved-field-and-mutation-ui.md) | Drop `GraphNode.approved` and the approve/commit/discard UI | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [161](161-sessions-operate-on-working-directory.md) | Sessions and checks operate on the working directory, not a worktree path | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [162](162-demo-builds-one-repo-and-a-base-ref.md) | `graphwerk demo` builds one repo + a base ref, not two demo trees | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
