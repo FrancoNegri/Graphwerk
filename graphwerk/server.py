@@ -10,10 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.gzip import GZipMiddleware
 
-from graphwerk.comparisons import WORKING_TREE_TOKEN
+from graphwerk.comparisons import WORKING_TREE_TOKEN, ComparisonRegistry
 from graphwerk.cycle import SessionCycle
 from graphwerk.refs import list_refs
-from graphwerk.service import GraphService
 from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -25,7 +24,7 @@ class PromptRequest(BaseModel):
     scope: str | None = None
 
 
-def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
+def create_app(registry: ComparisonRegistry, runner: SessionCycle) -> FastAPI:
     app = FastAPI(title="graphwerk")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -34,20 +33,26 @@ def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
         return FileResponse(STATIC_DIR / "index.html")
 
     @app.get("/api/graph")
-    def graph():
+    def graph(base: str | None = None, staged: str | None = None):
+        # Omitting either/both param falls back to the registry's
+        # CLI-configured default pair, so a param-less request is
+        # byte-for-byte the same response as before this pair became
+        # selectable (ADR 060 / ticket 173).
+        service = registry.get(base, staged)
         # to_dict() already yields plain str/int/float/bool/None/list/dict —
         # returning JSONResponse directly skips FastAPI's jsonable_encoder
         # pass, which otherwise dominates response time on large graphs.
         return JSONResponse({
             # base is a git ref (often a commit sha), not a directory (ADR 058)
             "base": service.base_ref,
-            "staged": str(service.repo_root),
+            "staged": str(service.repo_root) if service.staged_ref == WORKING_TREE_TOKEN else service.staged_ref,
             "hash": service.state_hash(),
             **service.snapshot().to_dict(),
         })
 
     @app.get("/api/hash")
-    def state_hash():
+    def state_hash(base: str | None = None, staged: str | None = None):
+        service = registry.get(base, staged)
         return {"hash": service.state_hash()}
 
     @app.get("/api/refs")
@@ -58,7 +63,7 @@ def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
         working_tree_entry = {
             "ref": WORKING_TREE_TOKEN, "label": "working directory, uncommitted", "kind": "working_tree"
         }
-        return [working_tree_entry, *list_refs(service.repo_root)]
+        return [working_tree_entry, *list_refs(registry.repo_root)]
 
     @app.post("/api/prompt")
     def prompt(req: PromptRequest):

@@ -6,11 +6,9 @@ from fastapi.testclient import TestClient
 import time
 from pathlib import Path
 
-from graphwerk.comparisons import WORKING_TREE_TOKEN
+from graphwerk.comparisons import ComparisonRegistry, WORKING_TREE_TOKEN
 from graphwerk.cycle import SessionCycle
-from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
-from graphwerk.service import GraphService
 from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 
@@ -59,10 +57,8 @@ def stub_runner():
 def client(tmp_path, stub_runner):
     staged = tmp_path / "staged"
     staged.mkdir()
-    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged)
-    service = GraphService(staged, "HEAD", rationale)
-    return TestClient(create_app(service, stub_runner))
+    registry = ComparisonRegistry(staged, "HEAD", sidecar_path=staged / ".graphwerk" / "rationale.json")
+    return TestClient(create_app(registry, stub_runner))
 
 
 def test_prompt_starts_a_run_and_returns_its_status(client, stub_runner):
@@ -158,10 +154,8 @@ def make_cycle_client(tmp_path, check_command, max_retries=1):
     staged.mkdir()
     stub_runner = StubRunner(repo_root=staged)
     cycle = SessionCycle(stub_runner, check_command, max_retries=max_retries)
-    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged)
-    service = GraphService(staged, "HEAD", rationale)
-    client = TestClient(create_app(service, cycle))
+    registry = ComparisonRegistry(staged, "HEAD", sidecar_path=staged / ".graphwerk" / "rationale.json")
+    client = TestClient(create_app(registry, cycle))
     return client, stub_runner
 
 
@@ -261,10 +255,8 @@ def test_graph_endpoint_compresses_large_responses(tmp_path, stub_runner):
     source = "def f():\n    pass\n" * 200  # comfortably past the gzip floor
     (base / "a.py").write_text(source)
     (staged / "a.py").write_text(source)
-    rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged)
-    service = GraphService(staged, "HEAD", rationale)
-    client = TestClient(create_app(service, stub_runner))
+    registry = ComparisonRegistry(staged, "HEAD", sidecar_path=staged / ".graphwerk" / "rationale.json")
+    client = TestClient(create_app(registry, stub_runner))
 
     response = client.get("/api/graph", headers={"Accept-Encoding": "gzip"})
 
@@ -291,10 +283,11 @@ def _git(repo: Path, *args: str) -> str:
     return result.stdout
 
 
-def _commit(repo: Path, message: str) -> None:
+def _commit(repo: Path, message: str) -> str:
     _git(repo, "add", "-A")
     _git(repo, "-c", "user.email=test@graphwerk.local", "-c", "user.name=test",
          "commit", "-q", "-m", message, "--allow-empty")
+    return _git(repo, "rev-parse", "HEAD").strip()
 
 
 def make_git_backed_client(tmp_path, stub_runner):
@@ -305,10 +298,26 @@ def make_git_backed_client(tmp_path, stub_runner):
     _commit(repo, "second")
     _git(repo, "tag", "v1.0")
     _git(repo, "branch", "feature-x")
-    rationale = RationaleStore(sidecar_path=repo / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=repo)
-    service = GraphService(repo, "HEAD", rationale)
-    return TestClient(create_app(service, stub_runner))
+    registry = ComparisonRegistry(repo, "HEAD", sidecar_path=repo / ".graphwerk" / "rationale.json")
+    return TestClient(create_app(registry, stub_runner))
+
+
+def make_two_commit_repo_client(tmp_path, stub_runner):
+    """A repo with two commits touching the same symbol, plus a further
+    uncommitted change on top, so the working tree, the second commit, and
+    the first commit are all distinguishable (mirrors test_comparisons.py's
+    fixture, but exercised through the live HTTP surface)."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "a.py").write_text("def foo():\n    return 1\n")
+    first = _commit(repo, "first")
+    (repo / "a.py").write_text("def foo():\n    return 2\n")
+    second = _commit(repo, "second")
+    (repo / "a.py").write_text("def foo():\n    return 3\n")  # uncommitted
+    registry = ComparisonRegistry(repo, first, sidecar_path=repo / ".graphwerk" / "rationale.json")
+    client = TestClient(create_app(registry, stub_runner))
+    return client, first, second
 
 
 def test_refs_endpoint_lists_branches_tags_commits_and_working_directory(tmp_path, stub_runner):
@@ -337,3 +346,48 @@ def test_refs_endpoint_is_just_the_working_directory_for_a_non_git_repo(client):
     assert response.json() == [
         {"ref": WORKING_TREE_TOKEN, "label": "working directory, uncommitted", "kind": "working_tree"}
     ]
+
+
+def test_graph_endpoint_with_no_params_matches_the_default_pair_explicitly_requested(tmp_path, stub_runner):
+    """Ticket 173: omitting both params must fall back to the registry's
+    CLI-configured default pair (today's base_ref vs. the working
+    directory) byte-for-byte — pinned here by comparing against the same
+    pair requested explicitly."""
+    client, first, _second = make_two_commit_repo_client(tmp_path, stub_runner)
+
+    default_response = client.get("/api/graph")
+    explicit_default_response = client.get("/api/graph", params={"base": first, "staged": WORKING_TREE_TOKEN})
+
+    assert default_response.status_code == 200
+    assert default_response.json() == explicit_default_response.json()
+    foo = next(n for n in default_response.json()["nodes"] if n["id"] == "a.py::foo")
+    assert "return 3" in foo["diff"]  # the uncommitted working-tree version
+    assert default_response.json()["base"] == first
+    assert default_response.json()["staged"] == str(tmp_path / "repo")
+
+
+def test_graph_endpoint_resolves_an_explicit_historical_pair(tmp_path, stub_runner):
+    """Ticket 173: an explicit (base, staged) pair resolves through the
+    registry and reflects that pair's diff, not the default one."""
+    client, first, second = make_two_commit_repo_client(tmp_path, stub_runner)
+
+    response = client.get("/api/graph", params={"base": first, "staged": second})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["base"] == first
+    assert payload["staged"] == second
+    foo = next(n for n in payload["nodes"] if n["id"] == "a.py::foo")
+    assert "return 2" in foo["diff"]
+
+
+def test_hash_endpoint_accepts_base_and_staged_params(tmp_path, stub_runner):
+    client, first, second = make_two_commit_repo_client(tmp_path, stub_runner)
+
+    default_response = client.get("/api/hash")
+    explicit_response = client.get("/api/hash", params={"base": first, "staged": second})
+
+    assert default_response.status_code == 200
+    assert explicit_response.status_code == 200
+    assert "hash" in default_response.json()
+    assert "hash" in explicit_response.json()
