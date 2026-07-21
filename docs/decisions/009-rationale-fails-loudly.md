@@ -74,6 +74,18 @@ the one failure mode dogfooding has already produced:
   agent back into it), logic stays in Python, JS stays a consumer, no new
   dependency.
 
+## Update (ticket 164, 2026-07-21)
+
+Item 2 (the misplaced-session hint) is removed. ADR 058 collapsed
+`--base`/`--staged` into a single working directory, so `RationaleStore`
+is always constructed with the same path for both — the base-tree probe
+this item described can never fire, and its wording (a second "staging
+worktree", `--base`/`--staged` swapped) describes flags and a directory
+that no longer exist. Item 1 (the `meta.rationale` block, including the
+general `warning` slot) and item 3 (the UI banner) are unaffected: nothing
+currently populates `warning`, but the slot and the banner that would
+render it stay in place for whatever future check needs them.
+
 ## Out of scope
 
 - Auto-adopting a base-tree transcript as the rationale source (never —

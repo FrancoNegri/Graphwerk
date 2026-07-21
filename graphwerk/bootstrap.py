@@ -18,7 +18,7 @@ def build_app(repo: Path, base_ref: str, sidecar: Path | None, transcript: Path 
               agent_permissions: str,
               check_command: str | None = None, check_retries: int = 1) -> FastAPI:
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
-                               staged_root=repo, base_root=repo)
+                               staged_root=repo)
     service = GraphService(repo, base_ref, rationale)
     runner = SessionRunner(repo, permission_mode=agent_permissions,
                            system_prompt=SESSION_GUIDANCE)

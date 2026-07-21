@@ -53,12 +53,10 @@ def stub_runner():
 
 @pytest.fixture
 def client(tmp_path, stub_runner):
-    base = tmp_path / "base"
     staged = tmp_path / "staged"
-    base.mkdir()
     staged.mkdir()
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged, base_root=base)
+                               transcript_path=None, staged_root=staged)
     service = GraphService(staged, "HEAD", rationale)
     return TestClient(create_app(service, stub_runner))
 
@@ -152,14 +150,12 @@ def test_session_returns_runner_status_snapshot(client, stub_runner):
 
 
 def make_cycle_client(tmp_path, check_command, max_retries=1):
-    base = tmp_path / "base"
     staged = tmp_path / "staged"
-    base.mkdir()
     staged.mkdir()
     stub_runner = StubRunner(repo_root=staged)
     cycle = SessionCycle(stub_runner, check_command, max_retries=max_retries)
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged, base_root=base)
+                               transcript_path=None, staged_root=staged)
     service = GraphService(staged, "HEAD", rationale)
     client = TestClient(create_app(service, cycle))
     return client, stub_runner
@@ -262,7 +258,7 @@ def test_graph_endpoint_compresses_large_responses(tmp_path, stub_runner):
     (base / "a.py").write_text(source)
     (staged / "a.py").write_text(source)
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
-                               transcript_path=None, staged_root=staged, base_root=base)
+                               transcript_path=None, staged_root=staged)
     service = GraphService(staged, "HEAD", rationale)
     client = TestClient(create_app(service, stub_runner))
 

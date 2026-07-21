@@ -174,3 +174,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [160](160-drop-approved-field-and-mutation-ui.md) | Drop `GraphNode.approved` and the approve/commit/discard UI | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [161](161-sessions-operate-on-working-directory.md) | Sessions and checks operate on the working directory, not a worktree path | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [162](162-demo-builds-one-repo-and-a-base-ref.md) | `graphwerk demo` builds one repo + a base ref, not two demo trees | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [164](164-drop-dead-misplaced-session-warning.md) | Drop the dead misplaced-session warning and its retired-flag wording | done | [audit 002](../audit/runs/002-2026-07-21.md) |
