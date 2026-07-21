@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from graphwerk.approval import ApprovalStore
 from graphwerk.discard import DiscardEngine
 from graphwerk.rationale import RationaleStore
 from graphwerk.service import GraphService
@@ -49,7 +48,7 @@ def test_discard_all_round_trips_to_a_clean_diff(tmp_path):
     assert (staged / "del.py").read_text() == "def gone():\n    pass\n"
     assert not (staged / "new.py").exists()
 
-    service = GraphService(base, staged, RationaleStore(staged_root=staged), ApprovalStore(staged))
+    service = GraphService(base, staged, RationaleStore(staged_root=staged))
     statuses = {node.status.value for node in service.snapshot().nodes}
     assert statuses <= {"unchanged"}
 

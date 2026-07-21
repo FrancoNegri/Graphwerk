@@ -64,7 +64,7 @@ def client(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -169,7 +169,7 @@ def make_cycle_client(tmp_path, check_command, max_retries=1):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -276,7 +276,7 @@ def test_graph_endpoint_compresses_large_responses(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -305,7 +305,7 @@ def test_commit_endpoint_returns_paths_and_hash(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -368,7 +368,7 @@ def test_discard_endpoint_reverts_the_staged_changes(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -391,7 +391,7 @@ def test_apply_endpoint_marks_approval_without_writing_to_base(tmp_path, stub_ru
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -413,7 +413,7 @@ def test_unapprove_endpoint_undoes_approval(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -436,7 +436,7 @@ def test_discard_endpoint_clears_all_approvals(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)
@@ -459,7 +459,7 @@ def test_reject_endpoint_unapproves_the_rejected_path(tmp_path, stub_runner):
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)
     approval_store = ApprovalStore(staged)
-    service = GraphService(staged, "HEAD", rationale, approval_store)
+    service = GraphService(staged, "HEAD", rationale)
     engine = ApplyEngine(base, staged)
     commit_engine = CommitEngine(base, engine, service.builder, approval_store)
     discard_engine = DiscardEngine(base, staged, service.builder)

@@ -57,12 +57,6 @@ const pinnedEdgeIds = new Set();
 // every node is visible. Cleared by tapping empty canvas, recomputed by
 // tapping a different node.
 let isolatedNodeId = null;
-// Recomputed on every loadGraph() from the server-held ApprovalStore (ADR
-// 050) — never client-tracked, so a reload always shows the real count.
-let approvedFileCount = 0;
-// Mirrors renderSessionState's busy check; kept alongside approvedFileCount
-// since the commit button's disabled state depends on both.
-let sessionBusy = false;
 
 async function loadGraph() {
   if (loadGraphInFlight) return;
@@ -80,14 +74,9 @@ async function loadGraph() {
     document.getElementById("paths").innerHTML =
       `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
     renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
-    minedCommitMessage = data.meta ? data.meta.commit_message : null;
-    maybeFillCommitMessageBox();
 
     groupTints = buildGroupTints(data.nodes);
     renderGroupLegend(groupTints);
-
-    approvedFileCount = data.nodes.filter((n) => n.kind === "file" && n.approved).length;
-    renderCommitButton();
 
     const elements = toElements(data);
     if (cy && sameTopology(elements)) {
@@ -702,12 +691,6 @@ function showDetails(node) {
   } else if (hasCode) {
     document.getElementById("d-code").innerHTML = renderCode(node.code);
   }
-
-  const changed = ["modified", "added", "deleted"].includes(node.status);
-  const applyBtn = document.getElementById("btn-apply");
-  applyBtn.hidden = !changed;
-  applyBtn.textContent = node.approved ? `Unapprove file ${node.path}` : `Approve file ${node.path}`;
-  applyBtn.onclick = () => toggleApproval(node.path, node.approved);
 }
 
 function clearDetails() {
@@ -785,18 +768,6 @@ function renderCallPair({ source, target, status, via_imports }) {
     .map(({ id, node, imports }) => `<section><h3>${esc(qualifiedLabel(id))}</h3>${imports}<div class="code">${renderCode(node.code)}</div></section>`)
     .join("");
   return `<details class="call-pair"><summary>${summary}</summary>${body}</details>`;
-}
-
-async function toggleApproval(path, currentlyApproved) {
-  const endpoint = currentlyApproved ? "/api/unapprove" : "/api/apply";
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path }),
-  });
-  const data = await res.json();
-  toast(res.ok ? `✓ ${data.approved ? "approved" : "unapproved"} ${path}` : `error: ${data.detail}`);
-  if (res.ok) loadGraph();
 }
 
 // The leaf symbol kinds "changed methods" mode narrows a container down to
@@ -919,9 +890,6 @@ function renderSessionState(session) {
   const busy = SESSION_BUSY_STATES.includes(session.state);
   document.getElementById("prompt-input").disabled = busy;
   document.getElementById("prompt-send").disabled = busy;
-  sessionBusy = busy;
-  renderCommitButton();
-  document.getElementById("btn-discard").disabled = busy;
   const continueCheckbox = document.getElementById("continue-session");
   continueCheckbox.disabled = busy || !session.session_id;
   if (continueCheckbox.disabled) continueCheckbox.checked = false;
@@ -934,12 +902,9 @@ function renderSessionState(session) {
   if ((session.state === "done" || session.state === "check_failed") && session.session_id
       && session.session_id !== completedSessionId) {
     completedSessionId = session.session_id;
-    // the mined message in hand predates this session — refetch to re-mine
-    minedCommitMessage = null;
     loadGraph();
     if (session.state === "done" && session.check_configured) toast(formatCheckPassedToast(session));
   }
-  maybeFillCommitMessageBox();
   maybeAppendDesignDialogueTurn(session);
 }
 
@@ -1046,60 +1011,7 @@ document.getElementById("check-banner-dismiss").addEventListener("click", () => 
   document.getElementById("check-banner").hidden = true;
 });
 
-// The box is overwritten only when a *new* session's mined message arrives;
-// routine refetches never clobber the reviewer's edits (ADR 037).
 let completedSessionId = null;
-let filledForSessionId = null;
-let minedCommitMessage = null;
-
-function maybeFillCommitMessageBox() {
-  if (!completedSessionId || completedSessionId === filledForSessionId) return;
-  if (minedCommitMessage == null) return;
-  document.getElementById("commit-message").value = minedCommitMessage;
-  filledForSessionId = completedSessionId;
-}
-
-function showCommitError(message) {
-  const error = document.getElementById("commit-error");
-  error.hidden = !message;
-  error.textContent = message || "";
-}
-
-function renderCommitButton() {
-  const btn = document.getElementById("btn-commit");
-  btn.textContent = `Commit ${approvedFileCount} approved file${approvedFileCount === 1 ? "" : "s"}`;
-  btn.disabled = sessionBusy || approvedFileCount === 0;
-}
-
-document.getElementById("btn-commit").addEventListener("click", async () => {
-  showCommitError(null);
-  const box = document.getElementById("commit-message");
-  const res = await fetch("/api/commit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: box.value.trim() }),
-  });
-  const data = await res.json();
-  if (res.ok) {
-    toast(`✓ committed ${data.commit} (${data.paths.length} file${data.paths.length === 1 ? "" : "s"})`);
-    box.value = "";
-  } else {
-    showCommitError(data.detail);
-  }
-});
-
-document.getElementById("btn-discard").addEventListener("click", async () => {
-  showCommitError(null);
-  if (!confirm("Discard all staged changes? The agent's work in the staging tree is lost.")) return;
-  const res = await fetch("/api/discard", { method: "POST" });
-  const data = await res.json();
-  if (res.ok) {
-    toast(`✓ discarded ${data.paths.length} file${data.paths.length === 1 ? "" : "s"}`);
-    document.getElementById("commit-message").value = "";
-  } else {
-    showCommitError(data.detail);
-  }
-});
 
 document.getElementById("prompt-form").addEventListener("submit", async (event) => {
   event.preventDefault();

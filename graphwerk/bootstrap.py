@@ -24,7 +24,7 @@ def build_app(repo: Path, base_ref: str, sidecar: Path | None, transcript: Path 
     rationale = RationaleStore(sidecar_path=sidecar, transcript_path=transcript,
                                staged_root=repo, base_root=repo)
     approval_store = ApprovalStore(repo)
-    service = GraphService(repo, base_ref, rationale, approval_store)
+    service = GraphService(repo, base_ref, rationale)
     # ADR 058: there is no second directory anymore — base and staged are
     # both `repo`. The mutation engines below become unreachable in
     # practice (ticket 159 deletes them and their endpoints); they're wired

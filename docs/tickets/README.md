@@ -171,6 +171,6 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [157](157-differ-reads-base-via-git-ref.md) | Differ reads base content via a git ref, not a second directory | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [158](158-retire-worktree-from-start-and-serve.md) | Retire the worktree from `start`/`serve` | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [159](159-delete-mutation-engines-and-endpoints.md) | Delete the file-mutation engines and their endpoints | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
-| [160](160-drop-approved-field-and-mutation-ui.md) | Drop `GraphNode.approved` and the approve/commit/discard UI | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
+| [160](160-drop-approved-field-and-mutation-ui.md) | Drop `GraphNode.approved` and the approve/commit/discard UI | done | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [161](161-sessions-operate-on-working-directory.md) | Sessions and checks operate on the working directory, not a worktree path | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |
 | [162](162-demo-builds-one-repo-and-a-base-ref.md) | `graphwerk demo` builds one repo + a base ref, not two demo trees | ready | [058](../decisions/058-retire-worktree-single-directory-review.md) |

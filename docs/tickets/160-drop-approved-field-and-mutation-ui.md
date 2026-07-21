@@ -1,6 +1,6 @@
 # 160. Drop `GraphNode.approved` and the approve/commit/discard UI
 
-Status: ready
+Status: done
 Decision: docs/decisions/058-retire-worktree-single-directory-review.md
 
 ## Goal

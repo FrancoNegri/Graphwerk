@@ -2,7 +2,6 @@ import json
 import subprocess
 from pathlib import Path
 
-from graphwerk.approval import ApprovalStore
 from graphwerk.models import Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.service import GraphService, ModuleFileResolver
@@ -61,10 +60,9 @@ def without_code(via_imports: list) -> list:
     return [{key: entry[key] for key in ("module", "status")} for entry in via_imports]
 
 
-def make_service(tmp_path: Path, files: dict[str, str],
-                 approval_store: ApprovalStore | None = None) -> GraphService:
+def make_service(tmp_path: Path, files: dict[str, str]) -> GraphService:
     repo, base_ref = make_repo(tmp_path, files)
-    return GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store or ApprovalStore(repo))
+    return GraphService(repo, base_ref, RationaleStore(staged_root=repo))
 
 
 def test_src_layout_import_resolves_to_package_root_file(tmp_path):
@@ -99,7 +97,7 @@ def test_exact_dotted_path_wins_over_ambiguous_suffix():
 def test_symbol_nodes_carry_staged_source(tmp_path):
     repo, base_ref = make_repo(
         tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
     assert nodes["a.py::f"].source == "def f():\n    return 2\n"
 
@@ -110,7 +108,7 @@ def test_deleted_symbol_carries_base_source(tmp_path):
         {"a.py": "def gone():\n    return 1\n\ndef kept():\n    pass\n"},
         {"a.py": "def kept():\n    pass\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
     assert nodes["a.py::gone"].source == "def gone():\n    return 1\n"
 
@@ -125,7 +123,7 @@ def test_file_nodes_carry_full_source_text(tmp_path):
 def test_modified_symbol_code_interleaves_del_lines_with_spans(tmp_path):
     repo, base_ref = make_repo(
         tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     code = nodes["a.py::f"].code
@@ -146,7 +144,7 @@ def test_unchanged_node_code_is_all_context(tmp_path):
 
 def test_added_file_nodes_code_is_all_added(tmp_path):
     repo, base_ref = make_repo(tmp_path, {}, {"new.py": "def f():\n    return 1\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     for node_id in ("new.py", "new.py::f"):
@@ -157,7 +155,7 @@ def test_added_file_nodes_code_is_all_added(tmp_path):
 
 def test_deleted_file_nodes_code_is_all_removed(tmp_path):
     repo, base_ref = make_repo(tmp_path, {"old.py": "def f():\n    return 1\n"}, {})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     for node_id in ("old.py", "old.py::f"):
@@ -172,58 +170,10 @@ def test_unreadable_file_node_code_is_none(tmp_path):
     (repo / "junk.py").write_bytes(b"\xff\xfe not utf-8 \xff")
     base_ref = commit_repo(repo)
     (repo / "junk.py").write_bytes(b"\xff\xfe still not utf-8 \xff")
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["junk.py"].code is None
-
-
-def test_snapshot_marks_file_node_approved_from_approval_store(tmp_path):
-    repo, base_ref = make_repo(
-        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(repo)
-    approval_store.approve("a.py")
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
-
-    nodes = {n.id: n for n in service.snapshot().nodes}
-
-    assert nodes["a.py"].approved is True
-
-
-def test_snapshot_unapproved_file_node_is_not_approved(tmp_path):
-    repo, base_ref = make_repo(
-        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
-
-    nodes = {n.id: n for n in service.snapshot().nodes}
-
-    assert nodes["a.py"].approved is False
-
-
-def test_snapshot_symbol_node_is_never_approved(tmp_path):
-    repo, base_ref = make_repo(
-        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(repo)
-    approval_store.approve("a.py")
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
-
-    nodes = {n.id: n for n in service.snapshot().nodes}
-
-    assert nodes["a.py::f"].approved is False
-
-
-def test_snapshot_approval_evaporates_after_the_staged_file_changes(tmp_path):
-    repo, base_ref = make_repo(
-        tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    approval_store = ApprovalStore(repo)
-    approval_store.approve("a.py")
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), approval_store)
-    assert service.snapshot().nodes[0].approved is True
-
-    (repo / "a.py").write_text("def f():\n    return 3\n" * 50)
-
-    nodes = {n.id: n for n in service.snapshot().nodes}
-    assert nodes["a.py"].approved is False
 
 
 def test_serialized_node_carries_code_but_not_source(tmp_path):
@@ -254,7 +204,7 @@ def test_snapshot_meta_message_flags_changes_without_any_rationale_source(tmp_pa
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     repo, base_ref = make_repo(
         tmp_path, {"a.py": "def f():\n    return 1\n"}, {"a.py": "def f():\n    return 2\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
 
     message = service.snapshot().meta["rationale"]["message"]
     assert message is not None
@@ -294,7 +244,7 @@ def test_snapshot_marks_low_confidence_why_from_proximity_fallback(tmp_path):
         assistant_entry(text_block("Final: `business.py` implements the core rules.")),
     ])
     rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
-    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
+    service = GraphService(repo, base_ref, rationale)
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["business.py"].why_confident is True
@@ -314,7 +264,7 @@ def test_snapshot_symbol_node_carries_why_confidence(tmp_path):
         assistant_entry(text_block("Final: `core` now returns the updated value.")),
     ])
     rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
-    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
+    service = GraphService(repo, base_ref, rationale)
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["business.py::core"].why_confident is True
@@ -340,7 +290,7 @@ def test_snapshot_marks_describes_only_why_from_a_guidance_bullet(tmp_path):
         assistant_entry(text_block("- `deps.py`: FastAPI dependency-injection providers.")),
     ])
     rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
-    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
+    service = GraphService(repo, base_ref, rationale)
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["deps.py"].why_justifies is False
@@ -362,7 +312,7 @@ def test_snapshot_marks_justifying_why_from_a_guidance_bullet(tmp_path):
         )),
     ])
     rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
-    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
+    service = GraphService(repo, base_ref, rationale)
     nodes = {n.id: n for n in service.snapshot().nodes}
 
     assert nodes["flags.py"].why_justifies is True
@@ -381,7 +331,7 @@ def test_calls_edge_into_modified_target_has_modified_status(tmp_path):
         {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"},
         {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::caller", "a.py::target")
@@ -394,7 +344,7 @@ def test_calls_edge_into_added_target_has_added_status(tmp_path):
         {"a.py": "def caller():\n    return 1\n"},
         {"a.py": "def caller():\n    return new_func()\n\ndef new_func():\n    return 2\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::caller", "a.py::new_func")
@@ -414,7 +364,7 @@ def test_unchanged_caller_does_not_resolve_to_deleted_target_it_no_longer_calls(
         {"a.py": "def gone():\n    return 1\n\ndef caller():\n    return gone()\n"},
         {"a.py": "def caller():\n    return gone()\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     assert ("a.py::caller", "a.py::gone") not in calls_edge_pairs(snapshot)
@@ -429,7 +379,7 @@ def test_unchanged_caller_does_not_resolve_to_deleted_target_in_another_file(tmp
         },
         {"a.py": "def caller():\n    return helper()\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     assert ("a.py::caller", "b.py::helper") not in calls_edge_pairs(snapshot)
@@ -444,7 +394,7 @@ def test_deleted_caller_does_not_resolve_to_added_target_with_same_name(tmp_path
         {"a.py": "def gone():\n    return helper()\n"},
         {"b.py": "def helper():\n    return 1\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     assert ("a.py::gone", "b.py::helper") not in calls_edge_pairs(snapshot)
@@ -458,7 +408,7 @@ def test_deleted_caller_still_resolves_to_deleted_target_it_actually_called(tmp_
         {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"},
         {},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::gone", "a.py::helper")
@@ -473,7 +423,7 @@ def test_calls_edge_that_causes_affected_status_keeps_targets_own_status(tmp_pat
         {"a.py": "def target():\n    return 1\n\ndef caller():\n    return target()\n"},
         {"a.py": "def target():\n    return 2\n\ndef caller():\n    return target()\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -494,7 +444,7 @@ def test_calls_edge_to_unrelated_unchanged_target_has_unchanged_status(tmp_path)
             "b.py": "def other():\n    return 2\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "a.py::runner", "a.py::helper")
@@ -509,7 +459,7 @@ def test_calls_edge_from_deleted_source_to_unchanged_target_has_deleted_status(t
         {"a.py": "def helper():\n    return 1\n\ndef gone():\n    return helper()\n"},
         {"a.py": "def helper():\n    return 1\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -527,7 +477,7 @@ def test_calls_edge_from_added_source_to_unchanged_target_has_added_status(tmp_p
         {"a.py": "def helper():\n    return 1\n"},
         {"a.py": "def helper():\n    return 1\n\ndef new_caller():\n    return helper()\n"},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -558,7 +508,7 @@ def test_calls_edge_to_unrelated_target_from_affected_source_has_unchanged_statu
             ),
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     nodes = {n.id: n for n in snapshot.nodes}
@@ -725,7 +675,7 @@ def test_deleted_caller_resolves_transitive_target_through_base_tree_chain(tmp_p
         },
         {},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     assert ("caller.py::gone", "pkg/inner.py::Thing") in calls_edge_pairs(snapshot)
@@ -749,7 +699,7 @@ def test_unchanged_caller_does_not_resolve_transitively_through_base_only_hop(tm
             "caller.py": "from pkg import Thing\n\ndef run():\n    return Thing()\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     assert ("caller.py::run", "pkg/inner.py::Thing") not in calls_edge_pairs(snapshot)
@@ -778,7 +728,7 @@ def test_cross_file_calls_edge_names_added_admitting_import(tmp_path):
             "helper.py": "def do_work():\n    return 1\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
@@ -826,7 +776,7 @@ def test_deleted_caller_derives_via_imports_from_base_imports(tmp_path):
         },
         {},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -845,7 +795,7 @@ def test_added_import_entry_carries_statement_as_add_code_line(tmp_path):
             "helper.py": "def do_work():\n    return 1\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::run", "helper.py::do_work")
@@ -866,7 +816,7 @@ def test_deleted_caller_import_entry_code_comes_from_base_statement(tmp_path):
         },
         {},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -909,7 +859,7 @@ def test_deleted_caller_import_containment_resolves_in_base(tmp_path):
         },
         {},
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "caller.py::gone", "helper.py::do_work")
@@ -979,7 +929,7 @@ def test_imports_edge_status_stays_unchanged_even_when_endpoints_changed(tmp_pat
             "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -998,7 +948,7 @@ def test_imports_edge_for_added_import_has_added_status_and_module(tmp_path):
             "consumer.py": "import producer\n\ndef g():\n    return producer.f()\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -1018,7 +968,7 @@ def test_imports_edge_for_removed_import_still_appears_with_deleted_status(tmp_p
             "consumer.py": "def g():\n    return 1\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
 
     edge = edge_between(snapshot, "consumer.py", "producer.py", kind="imports")
@@ -1075,7 +1025,7 @@ def test_reference_edge_added_status_reflects_new_link(tmp_path):
             "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/046-thing.md\n",
         },
     )
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
     edge = edge_between(
         snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
@@ -1125,7 +1075,7 @@ def test_mixed_tree_nodes_carry_domain_matching_their_extractor(tmp_path):
 
 def test_state_hash_changes_when_a_markdown_heading_changes(tmp_path):
     repo, base_ref = make_repo(tmp_path, {"doc.md": "# Title\n\n## Section\nold body\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     before = service.state_hash()
 
     (repo / "doc.md").write_text("# Title\n\n## Section\nnew body\n")
@@ -1184,7 +1134,7 @@ def test_second_snapshot_call_recomputes_no_code_views(tmp_path, monkeypatch):
 def test_touching_one_files_text_recomputes_only_its_code_views(tmp_path, monkeypatch):
     repo, base_ref = make_repo(
         tmp_path, {"a.py": "def f():\n    return 1\n", "b.py": "def g():\n    return 1\n"})
-    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo), ApprovalStore(repo))
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     service.snapshot()
 
     write_tree(repo, {"a.py": "def f():\n    return 2\n"})
@@ -1230,7 +1180,7 @@ def test_snapshot_meta_carries_the_mined_commit_message(tmp_path):
         )),
     ])
     rationale = RationaleStore(staged_root=repo, transcript_path=transcript)
-    service = GraphService(repo, base_ref, rationale, ApprovalStore(repo))
+    service = GraphService(repo, base_ref, rationale)
 
     assert service.snapshot().meta["commit_message"] == "Bump f's return value"
 
