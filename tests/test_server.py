@@ -11,7 +11,7 @@ from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 
 class StubRunner:
-    def __init__(self, staged_root=None):
+    def __init__(self, repo_root=None):
         self.snapshot = {"state": "idle", "detail": "", "session_id": ""}
         self.prompts = []
         self.start_scopes = []
@@ -19,7 +19,7 @@ class StubRunner:
         self.resume_scopes = []
         self.busy = False
         self.has_session = False
-        self.staged_root = staged_root
+        self.repo_root = repo_root
 
     def start(self, prompt, scope=None):
         if self.busy:
@@ -156,7 +156,7 @@ def make_cycle_client(tmp_path, check_command, max_retries=1):
     staged = tmp_path / "staged"
     base.mkdir()
     staged.mkdir()
-    stub_runner = StubRunner(staged_root=staged)
+    stub_runner = StubRunner(repo_root=staged)
     cycle = SessionCycle(stub_runner, check_command, max_retries=max_retries)
     rationale = RationaleStore(sidecar_path=staged / ".graphwerk" / "rationale.json",
                                transcript_path=None, staged_root=staged, base_root=base)

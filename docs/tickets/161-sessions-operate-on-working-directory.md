@@ -1,6 +1,6 @@
 # 161. Sessions and checks operate on the working directory, not a worktree path
 
-Status: ready
+Status: done
 Decision: docs/decisions/058-retire-worktree-single-directory-review.md
 
 ## Goal

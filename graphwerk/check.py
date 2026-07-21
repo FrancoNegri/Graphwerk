@@ -1,4 +1,4 @@
-"""Run the configured check command in a worktree, non-blocking, poll-settled."""
+"""Run the configured check command in the repo directory, non-blocking, poll-settled."""
 
 from __future__ import annotations
 

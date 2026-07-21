@@ -25,8 +25,8 @@ def test_build_app_wires_session_guidance_into_the_runner(monkeypatch, tmp_path)
     runners = []
 
     class RecordingSessionRunner:
-        def __init__(self, staged_root, permission_mode="acceptEdits", system_prompt=""):
-            self.staged_root = staged_root
+        def __init__(self, repo_root, permission_mode="acceptEdits", system_prompt=""):
+            self.repo_root = repo_root
             self.permission_mode = permission_mode
             self.system_prompt = system_prompt
             runners.append(self)
@@ -40,7 +40,7 @@ def test_build_app_wires_session_guidance_into_the_runner(monkeypatch, tmp_path)
     build_app(repo, "HEAD", None, None, "acceptEdits")
 
     assert runners[0].system_prompt == SESSION_GUIDANCE
-    assert runners[0].staged_root == repo
+    assert runners[0].repo_root == repo
 
 
 def test_build_app_diffs_uncommitted_local_changes_against_the_base_ref(tmp_path):

@@ -12,8 +12,8 @@ class StubSessionRunner:
     being polled twice, so tests can observe an intermediate 'running' state
     without a real subprocess."""
 
-    def __init__(self, staged_root, outcomes):
-        self.staged_root = staged_root
+    def __init__(self, repo_root, outcomes):
+        self.repo_root = repo_root
         self._outcomes = list(outcomes)
         self._state = "idle"
         self._detail = ""
@@ -75,8 +75,8 @@ class FixedStatusRunner:
     """A SessionRunner stand-in whose status() is a pure read (no settling
     side effects), for asserting passthrough without stub statefulness."""
 
-    def __init__(self, staged_root, snapshot):
-        self.staged_root = staged_root
+    def __init__(self, repo_root, snapshot):
+        self.repo_root = repo_root
         self._snapshot = snapshot
         self.start_prompts = []
         self.start_scopes = []

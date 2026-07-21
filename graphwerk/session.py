@@ -1,4 +1,4 @@
-"""Spawn and track one headless Claude Code session in the staging worktree."""
+"""Spawn and track one headless Claude Code session in the developer's repo."""
 
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ class NoSessionToResumeError(RuntimeError):
 class SessionRunner:
     """Owns at most one `claude -p` child process and its outcome."""
 
-    def __init__(self, staged_root: Path, claude_cmd: str = "claude",
+    def __init__(self, repo_root: Path, claude_cmd: str = "claude",
                  permission_mode: str = "acceptEdits",
                  system_prompt: str = "") -> None:
-        self.staged_root = Path(staged_root)
+        self.repo_root = Path(repo_root)
         self.claude_cmd = claude_cmd
         self.permission_mode = permission_mode
         self.system_prompt = system_prompt
@@ -49,7 +49,7 @@ class SessionRunner:
             if self._status_locked()["state"] == "running":
                 raise SessionBusyError("a session is already running")
             if scope is not None:
-                _configure_scope_hook(self.staged_root, scope)
+                _configure_scope_hook(self.repo_root, scope)
             command = [self.claude_cmd, "-p", prompt,
                        "--output-format", "json",
                        "--permission-mode", self.permission_mode]
@@ -65,7 +65,7 @@ class SessionRunner:
             if not self._last_session_id:
                 raise NoSessionToResumeError("no prior session to resume")
             if scope is not None:
-                _configure_scope_hook(self.staged_root, scope)
+                _configure_scope_hook(self.repo_root, scope)
             command = [self.claude_cmd, "-p", prompt,
                        "--resume", self._last_session_id,
                        "--output-format", "json",
@@ -91,7 +91,7 @@ class SessionRunner:
         self._child_output = tempfile.TemporaryFile()
         self._child_errors = tempfile.TemporaryFile()
         try:
-            self._child = subprocess.Popen(command, cwd=self.staged_root,
+            self._child = subprocess.Popen(command, cwd=self.repo_root,
                                            stdout=self._child_output,
                                            stderr=self._child_errors)
         except OSError as exc:
@@ -146,14 +146,14 @@ class SessionRunner:
         self._child_errors = None
 
 
-def _configure_scope_hook(staged_root: Path, scope: str) -> None:
-    """Writes/replaces this session's PreToolUse hook entry in the staged
-    worktree's local settings (ADR 046) so "design can't touch code,
-    implementation can't touch docs" is enforced by Claude Code itself, not
-    just requested via prompt text. Other hooks/settings already in the
-    file are left untouched; a prior graphwerk scope entry is replaced
-    rather than duplicated (a session can be re-scoped run over run)."""
-    path = staged_root / CLAUDE_SETTINGS_REL_PATH
+def _configure_scope_hook(repo_root: Path, scope: str) -> None:
+    """Writes/replaces this session's PreToolUse hook entry in the repo's
+    local settings (ADR 046) so "design can't touch code, implementation
+    can't touch docs" is enforced by Claude Code itself, not just requested
+    via prompt text. Other hooks/settings already in the file are left
+    untouched; a prior graphwerk scope entry is replaced rather than
+    duplicated (a session can be re-scoped run over run)."""
+    path = repo_root / CLAUDE_SETTINGS_REL_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     settings = _read_json(path)
     hooks = settings.setdefault("hooks", {})

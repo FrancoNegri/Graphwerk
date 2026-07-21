@@ -108,7 +108,7 @@ class SessionCycle:
             self._state = "failed"
             return
         if runner_status["state"] == "done":
-            self._check = CheckRunner(self.check_command, self.runner.staged_root)
+            self._check = CheckRunner(self.check_command, self.runner.repo_root)
             self._check.start()
             self._state = "checking"
 
