@@ -2,9 +2,8 @@
 
 Layers (see docs/03-architecture-notes.md):
   indexing/   symbols + edges from source (pure, stdlib ast)
-  staging/    shadow workspace (git worktree) + tree-vs-tree symbol diff
+  staging/    symbol diff between the working directory and a base git ref
   rationale/  "why" per change, mined from Claude Code transcripts or a sidecar file
-  apply.py    apply staged changes to the base tree / reject with feedback
   service.py  orchestrates the above into graph snapshots
   server.py   FastAPI API + static UI
 """

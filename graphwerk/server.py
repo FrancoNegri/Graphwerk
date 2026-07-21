@@ -10,19 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.gzip import GZipMiddleware
 
-from graphwerk.apply import ApplyEngine
-from graphwerk.approval import ApprovalStore
-from graphwerk.commit import CommitEngine, CommitError
-from graphwerk.cycle import TERMINAL_STATES, SessionCycle
-from graphwerk.discard import DiscardEngine
+from graphwerk.cycle import SessionCycle
 from graphwerk.service import GraphService
 from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-
-
-class ApplyRequest(BaseModel):
-    path: str
 
 
 class PromptRequest(BaseModel):
@@ -31,21 +23,7 @@ class PromptRequest(BaseModel):
     scope: str | None = None
 
 
-class CommitRequest(BaseModel):
-    message: str = ""
-
-
-class RejectRequest(BaseModel):
-    id: str
-    label: str = ""
-    status: str = ""
-    diff: str = ""
-    comment: str
-
-
-def create_app(service: GraphService, engine: ApplyEngine,
-               runner: SessionCycle, commit_engine: CommitEngine,
-               discard_engine: DiscardEngine, approval_store: ApprovalStore) -> FastAPI:
+def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
     app = FastAPI(title="graphwerk")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -70,41 +48,6 @@ def create_app(service: GraphService, engine: ApplyEngine,
     @app.get("/api/hash")
     def state_hash():
         return {"hash": service.state_hash()}
-
-    @app.post("/api/apply")
-    def apply(req: ApplyRequest):
-        approval_store.approve(req.path)
-        return {"path": req.path, "approved": True}
-
-    @app.post("/api/unapprove")
-    def unapprove(req: ApplyRequest):
-        approval_store.unapprove(req.path)
-        return {"path": req.path, "approved": False}
-
-    @app.post("/api/commit")
-    def commit(req: CommitRequest):
-        try:
-            return commit_engine.commit_all(req.message)
-        except CommitError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-
-    @app.post("/api/discard")
-    def discard():
-        # never yank files out from under a live agent session or its check
-        # gate (ADR 037, ADR 040)
-        if runner.status()["state"] not in TERMINAL_STATES:
-            raise HTTPException(status_code=409, detail="a session is running — wait for it to finish")
-        paths = discard_engine.discard_all()
-        approval_store.clear_all()
-        return {"paths": paths}
-
-    @app.post("/api/reject")
-    def reject(req: RejectRequest):
-        if not req.comment.strip():
-            raise HTTPException(status_code=400, detail="comment is required")
-        prompt = engine.reject(req.id, req.label or req.id, req.status, req.comment, req.diff)
-        approval_store.unapprove(req.id.split("::")[0])
-        return {"prompt": prompt}
 
     @app.post("/api/prompt")
     def prompt(req: PromptRequest):

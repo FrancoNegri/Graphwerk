@@ -1,6 +1,6 @@
 # 159. Delete the file-mutation engines and their endpoints
 
-Status: ready
+Status: done
 Decision: docs/decisions/058-retire-worktree-single-directory-review.md
 
 ## Goal
