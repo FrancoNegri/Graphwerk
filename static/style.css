@@ -58,6 +58,17 @@ header {
 }
 .view-toggle input { accent-color: var(--added); cursor: pointer; margin: 0; }
 
+#comparison-picker { display: flex; gap: 14px; }
+#comparison-picker select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
 .paths { font-size: 11px; color: var(--muted); margin-left: auto; text-align: right; }
 
 /* Docked as the body flex column's last row — bottom edge, full width,

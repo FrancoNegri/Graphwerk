@@ -58,14 +58,78 @@ const pinnedEdgeIds = new Set();
 // tapping a different node.
 let isolatedNodeId = null;
 
+// The base/compare-to pair driving /api/graph and /api/hash (ADR 060,
+// ticket 174). Both stay null until the first /api/graph response tells us
+// what the server's default pair actually is — until then, requests omit
+// `base`/`staged` entirely, which is byte-for-byte the same as today's
+// pre-dropdown behavior (ticket 173).
+let selectedBaseRef = null;
+let selectedStagedRef = null;
+
+function currentPairQuery() {
+  if (selectedBaseRef == null && selectedStagedRef == null) return "";
+  const params = new URLSearchParams();
+  if (selectedBaseRef != null) params.set("base", selectedBaseRef);
+  if (selectedStagedRef != null) params.set("staged", selectedStagedRef);
+  return `?${params.toString()}`;
+}
+
+async function loadRefs() {
+  const res = await fetch("/api/refs");
+  const refs = await res.json();
+  populateRefSelect(document.getElementById("base-select"), refs);
+  populateRefSelect(document.getElementById("staged-select"), refs);
+}
+
+function populateRefSelect(select, refs) {
+  select.innerHTML = refs
+    .map((entry) => `<option value="${esc(entry.ref)}" data-kind="${esc(entry.kind)}">${esc(entry.label)}</option>`)
+    .join("");
+}
+
+// Resolves `select` to whichever option already means `value`, rather than
+// trusting a literal string match — /api/graph's default-pair response
+// doesn't always echo the exact string /api/refs used for the same thing:
+// `base` is often the full 40-char HEAD sha while /api/refs' commit entries
+// are `git log --oneline`-abbreviated (still a prefix of the full sha), and
+// `staged` reports the working directory as its absolute filesystem path
+// (ticket 165's existing display convention) rather than the "working
+// directory" pseudo-ref token /api/refs lists it under. Falls back to the
+// working-directory option when nothing else matches and one is allowed
+// (that mismatch is exactly what happens when `staged` is the working
+// directory), or otherwise synthesizes an option so the dropdown always
+// reflects the pair actually being shown.
+function selectDefaultRef(select, value, { fallbackToWorkingTree }) {
+  const options = [...select.options];
+  let match = options.find((option) => option.value === value)
+    || options.find((option) => option.dataset.kind === "commit" && value.startsWith(option.value));
+  if (!match && fallbackToWorkingTree) {
+    match = options.find((option) => option.dataset.kind === "working_tree");
+  }
+  if (!match) {
+    match = document.createElement("option");
+    match.value = value;
+    match.textContent = value;
+    select.prepend(match);
+  }
+  select.value = match.value;
+  return match.value;
+}
+
 async function loadGraph() {
   if (loadGraphInFlight) return;
   loadGraphInFlight = true;
   try {
-    const res = await fetch("/api/graph");
+    const res = await fetch(`/api/graph${currentPairQuery()}`);
     const data = await res.json();
     currentHash = data.hash;
     graphData = data;
+    if (selectedBaseRef == null) {
+      selectedBaseRef = selectDefaultRef(document.getElementById("base-select"), data.base, { fallbackToWorkingTree: false });
+    }
+    if (selectedStagedRef == null) {
+      selectedStagedRef = selectDefaultRef(document.getElementById("staged-select"), data.staged, { fallbackToWorkingTree: true });
+    }
     nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
     for (const id of [...userExpandedIds]) {
       const node = nodesById[id];
@@ -1071,11 +1135,21 @@ document.querySelectorAll('#domain-mode-toggle input[name="domain-mode"]').forEa
   });
 });
 
+document.getElementById("base-select").addEventListener("change", (event) => {
+  selectedBaseRef = event.target.value;
+  loadGraph();
+});
+
+document.getElementById("staged-select").addEventListener("change", (event) => {
+  selectedStagedRef = event.target.value;
+  loadGraph();
+});
+
 const POLL_INTERVAL_MS = 1500;
 
 async function pollHashAndSession() {
   try {
-    const res = await fetch("/api/hash");
+    const res = await fetch(`/api/hash${currentPairQuery()}`);
     const data = await res.json();
     if (data.hash !== currentHash) loadGraph();
     const sessionRes = await fetch("/api/session");
@@ -1089,5 +1163,6 @@ async function pollHashAndSession() {
 
 setTimeout(pollHashAndSession, POLL_INTERVAL_MS);
 
-
-loadGraph();
+// Refs must be loaded (so the dropdowns have options) before the first
+// /api/graph response tries to default-select one of them.
+loadRefs().then(loadGraph);

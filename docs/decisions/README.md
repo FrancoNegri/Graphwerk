@@ -68,3 +68,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [057](057-sidebar-code-scroll-drop-reject-ui.md) | Sidebar: code-only scroll region, drop the reject-comment UI | proposed |
 | [058](058-retire-worktree-single-directory-review.md) | Retire the shadow worktree: graphwerk becomes a single-directory review lens over git | proposed |
 | [059](059-class-symbol-calls-exclude-method-bodies.md) | A class symbol's own `calls` excludes its methods' bodies | proposed |
+| [060](060-comparison-picker-any-ref-vs-any-ref.md) | Comparison picker: any ref against any ref, including uncommitted | proposed |
