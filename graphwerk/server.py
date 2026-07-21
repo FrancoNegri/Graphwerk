@@ -37,8 +37,7 @@ def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
         # returning JSONResponse directly skips FastAPI's jsonable_encoder
         # pass, which otherwise dominates response time on large graphs.
         return JSONResponse({
-            # base is now a git ref, not a directory (ADR 058); ticket 158
-            # revisits this payload shape alongside the CLI flags that feed it
+            # base is a git ref (often a commit sha), not a directory (ADR 058)
             "base": service.base_ref,
             "staged": str(service.repo_root),
             "hash": service.state_hash(),

@@ -72,7 +72,7 @@ async function loadGraph() {
       if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
     }
     document.getElementById("paths").innerHTML =
-      `agent workspace: ${esc(data.staged)}<br>your tree: ${esc(data.base)}`;
+      `reviewing ${esc(data.staged)} against ${esc(data.base)}`;
     renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
 
     groupTints = buildGroupTints(data.nodes);
