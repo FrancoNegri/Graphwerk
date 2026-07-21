@@ -1,8 +1,12 @@
+import subprocess
+
 import pytest
 from fastapi.testclient import TestClient
 
 import time
+from pathlib import Path
 
+from graphwerk.comparisons import WORKING_TREE_TOKEN
 from graphwerk.cycle import SessionCycle
 from graphwerk.rationale import RationaleStore
 from graphwerk.server import create_app
@@ -280,3 +284,56 @@ def test_mutation_endpoints_are_gone(client, method, path):
     response = getattr(client, method)(path, json={})
 
     assert response.status_code == 404
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+    return result.stdout
+
+
+def _commit(repo: Path, message: str) -> None:
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=test@graphwerk.local", "-c", "user.name=test",
+         "commit", "-q", "-m", message, "--allow-empty")
+
+
+def make_git_backed_client(tmp_path, stub_runner):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _commit(repo, "first")
+    _commit(repo, "second")
+    _git(repo, "tag", "v1.0")
+    _git(repo, "branch", "feature-x")
+    rationale = RationaleStore(sidecar_path=repo / ".graphwerk" / "rationale.json",
+                               transcript_path=None, staged_root=repo)
+    service = GraphService(repo, "HEAD", rationale)
+    return TestClient(create_app(service, stub_runner))
+
+
+def test_refs_endpoint_lists_branches_tags_commits_and_working_directory(tmp_path, stub_runner):
+    client = make_git_backed_client(tmp_path, stub_runner)
+
+    response = client.get("/api/refs")
+
+    assert response.status_code == 200
+    entries = response.json()
+    kinds = {entry["kind"] for entry in entries}
+    assert kinds == {"working_tree", "branch", "tag", "commit"}
+    working_tree_entries = [entry for entry in entries if entry["kind"] == "working_tree"]
+    assert working_tree_entries == [
+        {"ref": WORKING_TREE_TOKEN, "label": "working directory, uncommitted", "kind": "working_tree"}
+    ]
+    branch_names = {entry["ref"] for entry in entries if entry["kind"] == "branch"}
+    assert branch_names == {"main", "feature-x"}
+    tag_names = {entry["ref"] for entry in entries if entry["kind"] == "tag"}
+    assert tag_names == {"v1.0"}
+
+
+def test_refs_endpoint_is_just_the_working_directory_for_a_non_git_repo(client):
+    response = client.get("/api/refs")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"ref": WORKING_TREE_TOKEN, "label": "working directory, uncommitted", "kind": "working_tree"}
+    ]

@@ -10,7 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.gzip import GZipMiddleware
 
+from graphwerk.comparisons import WORKING_TREE_TOKEN
 from graphwerk.cycle import SessionCycle
+from graphwerk.refs import list_refs
 from graphwerk.service import GraphService
 from graphwerk.session import NoSessionToResumeError, SessionBusyError
 
@@ -47,6 +49,16 @@ def create_app(service: GraphService, runner: SessionCycle) -> FastAPI:
     @app.get("/api/hash")
     def state_hash():
         return {"hash": service.state_hash()}
+
+    @app.get("/api/refs")
+    def refs():
+        # The working-directory pseudo-ref first — it's the default side of
+        # today's one live comparison, so it belongs at the top of the list
+        # the frontend's dropdowns are sourced from (ADR 060).
+        working_tree_entry = {
+            "ref": WORKING_TREE_TOKEN, "label": "working directory, uncommitted", "kind": "working_tree"
+        }
+        return [working_tree_entry, *list_refs(service.repo_root)]
 
     @app.post("/api/prompt")
     def prompt(req: PromptRequest):
