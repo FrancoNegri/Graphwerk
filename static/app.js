@@ -912,8 +912,46 @@ function isDescendant(nodeId, ancestorId) {
 // a heading naming it, instead of the container's single merged view.
 function renderChangedMethods(symbols) {
   return symbols
-    .map((symbol) => `<div class="changed-method"><h4>${esc(qualifiedLabel(symbol.id))}</h4>${renderCode(symbol.code)}</div>`)
+    .map((symbol) => `<div class="changed-method"><h4>${esc(qualifiedLabel(symbol.id))}</h4>${renderAffectsLine(symbol)}${renderCode(symbol.code)}</div>`)
     .join("");
+}
+
+// "Affects" line (ADR 062): names the changed method's enclosing class and
+// any variables it reaches via `uses` edges, so a reviewer sees blast
+// radius without leaving the code panel. Omitted entirely (returns "") when
+// there's nothing to list, rather than rendering an empty label.
+function renderAffectsLine(symbol) {
+  const classNode = enclosingClass(symbol.id);
+  const items = classNode ? [classNode, ...usedVariables(symbol.id)] : usedVariables(symbol.id);
+  if (items.length === 0) return "";
+  const chips = items
+    .map((n) => `<span class="affects-item">${esc(n.label)} <span class="chip ${n.status}">${n.status}</span></span>`)
+    .join("");
+  return `<div class="affects"><span class="affects-label">Affects:</span>${chips}</div>`;
+}
+
+// The method's enclosing class node, when its `parent` resolves to a
+// `class`-kind node — absent for a top-level function, which has no class
+// parent at all.
+function enclosingClass(methodId) {
+  const parentId = nodesById[methodId] && nodesById[methodId].parent;
+  const parentNode = parentId && nodesById[parentId];
+  return parentNode && parentNode.kind === "class" ? parentNode : null;
+}
+
+// `variable`-kind nodes reached via a `uses` edge whose source is
+// `methodId`, deduplicated by id — walks the raw, unfiltered graph data
+// (mirrors changedLeafDescendants) rather than whatever's currently
+// rendered/collapsed, since view state shouldn't change what a method
+// actually touches.
+function usedVariables(methodId) {
+  const seen = new Map();
+  for (const edge of graphData.edges) {
+    if (edge.kind !== "uses" || edge.source !== methodId) continue;
+    const target = nodesById[edge.target];
+    if (target && target.kind === "variable") seen.set(target.id, target);
+  }
+  return [...seen.values()];
 }
 
 function renderCode(lines) {

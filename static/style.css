@@ -415,6 +415,18 @@ section h3 {
   margin: 0 0 4px;
   padding: 0 8px;
 }
+.affects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.affects-label { color: var(--muted); }
+.affects-item { display: inline-flex; align-items: center; gap: 4px; }
+.affects-item .chip { padding: 1px 8px; font-size: 10px; }
 
 .code .kw { color: #c084fc; }
 .code .def { color: #38bdf8; }
