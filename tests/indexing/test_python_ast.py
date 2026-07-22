@@ -321,3 +321,128 @@ if TYPE_CHECKING:
     statements = _extract_statements(tmp_path, source)
 
     assert "pkg.port" not in statements
+
+
+def _extract_index(tmp_path: Path, source: str):
+    path = tmp_path / "mod.py"
+    path.write_text(source)
+    return PythonAstExtractor().extract(path, "mod.py")
+
+
+def test_module_level_assign_with_simple_name_target_is_a_variable_symbol(tmp_path: Path) -> None:
+    index = _extract_index(tmp_path, "_CACHE = {}\n")
+
+    symbol = index.symbols["_CACHE"]
+    assert symbol.kind == "variable"
+    assert symbol.lineno == 1
+    assert symbol.end_lineno == 1
+    assert symbol.source == "_CACHE = {}\n"
+
+
+def test_module_level_annassign_with_simple_name_target_is_a_variable_symbol(tmp_path: Path) -> None:
+    index = _extract_index(tmp_path, "TIMEOUT: int = 30\n")
+
+    symbol = index.symbols["TIMEOUT"]
+    assert symbol.kind == "variable"
+    assert symbol.source == "TIMEOUT: int = 30\n"
+
+
+def test_module_level_augassign_with_simple_name_target_is_a_variable_symbol(tmp_path: Path) -> None:
+    index = _extract_index(tmp_path, "COUNTER += 1\n")
+
+    assert index.symbols["COUNTER"].kind == "variable"
+
+
+def test_class_level_assign_with_simple_name_target_is_a_variable_symbol(tmp_path: Path) -> None:
+    source = """
+class Config:
+    TIMEOUT = 30
+
+    def method(self):
+        pass
+"""
+    index = _extract_index(tmp_path, source)
+
+    symbol = index.symbols["Config.TIMEOUT"]
+    assert symbol.kind == "variable"
+    assert symbol.source.strip() == "TIMEOUT = 30"
+
+
+def test_class_level_annassign_with_simple_name_target_is_a_variable_symbol(tmp_path: Path) -> None:
+    source = """
+class Config:
+    timeout: int = 30
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Config.timeout"].kind == "variable"
+
+
+def test_module_level_attribute_assignment_target_is_skipped(tmp_path: Path) -> None:
+    assert _extract_symbols(tmp_path, "obj.x = 1\n") == set()
+
+
+def test_module_level_subscript_assignment_target_is_skipped(tmp_path: Path) -> None:
+    assert _extract_symbols(tmp_path, 'd["k"] = 1\n') == set()
+
+
+def test_module_level_tuple_unpacking_assignment_is_skipped(tmp_path: Path) -> None:
+    assert _extract_symbols(tmp_path, "a, b = 1, 2\n") == set()
+
+
+def test_module_level_list_unpacking_assignment_is_skipped(tmp_path: Path) -> None:
+    assert _extract_symbols(tmp_path, "[a, b] = [1, 2]\n") == set()
+
+
+def test_class_level_attribute_assignment_target_is_skipped(tmp_path: Path) -> None:
+    source = """
+class C:
+    self.x = 1
+"""
+    assert _extract_symbols(tmp_path, source) == {"C"}
+
+
+def test_class_level_subscript_assignment_target_is_skipped(tmp_path: Path) -> None:
+    source = """
+class C:
+    d["k"] = 1
+"""
+    assert _extract_symbols(tmp_path, source) == {"C"}
+
+
+def test_class_level_tuple_unpacking_assignment_is_skipped(tmp_path: Path) -> None:
+    source = """
+class C:
+    a, b = 1, 2
+"""
+    assert _extract_symbols(tmp_path, source) == {"C"}
+
+
+def test_assignment_inside_function_body_does_not_produce_variable_symbol(tmp_path: Path) -> None:
+    source = """
+def f():
+    x = 1
+    return x
+"""
+    assert _extract_symbols(tmp_path, source) == {"f"}
+
+
+def test_assignment_inside_method_body_does_not_produce_variable_symbol(tmp_path: Path) -> None:
+    source = """
+class C:
+    def method(self):
+        x = 1
+        return x
+"""
+    assert _extract_symbols(tmp_path, source) == {"C", "C.method"}
+
+
+def test_assignment_inside_nested_function_body_does_not_produce_variable_symbol(tmp_path: Path) -> None:
+    source = """
+def outer():
+    def inner():
+        y = 1
+        return y
+    return inner
+"""
+    assert _extract_symbols(tmp_path, source) == {"outer"}

@@ -19,7 +19,7 @@ class SymbolInfo:
     """A named unit of code inside one file (class, function, or method)."""
 
     qualname: str  # e.g. "PaymentGateway.charge"
-    kind: str  # "class" | "function" | "method"
+    kind: str  # "class" | "function" | "method" | "variable"
     lineno: int
     end_lineno: int
     source: str

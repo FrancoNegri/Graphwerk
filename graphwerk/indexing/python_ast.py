@@ -48,6 +48,15 @@ class PythonAstExtractor:
                     if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         qualname = f"{node.name}.{child.name}"
                         index.symbols[qualname] = _symbol(child, qualname, "method", lines)
+                    elif isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                        name = _simple_variable_name(child)
+                        if name is not None:
+                            qualname = f"{node.name}.{name}"
+                            index.symbols[qualname] = _symbol(child, qualname, "variable", lines)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                name = _simple_variable_name(node)
+                if name is not None:
+                    index.symbols[name] = _symbol(node, name, "variable", lines)
         return index
 
 
@@ -99,6 +108,19 @@ def _names_from_calls(nodes: Iterator[ast.AST]) -> set[str]:
     return names
 
 
+def _simple_variable_name(node: ast.Assign | ast.AnnAssign | ast.AugAssign) -> str | None:
+    """The assigned name, or None if the target isn't a single simple `Name`
+    (attribute/subscript targets, tuple/list unpacking, or chained
+    assignment to more than one target are all skipped — ADR 062)."""
+    if isinstance(node, ast.Assign):
+        if len(node.targets) != 1:
+            return None
+        target = node.targets[0]
+    else:
+        target = node.target
+    return target.id if isinstance(target, ast.Name) else None
+
+
 def _imported_modules(node: ast.Import | ast.ImportFrom) -> set[str]:
     if isinstance(node, ast.Import):
         return {alias.name for alias in node.names}
@@ -120,14 +142,20 @@ def _iter_executable_nodes(node: ast.AST) -> Iterator[ast.AST]:
 
 def _iter_symbol_definitions(
     statements: list[ast.stmt],
-) -> Iterator[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef]:
-    """Yields the FunctionDef/AsyncFunctionDef/ClassDef nodes directly in
-    `statements`, descending into `if`/`elif`/`else` blocks (mirroring the
-    imports pass) but not into function/class bodies — a def nested inside
-    an `if` is still a real top-level symbol, a def nested inside a
-    function is a closure/local helper and stays out of scope."""
+) -> Iterator[
+    ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Assign | ast.AnnAssign | ast.AugAssign
+]:
+    """Yields the FunctionDef/AsyncFunctionDef/ClassDef/Assign/AnnAssign/
+    AugAssign nodes directly in `statements`, descending into `if`/`elif`/
+    `else` blocks (mirroring the imports pass) but not into function/class
+    bodies — a def (or assignment) nested inside an `if` is still a real
+    top-level symbol, one nested inside a function is a closure/local and
+    stays out of scope."""
     for statement in statements:
-        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(
+            statement,
+            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign, ast.AugAssign),
+        ):
             yield statement
         elif isinstance(statement, ast.If):
             if not _is_type_checking_guard(statement.test):
