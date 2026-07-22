@@ -37,6 +37,8 @@ class PythonAstExtractor:
                     for module in modules:
                         index.import_statements.setdefault(module, []).append((statement, node.lineno))
 
+        index.imported_names = _module_level_imported_names(tree.body, source)
+
         module_variable_names, class_attribute_names = _collect_variable_names(tree.body)
 
         for node in _iter_symbol_definitions(tree.body):
@@ -179,6 +181,46 @@ def _simple_variable_name(node: ast.Assign | ast.AnnAssign | ast.AugAssign) -> s
     else:
         target = node.target
     return target.id if isinstance(target, ast.Name) else None
+
+
+def _iter_module_level_import_nodes(
+    statements: list[ast.stmt],
+) -> Iterator[ast.Import | ast.ImportFrom]:
+    """Yields Import/ImportFrom nodes directly in `statements`, descending
+    into `if`/`elif`/`else` blocks (mirroring `_iter_symbol_definitions`)
+    but not into function/class bodies — only module-level (depth-0)
+    bindings are attributable (ADR 064)."""
+    for statement in statements:
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            yield statement
+        elif isinstance(statement, ast.If):
+            if not _is_type_checking_guard(statement.test):
+                yield from _iter_module_level_import_nodes(statement.body)
+            yield from _iter_module_level_import_nodes(statement.orelse)
+
+
+def _module_level_imported_names(body: list[ast.stmt], source: str) -> dict[str, tuple[str, int]]:
+    """Bound name -> (verbatim statement text, 1-based line) for every name a
+    module-level import/from-import binds. A name rebound by a later
+    module-level statement keeps only the later binding, matching real
+    Python name resolution (ADR 064)."""
+    bindings: dict[str, tuple[str, int]] = {}
+    for node in _iter_module_level_import_nodes(body):
+        statement = ast.get_source_segment(source, node)
+        if statement is None:
+            continue
+        for name in _bound_names(node):
+            bindings[name] = (statement, node.lineno)
+    return bindings
+
+
+def _bound_names(node: ast.Import | ast.ImportFrom) -> list[str]:
+    """The real Python name(s) a single import statement binds: a plain
+    `import pkg.sub` binds only the top-level `pkg`; `as`-aliases bind their
+    alias instead; a wildcard `from x import *` binds no specific name."""
+    if isinstance(node, ast.Import):
+        return [alias.asname or alias.name.split(".")[0] for alias in node.names]
+    return [alias.asname or alias.name for alias in node.names if alias.name != "*"]
 
 
 def _imported_modules(node: ast.Import | ast.ImportFrom) -> set[str]:

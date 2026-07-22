@@ -570,3 +570,125 @@ class Config:
     index = _extract_index(tmp_path, source)
 
     assert index.symbols["Config.check"].uses == {"Config.TIMEOUT", "_LIMIT"}
+
+
+def _extract_imported_names(tmp_path: Path, source: str) -> dict[str, tuple[str, int]]:
+    path = tmp_path / "mod.py"
+    path.write_text(source)
+    return PythonAstExtractor().extract(path, "mod.py").imported_names
+
+
+def test_plain_dotted_import_binds_the_top_level_package_name(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "import pkg.sub\n")
+
+    assert imported_names == {"pkg": ("import pkg.sub", 1)}
+
+
+def test_dotted_import_with_alias_binds_only_the_alias(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "import pkg.sub as alias\n")
+
+    assert imported_names == {"alias": ("import pkg.sub as alias", 1)}
+
+
+def test_from_import_binds_the_imported_name(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "from x import y\n")
+
+    assert imported_names == {"y": ("from x import y", 1)}
+
+
+def test_from_import_with_alias_binds_the_alias(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "from x import y as z\n")
+
+    assert imported_names == {"z": ("from x import y as z", 1)}
+
+
+def test_from_import_multiple_names_binds_each_separately_to_the_same_statement(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "from x import a, b\n")
+
+    assert imported_names == {
+        "a": ("from x import a, b", 1),
+        "b": ("from x import a, b", 1),
+    }
+
+
+def test_wildcard_import_binds_nothing(tmp_path: Path) -> None:
+    imported_names = _extract_imported_names(tmp_path, "from x import *\n")
+
+    assert imported_names == {}
+
+
+def test_import_nested_inside_function_is_not_a_module_level_binding(tmp_path: Path) -> None:
+    source = """
+def f():
+    from pkg.mod import Thing
+    return Thing
+"""
+    assert _extract_imported_names(tmp_path, source) == {}
+
+
+def test_import_nested_inside_method_is_not_a_module_level_binding(tmp_path: Path) -> None:
+    source = """
+class C:
+    def method(self):
+        from pkg.mod import Thing
+        return Thing
+"""
+    assert _extract_imported_names(tmp_path, source) == {}
+
+
+def test_import_inside_module_level_if_block_is_a_module_level_binding(tmp_path: Path) -> None:
+    source = """
+if PLATFORM == "a":
+    import pkg.windows_only
+"""
+    imported_names = _extract_imported_names(tmp_path, source)
+
+    assert imported_names == {"pkg": ("import pkg.windows_only", 3)}
+
+
+def test_import_inside_elif_and_else_blocks_are_module_level_bindings(tmp_path: Path) -> None:
+    source = """
+if PLATFORM == "a":
+    import pkg.a
+elif PLATFORM == "b":
+    import pkg.b
+else:
+    import pkg.c
+"""
+    imported_names = _extract_imported_names(tmp_path, source)
+
+    assert imported_names == {"pkg": ("import pkg.c", 7)}
+
+
+def test_later_module_level_reimport_of_the_same_name_wins(tmp_path: Path) -> None:
+    source = "from x import y\nfrom z import y\n"
+    imported_names = _extract_imported_names(tmp_path, source)
+
+    assert imported_names == {"y": ("from z import y", 2)}
+
+
+def test_import_guarded_by_type_checking_binds_nothing(tmp_path: Path) -> None:
+    source = """
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pkg.port import Port
+"""
+    assert _extract_imported_names(tmp_path, source) == {"TYPE_CHECKING": ("from typing import TYPE_CHECKING", 2)}
+
+
+def test_existing_imports_and_import_statements_fields_are_unaffected_by_module_level_scoping(
+    tmp_path: Path,
+) -> None:
+    source = """
+def f():
+    from pkg.mod import Thing
+    return Thing
+"""
+    path = tmp_path / "mod.py"
+    path.write_text(source)
+    index = PythonAstExtractor().extract(path, "mod.py")
+
+    assert index.imports == {"pkg.mod"}
+    assert index.import_statements == {"pkg.mod": [("from pkg.mod import Thing", 3)]}
+    assert index.imported_names == {}

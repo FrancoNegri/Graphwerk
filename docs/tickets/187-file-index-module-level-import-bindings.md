@@ -1,6 +1,6 @@
 # 187. `FileIndex` tracks module-level import name bindings
 
-Status: ready
+Status: done
 Decision: docs/decisions/064-changed-method-code-view-surfaces-its-imports.md
 
 ## Goal

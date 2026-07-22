@@ -40,6 +40,11 @@ class FileIndex:
     # pair found for that module, in file order (ADR 052) — a module
     # imported once still has a one-element list.
     import_statements: dict[str, list[tuple[str, int]]] = field(default_factory=dict)
+    # module-level (depth-0) bound name -> (verbatim statement source, 1-based
+    # line) that bound it — the missing primitive ADR 064's per-symbol import
+    # attribution needs; a name rebound by a later module-level statement
+    # keeps only the later one, and `from x import *` binds nothing (ADR 064).
+    imported_names: dict[str, tuple[str, int]] = field(default_factory=dict)
     # repo-root-relative target paths of this (Markdown) file's doc links
     references: set[str] = field(default_factory=set)
     parse_error: str | None = None
