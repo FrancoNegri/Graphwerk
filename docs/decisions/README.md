@@ -72,3 +72,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [061](061-whole-tree-commit-all-revert-all.md) | Whole-tree commit-all / revert-all: a narrow exception to ADR 058 | proposed |
 | [062](062-variable-symbols-and-changed-method-blast-radius.md) | Global and class-variable symbols, wired as blast radius for changed methods | proposed |
 | [063](063-root-entry-point-node.md) | A synthetic `Root` node anchors the entry-point layer | proposed |
+| [064](064-changed-method-code-view-surfaces-its-imports.md) | Changed-method code view surfaces the module imports it actually uses | proposed |

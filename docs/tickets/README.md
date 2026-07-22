@@ -196,3 +196,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [184](184-changed-methods-affects-summary.md) | Sidebar: "Affects" summary line in changed-methods mode | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
 | [185](185-root-node-backend.md) | Backend: synthesize the `Root` entry-point node | done | [063](../decisions/063-root-entry-point-node.md) |
 | [186](186-root-node-frontend.md) | Frontend: render the `Root` node | done | [063](../decisions/063-root-entry-point-node.md) |
+| [187](187-file-index-module-level-import-bindings.md) | `FileIndex` tracks module-level import name bindings | ready | [064](../decisions/064-changed-method-code-view-surfaces-its-imports.md) |
+| [188](188-symbolinfo-imports-used-field.md) | `SymbolInfo.imports_used`: functions/methods record which module-level imports they reference | ready | [064](../decisions/064-changed-method-code-view-surfaces-its-imports.md) |
+| [189](189-graphservice-renders-used-imports.md) | `GraphService` renders each leaf symbol's `imports_used` as real statement blocks | ready | [064](../decisions/064-changed-method-code-view-surfaces-its-imports.md) |
+| [190](190-frontend-changed-methods-render-used-imports.md) | Frontend: `changed-methods` mode renders each method's `used_imports` block | ready | [064](../decisions/064-changed-method-code-view-surfaces-its-imports.md) |
