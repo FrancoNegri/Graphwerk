@@ -1,6 +1,6 @@
 # 190. Frontend: `changed-methods` mode renders each method's `used_imports` block
 
-Status: ready
+Status: done
 Decision: docs/decisions/064-changed-method-code-view-surfaces-its-imports.md
 
 ## Goal

@@ -962,7 +962,22 @@ function isDescendant(nodeId, ancestorId) {
 // a heading naming it, instead of the container's single merged view.
 function renderChangedMethods(symbols) {
   return symbols
-    .map((symbol) => `<div class="changed-method"><h4>${esc(qualifiedLabel(symbol.id))}</h4>${renderAffectsLine(symbol)}${renderCode(symbol.code)}</div>`)
+    .map((symbol) => `<div class="changed-method"><h4>${esc(qualifiedLabel(symbol.id))}</h4>${renderAffectsLine(symbol)}${renderUsedImports(symbol.used_imports)}${renderCode(symbol.code)}</div>`)
+    .join("");
+}
+
+// Module-level import statements a changed method's body actually depends
+// on (ADR 064) — one `import-entry` block per statement, same visual
+// language renderImportEntry already gives the calls panel's admitting
+// imports. No chip/module label here (unlike renderImportEntry): these are
+// always unchanged context, never an added/deleted call edge, so there's no
+// status to badge. Absent/empty `used_imports` renders nothing, so a method
+// with no outside-scope import dependency looks exactly as it did before
+// this field existed.
+function renderUsedImports(usedImports) {
+  if (!Array.isArray(usedImports) || usedImports.length === 0) return "";
+  return usedImports
+    .map((codeLines) => `<div class="import-entry"><div class="code">${renderCode(codeLines)}</div></div>`)
     .join("");
 }
 
