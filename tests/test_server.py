@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -391,3 +392,71 @@ def test_hash_endpoint_accepts_base_and_staged_params(tmp_path, stub_runner):
     assert explicit_response.status_code == 200
     assert "hash" in default_response.json()
     assert "hash" in explicit_response.json()
+
+
+def test_commit_all_commits_the_live_pairs_changed_paths_with_the_given_message(tmp_path, stub_runner):
+    client, first, _second = make_two_commit_repo_client(tmp_path, stub_runner)
+    repo = tmp_path / "repo"
+
+    response = client.post("/api/commit-all", json={"message": "wire up the fix"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["base"] == first
+    assert payload["staged"] == str(repo)
+    assert "hash" in payload and "nodes" in payload and "edges" in payload
+    assert _git(repo, "log", "-1", "--format=%s").strip() == "wire up the fix"
+    assert _git(repo, "status", "--porcelain").strip() == ""  # working tree clean post-commit
+
+
+def test_commit_all_falls_back_to_the_mined_commit_message_when_none_is_given(tmp_path, stub_runner):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "a.py").write_text("def foo():\n    return 1\n")
+    first = _commit(repo, "first")
+    (repo / "a.py").write_text("def foo():\n    return 2\n")  # uncommitted
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(json.dumps({
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "Commit-message: mined message"}]},
+    }) + "\n")
+    registry = ComparisonRegistry(repo, first, sidecar_path=repo / ".graphwerk" / "rationale.json",
+                                   transcript_path=transcript)
+    client = TestClient(create_app(registry, stub_runner))
+
+    response = client.post("/api/commit-all", json={})
+
+    assert response.status_code == 200
+    assert _git(repo, "log", "-1", "--format=%s").strip() == "mined message"
+
+
+def test_commit_all_400s_when_no_message_is_available(tmp_path, stub_runner):
+    client, _first, _second = make_two_commit_repo_client(tmp_path, stub_runner)
+
+    response = client.post("/api/commit-all", json={})
+
+    assert response.status_code == 400
+    assert "no commit message available" in response.json()["detail"]
+
+
+def test_revert_all_stashes_the_live_pairs_changed_paths_and_restores_the_tree(tmp_path, stub_runner):
+    client, _first, _second = make_two_commit_repo_client(tmp_path, stub_runner)
+    repo = tmp_path / "repo"
+
+    response = client.post("/api/revert-all")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "hash" in payload and "nodes" in payload and "edges" in payload
+    assert _git(repo, "stash", "list").strip() != ""
+    assert (repo / "a.py").read_text() == "def foo():\n    return 2\n"  # HEAD's content, restored
+
+
+@pytest.mark.parametrize("path", ["/api/commit-all", "/api/revert-all"])
+def test_commit_all_and_revert_all_400_for_a_historical_non_live_pair(tmp_path, stub_runner, path):
+    client, first, second = make_two_commit_repo_client(tmp_path, stub_runner)
+
+    response = client.post(path, params={"base": first, "staged": second}, json={"message": "x"})
+
+    assert response.status_code == 400
