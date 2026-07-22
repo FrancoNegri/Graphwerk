@@ -24,6 +24,9 @@ class SymbolInfo:
     end_lineno: int
     source: str
     calls: set[str] = field(default_factory=set)  # simple names this symbol calls
+    # module globals ("_CACHE") and own-class attributes ("Config.TIMEOUT")
+    # this function/method body references (ADR 062) — empty for other kinds
+    uses: set[str] = field(default_factory=set)
 
 
 @dataclass

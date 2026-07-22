@@ -446,3 +446,127 @@ def outer():
     return inner
 """
     assert _extract_symbols(tmp_path, source) == {"outer"}
+
+
+def test_module_level_function_reading_a_tracked_global_by_name_has_it_in_uses(tmp_path: Path) -> None:
+    source = """
+_CACHE = {}
+
+def read_cache():
+    return _CACHE
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["read_cache"].uses == {"_CACHE"}
+
+
+def test_module_level_function_mutating_a_tracked_global_via_global_statement_has_it_in_uses(
+    tmp_path: Path,
+) -> None:
+    source = """
+_CACHE = {}
+
+def store(key, value):
+    global _CACHE
+    _CACHE[key] = value
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["store"].uses == {"_CACHE"}
+
+
+def test_module_level_function_referencing_an_untracked_free_name_has_empty_uses(tmp_path: Path) -> None:
+    source = """
+def f():
+    return unknown_name
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].uses == set()
+
+
+def test_method_accessing_self_attr_matching_a_class_level_variable_has_it_in_uses(tmp_path: Path) -> None:
+    source = """
+class Config:
+    TIMEOUT = 30
+
+    def get_timeout(self):
+        return self.TIMEOUT
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Config.get_timeout"].uses == {"Config.TIMEOUT"}
+
+
+def test_method_accessing_a_genuine_instance_attribute_does_not_add_it_to_uses(tmp_path: Path) -> None:
+    source = """
+class Widget:
+    def __init__(self):
+        self.name = "x"
+
+    def get_name(self):
+        return self.name
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Widget.get_name"].uses == set()
+
+
+def test_method_calling_another_method_via_self_does_not_add_it_to_uses(tmp_path: Path) -> None:
+    source = """
+class Service:
+    def helper(self):
+        return 1
+
+    def run(self):
+        return self.helper()
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Service.run"].calls == {"helper"}
+    assert index.symbols["Service.run"].uses == set()
+
+
+def test_function_calling_another_function_does_not_add_it_to_uses(tmp_path: Path) -> None:
+    source = """
+def helper():
+    return 1
+
+def run():
+    return helper()
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["run"].calls == {"helper"}
+    assert index.symbols["run"].uses == set()
+
+
+def test_variable_symbols_have_empty_uses_by_default(tmp_path: Path) -> None:
+    index = _extract_index(tmp_path, "_CACHE = {}\n")
+
+    assert index.symbols["_CACHE"].uses == set()
+
+
+def test_class_symbol_itself_has_empty_uses(tmp_path: Path) -> None:
+    source = """
+class Config:
+    TIMEOUT = 30
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Config"].uses == set()
+
+
+def test_method_uses_combines_own_class_attribute_and_module_level_global(tmp_path: Path) -> None:
+    source = """
+_LIMIT = 10
+
+class Config:
+    TIMEOUT = 30
+
+    def check(self):
+        return self.TIMEOUT + _LIMIT
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Config.check"].uses == {"Config.TIMEOUT", "_LIMIT"}

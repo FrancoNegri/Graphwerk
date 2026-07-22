@@ -37,17 +37,25 @@ class PythonAstExtractor:
                     for module in modules:
                         index.import_statements.setdefault(module, []).append((statement, node.lineno))
 
+        module_variable_names, class_attribute_names = _collect_variable_names(tree.body)
+
         for node in _iter_symbol_definitions(tree.body):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                index.symbols[node.name] = _symbol(node, node.name, "function", lines)
+                index.symbols[node.name] = _symbol(
+                    node, node.name, "function", lines, uses=_used_global_names(node, module_variable_names)
+                )
             elif isinstance(node, ast.ClassDef):
                 index.symbols[node.name] = _symbol(
                     node, node.name, "class", lines, calls=_class_body_called_names(node)
                 )
+                own_class_attributes = class_attribute_names.get(node.name, set())
                 for child in node.body:
                     if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         qualname = f"{node.name}.{child.name}"
-                        index.symbols[qualname] = _symbol(child, qualname, "method", lines)
+                        uses = _used_global_names(child, module_variable_names) | _used_self_attribute_names(
+                            child, node.name, own_class_attributes
+                        )
+                        index.symbols[qualname] = _symbol(child, qualname, "method", lines, uses=uses)
                     elif isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                         name = _simple_variable_name(child)
                         if name is not None:
@@ -61,7 +69,12 @@ class PythonAstExtractor:
 
 
 def _symbol(
-    node: ast.AST, qualname: str, kind: str, lines: list[str], calls: set[str] | None = None
+    node: ast.AST,
+    qualname: str,
+    kind: str,
+    lines: list[str],
+    calls: set[str] | None = None,
+    uses: set[str] | None = None,
 ) -> SymbolInfo:
     start, end = node.lineno, node.end_lineno or node.lineno
     return SymbolInfo(
@@ -71,6 +84,7 @@ def _symbol(
         end_lineno=end,
         source="".join(lines[start - 1 : end]),
         calls=calls if calls is not None else _called_names(node),
+        uses=uses if uses is not None else set(),
     )
 
 
@@ -106,6 +120,52 @@ def _names_from_calls(nodes: Iterator[ast.AST]) -> set[str]:
             elif isinstance(func, ast.Attribute):
                 names.add(func.attr)
     return names
+
+
+def _collect_variable_names(body: list[ast.stmt]) -> tuple[set[str], dict[str, set[str]]]:
+    """Pre-scan for the module-level globals and per-class attribute names
+    that ticket 180 already extracts as `variable` symbols, so `uses`
+    extraction (below) can check membership regardless of whether a
+    function is defined before or after the variable it references in the
+    file (ADR 062)."""
+    module_names: set[str] = set()
+    class_attribute_names: dict[str, set[str]] = {}
+    for node in _iter_symbol_definitions(body):
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            name = _simple_variable_name(node)
+            if name is not None:
+                module_names.add(name)
+        elif isinstance(node, ast.ClassDef):
+            attributes: set[str] = set()
+            for child in node.body:
+                if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                    name = _simple_variable_name(child)
+                    if name is not None:
+                        attributes.add(name)
+            class_attribute_names[node.name] = attributes
+    return module_names, class_attribute_names
+
+
+def _used_global_names(node: ast.AST, known_module_variable_names: set[str]) -> set[str]:
+    """Simple names this function/method body references, in any context,
+    that match a tracked module-level variable symbol in the same file."""
+    return {
+        sub.id for sub in ast.walk(node) if isinstance(sub, ast.Name) and sub.id in known_module_variable_names
+    }
+
+
+def _used_self_attribute_names(node: ast.AST, class_name: str, known_class_attributes: set[str]) -> set[str]:
+    """`self.<attr>` accesses whose `<attr>` matches a class-level variable
+    symbol on this method's own enclosing class — a `self.foo()` call or a
+    genuine instance attribute (unmatched `<attr>`) is excluded."""
+    return {
+        f"{class_name}.{sub.attr}"
+        for sub in ast.walk(node)
+        if isinstance(sub, ast.Attribute)
+        and isinstance(sub.value, ast.Name)
+        and sub.value.id == "self"
+        and sub.attr in known_class_attributes
+    }
 
 
 def _simple_variable_name(node: ast.Assign | ast.AnnAssign | ast.AugAssign) -> str | None:
