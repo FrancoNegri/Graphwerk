@@ -45,6 +45,7 @@ let changedOnlyView = false;
 let hideTestsView = true;
 let showImportsView = false;
 let showCallsView = true;
+let showUsesView = false;
 // "design" | "implementation" — filters rendered nodes by domain
 // and doubles as the scope sent with the next spawned session (ADR 046).
 let domainModeView = "implementation";
@@ -245,6 +246,7 @@ function toElements(data) {
     if (source === target && e.source !== e.target) continue;
     if (e.kind === "imports" && !showImportsView) continue;
     if (e.kind === "calls" && !showCallsView) continue;
+    if (e.kind === "uses" && !showUsesView) continue;
     const id = `${source}->${target}:${e.kind}`;
     let edge = edgesById.get(id);
     if (!edge) {
@@ -311,6 +313,11 @@ function setShowImportsView(enabled) {
 
 function setShowCallsView(enabled) {
   showCallsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowUsesView(enabled) {
+  showUsesView = enabled;
   if (graphData) renderGraph(toElements(graphData));
 }
 
@@ -579,6 +586,16 @@ function renderGraph(elements) {
         selector: "edge[kind='imports']",
         style: {
           "line-style": "dashed",
+          "line-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
+          "target-arrow-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
+        },
+      },
+      {
+        // Dotted, distinct from calls (solid) and imports (dashed) at a
+        // glance, gated behind its own default-hidden toggle (ADR 062).
+        selector: "edge[kind='uses']",
+        style: {
+          "line-style": "dotted",
           "line-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
           "target-arrow-color": (ele) => COLORS[ele.data("status")] || COLORS.unchanged,
         },
@@ -1171,6 +1188,10 @@ document.getElementById("show-imports").addEventListener("change", (event) => {
 
 document.getElementById("show-calls").addEventListener("change", (event) => {
   setShowCallsView(event.target.checked);
+});
+
+document.getElementById("show-uses").addEventListener("change", (event) => {
+  setShowUsesView(event.target.checked);
 });
 
 document.querySelectorAll('#code-mode-toggle input[name="code-mode"]').forEach((input) => {
