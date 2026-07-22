@@ -44,7 +44,12 @@ class PythonAstExtractor:
         for node in _iter_symbol_definitions(tree.body):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 index.symbols[node.name] = _symbol(
-                    node, node.name, "function", lines, uses=_used_global_names(node, module_variable_names)
+                    node,
+                    node.name,
+                    "function",
+                    lines,
+                    uses=_used_global_names(node, module_variable_names),
+                    imports_used=_used_import_names(node, index.imported_names),
                 )
             elif isinstance(node, ast.ClassDef):
                 index.symbols[node.name] = _symbol(
@@ -57,7 +62,10 @@ class PythonAstExtractor:
                         uses = _used_global_names(child, module_variable_names) | _used_self_attribute_names(
                             child, node.name, own_class_attributes
                         )
-                        index.symbols[qualname] = _symbol(child, qualname, "method", lines, uses=uses)
+                        imports_used = _used_import_names(child, index.imported_names)
+                        index.symbols[qualname] = _symbol(
+                            child, qualname, "method", lines, uses=uses, imports_used=imports_used
+                        )
                     elif isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                         name = _simple_variable_name(child)
                         if name is not None:
@@ -77,6 +85,7 @@ def _symbol(
     lines: list[str],
     calls: set[str] | None = None,
     uses: set[str] | None = None,
+    imports_used: set[str] | None = None,
 ) -> SymbolInfo:
     start, end = node.lineno, node.end_lineno or node.lineno
     return SymbolInfo(
@@ -87,6 +96,7 @@ def _symbol(
         source="".join(lines[start - 1 : end]),
         calls=calls if calls is not None else _called_names(node),
         uses=uses if uses is not None else set(),
+        imports_used=imports_used if imports_used is not None else set(),
     )
 
 
@@ -168,6 +178,52 @@ def _used_self_attribute_names(node: ast.AST, class_name: str, known_class_attri
         and sub.value.id == "self"
         and sub.attr in known_class_attributes
     }
+
+
+def _used_import_names(node: ast.AST, imported_names: dict[str, tuple[str, int]]) -> set[str]:
+    """Module-level import bindings (ticket 187's `FileIndex.imported_names`)
+    this function/method body references, the same `ast.Name`-load walk
+    `_used_global_names` does for variables, minus any name the symbol binds
+    in its own scope (ADR 064) — those already render as literal source
+    inside the symbol's own block, so re-attributing the outer module-level
+    statement too would be a misleading duplicate."""
+    locally_bound = _locally_bound_names(node)
+    return {
+        sub.id
+        for sub in ast.walk(node)
+        if isinstance(sub, ast.Name) and sub.id in imported_names and sub.id not in locally_bound
+    }
+
+
+def _locally_bound_names(node: ast.AST) -> set[str]:
+    """Every name this function/method's own subtree binds itself: its own
+    and any nested function/lambda's parameters, any nested def/class's own
+    name, any assignment target, and any of its own (possibly nested) local
+    imports — a shadow set for `_used_import_names` (ADR 064)."""
+    names: set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.update(_argument_names(sub.args))
+            if sub is not node:
+                names.add(sub.name)
+        elif isinstance(sub, ast.Lambda):
+            names.update(_argument_names(sub.args))
+        elif isinstance(sub, ast.ClassDef):
+            names.add(sub.name)
+        elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+            names.add(sub.id)
+        elif isinstance(sub, (ast.Import, ast.ImportFrom)):
+            names.update(_bound_names(sub))
+    return names
+
+
+def _argument_names(args: ast.arguments) -> set[str]:
+    names = {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    if args.vararg is not None:
+        names.add(args.vararg.arg)
+    if args.kwarg is not None:
+        names.add(args.kwarg.arg)
+    return names
 
 
 def _simple_variable_name(node: ast.Assign | ast.AnnAssign | ast.AugAssign) -> str | None:

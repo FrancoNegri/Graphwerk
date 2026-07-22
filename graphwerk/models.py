@@ -27,6 +27,11 @@ class SymbolInfo:
     # module globals ("_CACHE") and own-class attributes ("Config.TIMEOUT")
     # this function/method body references (ADR 062) — empty for other kinds
     uses: set[str] = field(default_factory=set)
+    # module-level import bindings (FileIndex.imported_names, ADR 064) this
+    # function/method body references, excluding any it shadows in its own
+    # scope (params/local assigns/nested defs/local imports) — empty for
+    # other kinds
+    imports_used: set[str] = field(default_factory=set)
 
 
 @dataclass

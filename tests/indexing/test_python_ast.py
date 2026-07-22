@@ -677,6 +677,172 @@ if TYPE_CHECKING:
     assert _extract_imported_names(tmp_path, source) == {"TYPE_CHECKING": ("from typing import TYPE_CHECKING", 2)}
 
 
+def test_module_level_function_referencing_an_import_binding_has_it_in_imports_used(tmp_path: Path) -> None:
+    source = """
+from pkg import Thing
+
+def f():
+    return Thing()
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].imports_used == {"Thing"}
+
+
+def test_method_referencing_an_import_binding_has_it_in_imports_used(tmp_path: Path) -> None:
+    source = """
+from fastapi import APIRouter
+
+class C:
+    def __init__(self):
+        self.router = APIRouter()
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["C.__init__"].imports_used == {"APIRouter"}
+
+
+def test_import_used_only_inside_a_nested_def_body_is_still_attributed_to_the_outer_function(
+    tmp_path: Path,
+) -> None:
+    source = """
+from typing import Any
+
+def outer():
+    def inner(config: dict) -> Any:
+        return config
+    return inner
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["outer"].imports_used == {"Any"}
+
+
+def test_function_referencing_an_untracked_free_name_has_empty_imports_used(tmp_path: Path) -> None:
+    source = """
+def f():
+    return unknown_name
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].imports_used == set()
+
+
+def test_variable_symbols_have_empty_imports_used_by_default(tmp_path: Path) -> None:
+    index = _extract_index(tmp_path, "_CACHE = {}\n")
+
+    assert index.symbols["_CACHE"].imports_used == set()
+
+
+def test_class_symbol_itself_has_empty_imports_used(tmp_path: Path) -> None:
+    source = """
+from pkg import Thing
+
+class Config:
+    pass
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["Config"].imports_used == set()
+
+
+def test_parameter_shadowing_a_module_level_import_binding_is_excluded_from_imports_used(
+    tmp_path: Path,
+) -> None:
+    source = """
+from pkg import Thing
+
+def f(Thing):
+    return Thing
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].imports_used == set()
+
+
+def test_local_assignment_shadowing_a_module_level_import_binding_is_excluded_from_imports_used(
+    tmp_path: Path,
+) -> None:
+    source = """
+from pkg import Thing
+
+def f():
+    Thing = 1
+    return Thing
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].imports_used == set()
+
+
+def test_nested_def_name_shadowing_a_module_level_import_binding_is_excluded_from_imports_used(
+    tmp_path: Path,
+) -> None:
+    source = """
+from pkg import Thing
+
+def outer():
+    def Thing():
+        pass
+    return Thing()
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["outer"].imports_used == set()
+
+
+def test_local_import_shadowing_a_module_level_import_binding_is_excluded_from_imports_used(
+    tmp_path: Path,
+) -> None:
+    source = """
+from pkg import Thing
+
+def f():
+    from other_pkg import Thing
+    return Thing
+"""
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["f"].imports_used == set()
+
+
+def test_dogfooded_router_init_attributes_used_module_imports_excluding_locally_bound_names(
+    tmp_path: Path,
+) -> None:
+    """Ticket 188's acceptance criterion, verified against the exact
+    dogfooded shape ADR 064 documented: `TestOnlyRouter.__init__` uses
+    `APIRouter`/`datetime` directly and `Any` only via a nested def's return
+    annotation, but its own locally-imported names (`BaseModel` et al.,
+    aliased or not) never appear because they aren't module-level bindings
+    to begin with."""
+    source = '''
+from fastapi import APIRouter
+from datetime import datetime
+from typing import Any
+
+
+class TestOnlyRouter:
+    def __init__(self):
+        from pydantic import BaseModel as _BaseModel
+        from agendabot.classifier import ClassifierResult
+        from agendabot.dependencies import _mock_intents, get_calendar
+
+        def _slot_from_config(value) -> Any:
+            return value
+
+        self.router = APIRouter()
+        self.created_at = datetime.fromisoformat("2020-01-01")
+        self.model = _BaseModel
+        self.result = ClassifierResult
+        self.intents = _mock_intents
+        self.calendar = get_calendar()
+        self.slot = _slot_from_config(self.created_at)
+'''
+    index = _extract_index(tmp_path, source)
+
+    assert index.symbols["TestOnlyRouter.__init__"].imports_used == {"APIRouter", "datetime", "Any"}
+
+
 def test_existing_imports_and_import_statements_fields_are_unaffected_by_module_level_scoping(
     tmp_path: Path,
 ) -> None:

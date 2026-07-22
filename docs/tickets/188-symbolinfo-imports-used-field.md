@@ -1,6 +1,6 @@
 # 188. `SymbolInfo.imports_used`: functions/methods record which module-level imports they reference
 
-Status: ready
+Status: done
 Decision: docs/decisions/064-changed-method-code-view-surfaces-its-imports.md
 
 ## Goal
