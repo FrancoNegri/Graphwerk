@@ -81,6 +81,13 @@ class GraphService:
             self._code_view_cache[key] = build_code_view(base_text, staged_text)
         return self._code_view_cache[key]
 
+    def changed_paths(self) -> list[str]:
+        """Rel paths the diff currently reports as changed, reusing the
+        same CHANGED definition snapshot() uses for why/color (ADR 061),
+        so commit-all/revert-all (ticket 178) scope to what the developer
+        is actually reviewing."""
+        return [rel for rel, change in self.builder.build().items() if change.status in CHANGED]
+
     def snapshot(self) -> Snapshot:
         changes = self.builder.build()
         self.rationale.reload(changed_symbols=self._changed_symbols(changes))

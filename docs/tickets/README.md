@@ -185,3 +185,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [173](173-graph-hash-endpoints-accept-pair-params.md) | `/api/graph` and `/api/hash` accept `base`/`staged` query params | done | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
 | [174](174-frontend-comparison-dropdowns.md) | Frontend: base / compare-to dropdowns | done | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
 | [175](175-gate-session-ui-on-live-pair.md) | Gate prompt box + polling on the selected pair being live | done | [060](../decisions/060-comparison-picker-any-ref-vs-any-ref.md) |
+| [176](176-landing-commit-all-revert-all-helpers.md) | `graphwerk/landing.py`: `commit_all` / `revert_all` git helpers | ready | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
+| [177](177-graphservice-changed-paths.md) | `GraphService.changed_paths()` | done | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
+| [178](178-commit-all-revert-all-endpoints.md) | `POST /api/commit-all` and `POST /api/revert-all` | ready | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
+| [179](179-frontend-commit-all-revert-all-buttons.md) | Frontend: commit-all / revert-all buttons | ready | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |

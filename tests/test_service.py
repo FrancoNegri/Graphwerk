@@ -1244,3 +1244,18 @@ def test_snapshot_meta_commit_message_is_null_without_the_line(tmp_path):
     meta = service.snapshot().meta
     assert "commit_message" in meta
     assert meta["commit_message"] is None
+
+
+def test_changed_paths_returns_modified_and_added_but_not_unchanged(tmp_path):
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"modified.py": "def f():\n    return 1\n", "unchanged.py": "def g():\n    return 1\n"},
+        {
+            "modified.py": "def f():\n    return 2\n",
+            "unchanged.py": "def g():\n    return 1\n",
+            "added.py": "def h():\n    return 1\n",
+        },
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
+
+    assert set(service.changed_paths()) == {"modified.py", "added.py"}
