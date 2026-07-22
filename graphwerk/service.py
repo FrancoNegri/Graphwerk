@@ -132,6 +132,7 @@ class GraphService:
                 info = staged_info or base_info
                 if info is None:
                     continue
+                relevant_index = change.staged if staged_info is not None else change.base
                 node_id = f"{rel}::{qualname}"
                 parent = f"{rel}::{qualname.split('.')[0]}" if "." in qualname else rel
                 symbol_why = self.rationale.why_for(rel, qualname) if status in CHANGED else None
@@ -154,6 +155,7 @@ class GraphService:
                             base_info.source if base_info else None,
                             staged_info.source if staged_info else None,
                         ),
+                        used_imports=_used_imports_view(info.imports_used, relevant_index.imported_names),
                         is_test=is_test_path(rel),
                         domain=domain,
                     )
@@ -463,6 +465,25 @@ def _statement_in_caller_span(statement: tuple[str, int] | None, caller_symbol: 
         return False
     _, start_line = statement
     return caller_symbol.lineno <= start_line <= caller_symbol.end_lineno
+
+
+def _used_imports_view(
+    imports_used: set[str], imported_names: dict[str, tuple[str, int]]
+) -> list | None:
+    """One rendered statement block (ADR 038 shape, via `_statement_code_lines`)
+    per distinct module-level import statement backing a name in
+    `imports_used` (ADR 064) — a symbol referencing two names bound by the
+    same statement (`from typing import Any, Optional`) gets that statement
+    once, not twice. Always rendered as context (`op="ctx"`): this is the
+    binding a symbol's own code already depends on, not itself part of the
+    symbol's diff."""
+    statements = {imported_names[name] for name in imports_used if name in imported_names}
+    if not statements:
+        return None
+    return [
+        _statement_code_lines(statement, Status.UNCHANGED)
+        for statement in sorted(statements, key=lambda statement: statement[1])
+    ]
 
 
 def _statement_code_lines(statement: tuple[str, int] | None, status: Status) -> list | None:

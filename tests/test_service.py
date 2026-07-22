@@ -1396,3 +1396,67 @@ def test_root_node_carries_no_status_or_diff_and_serializes(tmp_path):
     payload = snapshot.to_dict()
     root_payload = next(n for n in payload["nodes"] if n["id"] == "__root__")
     assert root_payload["status"] == "unchanged"
+
+
+def test_leaf_symbol_node_carries_used_import_statement(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": (
+            "from fastapi import APIRouter\n"
+            "\n"
+            "class C:\n"
+            "    def method(self):\n"
+            "        return APIRouter()\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    node = next(n for n in snapshot.nodes if n.id == "caller.py::C.method")
+    (block,) = node.used_imports
+    (line,) = block
+    assert line["text"] == "from fastapi import APIRouter"
+    assert line["line"] == 1
+    assert line["op"] == "ctx"
+    assert line["spans"]
+
+
+def test_leaf_symbol_node_used_imports_is_none_when_nothing_used(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": "def f():\n    return 1\n",
+    })
+    snapshot = service.snapshot()
+
+    node = next(n for n in snapshot.nodes if n.id == "caller.py::f")
+    assert node.used_imports is None
+
+
+def test_leaf_symbol_referencing_two_names_from_same_statement_renders_it_once(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": (
+            "from typing import Any, Optional\n"
+            "\n"
+            "def f(x: Any) -> Optional[int]:\n"
+            "    return x\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    node = next(n for n in snapshot.nodes if n.id == "caller.py::f")
+    assert len(node.used_imports) == 1
+
+
+def test_leaf_symbol_used_imports_serializes_through_to_dict(tmp_path):
+    service = make_service(tmp_path, {
+        "caller.py": (
+            "from fastapi import APIRouter\n"
+            "\n"
+            "def f():\n"
+            "    return APIRouter()\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    payload = snapshot.to_dict()
+    node_payload = next(n for n in payload["nodes"] if n["id"] == "caller.py::f")
+    (block,) = node_payload["used_imports"]
+    (line,) = block
+    assert line["text"] == "from fastapi import APIRouter"

@@ -1,6 +1,6 @@
 # 189. `GraphService` renders each leaf symbol's `imports_used` as real statement blocks
 
-Status: ready
+Status: done
 Decision: docs/decisions/064-changed-method-code-view-surfaces-its-imports.md
 
 ## Goal

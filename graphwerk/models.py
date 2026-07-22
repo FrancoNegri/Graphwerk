@@ -75,6 +75,10 @@ class GraphNode:
     is_test: bool = False  # path matches the pytest discovery convention
     paired_file: str | None = None  # matched source file's node id, test files only
     domain: str = "code"  # "doc" | "code" — which extractor produced this node's file (ADR 046)
+    # one rendered statement block (ADR 038 line-view shape) per distinct
+    # module-level import statement backing a name in this leaf symbol's
+    # `imports_used` (ADR 064) — None when it references none
+    used_imports: list | None = None
 
     def to_dict(self) -> dict:
         payload = {
@@ -93,6 +97,7 @@ class GraphNode:
             "order": self.order,
             "group": self.group,
             "code": self.code,
+            "used_imports": self.used_imports,
         }
         if self.is_test:
             payload["is_test"] = True
