@@ -177,6 +177,7 @@ class GraphService:
         self._mark_affected(snap)
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
+        self._add_root_node(snap)
         changed_nodes_exist = any(node.status in CHANGED for node in snap.nodes)
         snap.meta["rationale"]["message"] = self.rationale.status_message(changed_nodes_exist)
         return snap
@@ -393,6 +394,22 @@ class GraphService:
         for node in snap.nodes:
             if node.id in affected:
                 node.status = Status.AFFECTED
+
+    def _add_root_node(self, snap: Snapshot) -> None:
+        """Anchors the top layer band with one synthetic `Root` node (ADR
+        063): a review-surface annotation over `assign_layers()`'s own
+        result, not a new structural computation, so it runs after layout
+        and carries no status/diff of its own. Scoped to the code-domain
+        file graph only — doc files have no meaningful depth structure to
+        anchor (see ADR 063)."""
+        entry_point_ids = [n.id for n in snap.nodes if n.kind == "file" and n.domain == "code" and n.layer == 0]
+        if not entry_point_ids:
+            return
+        snap.nodes.append(GraphNode(
+            id="__root__", label="Root", kind="root", path="", domain="code", layer=-1, order=0,
+        ))
+        for target_id in entry_point_ids:
+            snap.edges.append(GraphEdge("__root__", target_id, "entrypoint"))
 
     def _mark_edge_status(self, snap: Snapshot) -> None:
         """Lets a `calls`/`uses` edge say whether it leads into changed code

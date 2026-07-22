@@ -1349,3 +1349,50 @@ def test_uses_edge_resolves_to_same_named_global_through_import_reachability(tmp
     snapshot = service.snapshot()
 
     assert ("a.py::read", "b.py::_CACHE") in uses_edge_pairs(snapshot)
+
+
+def test_root_node_wires_to_every_layer_zero_entry_point(tmp_path):
+    """Two files that don't import each other both sit at layer 0 (ADR
+    022), so Root (ADR 063) converges on both of them."""
+    service = make_service(tmp_path, {
+        "a.py": "def f():\n    return 1\n",
+        "b.py": "def g():\n    return 2\n",
+    })
+    snapshot = service.snapshot()
+
+    root_nodes = [n for n in snapshot.nodes if n.kind == "root"]
+    assert len(root_nodes) == 1
+    root = root_nodes[0]
+    assert root.id == "__root__"
+    assert root.label == "Root"
+    assert root.path == ""
+    assert root.domain == "code"
+    assert root.layer == -1
+    assert root.order == 0
+
+    entrypoint_targets = {e.target for e in snapshot.edges if e.kind == "entrypoint" and e.source == "__root__"}
+    assert entrypoint_targets == {"a.py", "b.py"}
+
+
+def test_root_node_absent_from_doc_only_tree(tmp_path):
+    service = make_service(tmp_path, {"doc.md": "# Title\n\n## Section\nbody\n"})
+    snapshot = service.snapshot()
+
+    assert not any(n.kind == "root" for n in snapshot.nodes)
+    assert not any(e.kind == "entrypoint" for e in snapshot.edges)
+
+
+def test_root_node_carries_no_status_or_diff_and_serializes(tmp_path):
+    service = make_service(tmp_path, {"a.py": "def f():\n    return 1\n"})
+    snapshot = service.snapshot()
+
+    root = next(n for n in snapshot.nodes if n.kind == "root")
+    assert root.status == Status.UNCHANGED
+    assert root.diff is None
+    assert root.why is None
+    assert root.code is None
+    assert root.source is None
+
+    payload = snapshot.to_dict()
+    root_payload = next(n for n in payload["nodes"] if n["id"] == "__root__")
+    assert root_payload["status"] == "unchanged"
