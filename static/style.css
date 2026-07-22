@@ -323,6 +323,10 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .path { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
 
+/* Root's static description (ADR 063) — same visual weight as .path, no
+   status/why/code chrome since Root carries none of that. */
+.description { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
 section h3 {
   font-size: 12px;
   text-transform: uppercase;

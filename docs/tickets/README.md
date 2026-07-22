@@ -190,4 +190,9 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [178](178-commit-all-revert-all-endpoints.md) | `POST /api/commit-all` and `POST /api/revert-all` | done | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
 | [179](179-frontend-commit-all-revert-all-buttons.md) | Frontend: commit-all / revert-all buttons | done | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
 | [180](180-variable-symbol-extraction.md) | Module-level and class-level variable symbol extraction | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
+| [181](181-symbolinfo-uses-field.md) | `SymbolInfo.uses`: functions/methods record which variables they reference | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
 | [182](182-uses-edges-and-status-propagation.md) | `GraphService` wires `uses` edges and propagates status like `calls` | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
+| [183](183-frontend-variable-nodes-uses-edges.md) | Frontend: render `variable` nodes and `uses` edges | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
+| [184](184-changed-methods-affects-summary.md) | Sidebar: "Affects" summary line in changed-methods mode | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
+| [185](185-root-node-backend.md) | Backend: synthesize the `Root` entry-point node | done | [063](../decisions/063-root-entry-point-node.md) |
+| [186](186-root-node-frontend.md) | Frontend: render the `Root` node | done | [063](../decisions/063-root-entry-point-node.md) |

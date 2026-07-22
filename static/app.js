@@ -224,7 +224,10 @@ function toElements(data) {
 
   const nodes = data.nodes
     .filter((n) => representativeId(n.id) === n.id
-      && (!revealedIds || revealedIds.has(n.id))
+      // Root (ADR 063) carries no change/blast-radius status of its own, so
+      // it's exempt from the changed-only filter rather than needing to earn
+      // a spot in revealedIds the way real nodes do.
+      && (!revealedIds || revealedIds.has(n.id) || n.kind === "root")
       && (!hideTestsView || !signalFreeTestNode(n))
       && matchesDomainMode(n))
     .map((n) => {
@@ -559,6 +562,24 @@ function renderGraph(elements) {
         style: { "border-style": "dashed", opacity: 0.6 },
       },
       {
+        // Root (ADR 063): a synthetic anchor, not a real file/symbol — a
+        // diamond with a flat neutral fill/border rather than the
+        // status-tinted background every other node kind gets, since it has
+        // no status of its own.
+        selector: "node[kind='root']",
+        style: {
+          shape: "diamond",
+          "background-color": "#94a3b8",
+          "background-opacity": 1,
+          "border-width": 1.5,
+          "border-color": "#0f172a",
+          width: 28,
+          height: 28,
+          "text-valign": "bottom",
+          "text-margin-y": 6,
+        },
+      },
+      {
         // Node-click isolation (ADR 056): hides everything outside the
         // tapped node's keep set without removing it from the graph.
         selector: "node.isolation-hidden",
@@ -607,6 +628,23 @@ function renderGraph(elements) {
         // specificity order, so .revealed wins over this rule while active.
         selector: "edge[status='unchanged']",
         style: { display: "none" },
+      },
+      {
+        // entrypoint edges (ADR 063) always carry status "unchanged" (Root
+        // has no change of its own) but must stay visible regardless — same
+        // specificity as the rule above, so defining this one later is what
+        // makes it win. Thin/dashed, distinct from calls (solid)/imports
+        // (dashed, status-colored)/uses (dotted): a fixed neutral color
+        // rather than a status one, since the edge carries no status signal.
+        selector: "edge[kind='entrypoint']",
+        style: {
+          display: "element",
+          width: 1,
+          "line-style": "dashed",
+          "line-color": "#64748b",
+          "target-arrow-color": "#64748b",
+          "arrow-scale": 0.6,
+        },
       },
       { selector: "edge.revealed, edge.pinned", style: { display: "element" } },
       { selector: "node:selected", style: { "border-color": "#f8fafc", "border-width": 3 } },
@@ -693,7 +731,12 @@ function layeredPlacementConstraints(data, nodes) {
     const layer = layerOf.get(node.data.id);
     if (layer == null) continue;
     const order = orderOf.get(node.data.id);
-    if (node.data.kind === "file") {
+    // Root (ADR 063, ticket 186) shares the file band's alignment/relative-
+    // placement machinery rather than getting its own: it's a childless
+    // top-level node at layer -1, the same shape the file-band constraints
+    // already expect, and "one band above layer 0" is exactly what
+    // appendBandConstraints computes from any two distinct layers here.
+    if (node.data.kind === "file" || node.data.kind === "root") {
       addAnchor(fileAnchorsByLayer, layer, anchorOf(node.data.id), order);
     } else if (node.data.kind === "function") {
       if (!functionAnchorsByLayerPerFile.has(node.data.parent)) {
@@ -783,10 +826,17 @@ function showDetails(node) {
 
   document.getElementById("d-label").textContent = node.label;
   document.getElementById("d-kind").textContent = node.kind;
+  // Root (ADR 063) carries no status of its own — the chip would otherwise
+  // show the harmless-but-meaningless default "unchanged".
+  const isRoot = node.kind === "root";
   const statusChip = document.getElementById("d-status");
+  statusChip.hidden = isRoot;
   statusChip.textContent = node.status;
   statusChip.className = `chip ${node.status}`;
   document.getElementById("d-path").textContent = node.path;
+  const descriptionEl = document.getElementById("d-description");
+  descriptionEl.hidden = !isRoot;
+  if (isRoot) descriptionEl.textContent = "Entry points into this codebase.";
 
   const whySection = document.getElementById("why-section");
   whySection.hidden = !node.why;
