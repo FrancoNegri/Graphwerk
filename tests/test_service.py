@@ -355,6 +355,10 @@ def calls_edge_pairs(snapshot) -> set[tuple[str, str]]:
     return {(e.source, e.target) for e in snapshot.edges if e.kind == "calls"}
 
 
+def uses_edge_pairs(snapshot) -> set[tuple[str, str]]:
+    return {(e.source, e.target) for e in snapshot.edges if e.kind == "uses"}
+
+
 def test_unchanged_caller_does_not_resolve_to_deleted_target_it_no_longer_calls(tmp_path):
     """Mirror phantom case (ADR 032): a caller whose calls came from
     staged_info must not resolve to a deleted (base-only) target it never
@@ -1259,3 +1263,89 @@ def test_changed_paths_returns_modified_and_added_but_not_unchanged(tmp_path):
     service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
 
     assert set(service.changed_paths()) == {"modified.py", "added.py"}
+
+
+def test_uses_edge_from_added_function_to_unchanged_module_global(tmp_path):
+    """Ticket 182: `uses` gets the same target-status filtering `calls`
+    already has — an added caller resolves to an unchanged target and the
+    edge takes the caller's own (added) status."""
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "_CACHE = {}\n"},
+        {"a.py": "_CACHE = {}\n\ndef read():\n    return _CACHE\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::read", "a.py::_CACHE", kind="uses")
+    assert edge.status == Status.ADDED
+
+
+def test_uses_edge_for_class_attribute_resolves_within_same_class(tmp_path):
+    """Same-file case always works (ADR 062): a method's `self.<attr>`
+    reference resolves to its own class's variable symbol."""
+    service = make_service(tmp_path, {
+        "a.py": "class Config:\n    TIMEOUT = 5\n\n    def get(self):\n        return self.TIMEOUT\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("a.py::Config.get", "a.py::Config.TIMEOUT") in uses_edge_pairs(snapshot)
+
+
+def test_uses_edge_into_modified_global_has_modified_status(tmp_path):
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "_CACHE = {}\n\ndef read():\n    return _CACHE\n"},
+        {"a.py": "_CACHE = {1: 2}\n\ndef read():\n    return _CACHE\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
+    snapshot = service.snapshot()
+
+    edge = edge_between(snapshot, "a.py::read", "a.py::_CACHE", kind="uses")
+    assert edge.status == Status.MODIFIED
+
+
+def test_uses_edge_marks_unchanged_reader_affected_when_global_changes(tmp_path):
+    """_mark_affected generalized to `edge.kind in {"calls", "uses"}`
+    (ADR 062): an otherwise-unchanged reader of a changed global turns
+    AFFECTED, the same blast-radius signal a caller of a changed function
+    already gets."""
+    repo, base_ref = make_repo(
+        tmp_path,
+        {"a.py": "_CACHE = {}\n\ndef read():\n    return _CACHE\n"},
+        {"a.py": "_CACHE = {1: 2}\n\ndef read():\n    return _CACHE\n"},
+    )
+    service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
+    snapshot = service.snapshot()
+
+    nodes = {n.id: n for n in snapshot.nodes}
+    assert nodes["a.py::read"].status == Status.AFFECTED
+
+
+def test_uses_edge_does_not_resolve_to_same_named_global_in_unimported_file(tmp_path):
+    """Phantom-edge guard (ADR 032/034), generalized to `uses`: a
+    same-named module global in a file the reader never imports must not
+    wire in just because the simple name matches."""
+    service = make_service(tmp_path, {
+        "a.py": "_CACHE = {}\n\ndef read():\n    return _CACHE\n",
+        "b.py": "_CACHE = {}\n",
+    })
+    snapshot = service.snapshot()
+
+    pairs = uses_edge_pairs(snapshot)
+    assert ("a.py::read", "b.py::_CACHE") not in pairs
+    assert ("a.py::read", "a.py::_CACHE") in pairs
+
+
+def test_uses_edge_resolves_to_same_named_global_through_import_reachability(tmp_path):
+    """Cross-file `uses` resolution reuses the exact same import-reachability
+    functions `calls` edges already use (ADR 062) — no new resolution code,
+    same function, exercised here through the same simple-name-collision
+    mechanics the `calls` tests above already cover."""
+    service = make_service(tmp_path, {
+        "a.py": "import b\n\n_CACHE = {}\n\ndef read():\n    return _CACHE\n",
+        "b.py": "_CACHE = {}\n",
+    })
+    snapshot = service.snapshot()
+
+    assert ("a.py::read", "b.py::_CACHE") in uses_edge_pairs(snapshot)

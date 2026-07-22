@@ -97,8 +97,9 @@ class GraphService:
             # tell "no message" apart from an old payload (ADR 037)
             "commit_message": self.rationale.commit_message,
         })
-        name_to_ids: dict[str, list[str]] = {}  # simple name -> symbol node ids
+        name_to_ids: dict[str, list[str]] = {}  # simple/qualified name -> symbol node ids
         symbol_calls: dict[str, set[str]] = {}  # node id -> called simple names
+        symbol_uses: dict[str, set[str]] = {}  # node id -> referenced global/attribute names
 
         for rel, change in changes.items():
             if change.status is Status.UNCHANGED and not change.symbols:
@@ -159,10 +160,18 @@ class GraphService:
                 )
                 simple = qualname.split(".")[-1]
                 name_to_ids.setdefault(simple, []).append(node_id)
+                # A class-level variable's `uses` entry names it by its full
+                # qualname ("ClassName.attr", from `self.attr` accesses) —
+                # index that form too so it resolves the same way a bare
+                # module-level global's simple name already does.
+                if qualname != simple:
+                    name_to_ids.setdefault(qualname, []).append(node_id)
                 symbol_calls[node_id] = info.calls
+                symbol_uses[node_id] = info.uses
 
         resolver = ModuleFileResolver(changes)
-        self._add_call_edges(snap, name_to_ids, symbol_calls, changes, resolver)
+        self._add_symbol_edges(snap, name_to_ids, symbol_calls, changes, resolver, "calls")
+        self._add_symbol_edges(snap, name_to_ids, symbol_uses, changes, resolver, "uses")
         self._add_import_edges(snap, changes, resolver)
         self._add_reference_edges(snap, changes)
         self._mark_affected(snap)
@@ -190,14 +199,26 @@ class GraphService:
             digest.update(f"{rel}:{stat.st_mtime_ns}:{stat.st_size};".encode())
         return digest.hexdigest()
 
-    def _add_call_edges(
-        self, snap: Snapshot, name_to_ids: dict, symbol_calls: dict, changes: dict, resolver: ModuleFileResolver
+    def _add_symbol_edges(
+        self,
+        snap: Snapshot,
+        name_to_ids: dict,
+        symbol_targets: dict,
+        changes: dict,
+        resolver: ModuleFileResolver,
+        edge_kind: str,
     ) -> None:
-        """Only wires a caller to targets that (a) shared a parsed tree with
-        it (ADR 032) and (b) live in a file the caller can actually reach —
-        its own file, or a file resolved from its relevant tree's imports
-        (ADR 034). A deleted caller's calls/imports came from base_info, so
-        both checks resolve within base; every other caller's came from
+        """Wires one edge kind (`"calls"` or `"uses"`, ADR 062) from each
+        source id to whatever `symbol_targets` names it references, through
+        one shared resolution pipeline — the two calls this makes from
+        `snapshot()` differ only in which name set and which edge kind they
+        pass in.
+
+        Only wires a source to targets that (a) shared a parsed tree with it
+        (ADR 032) and (b) live in a file the source can actually reach — its
+        own file, or a file resolved from its relevant tree's imports (ADR
+        034). A deleted source's calls/uses/imports came from base_info, so
+        both checks resolve within base; every other source's came from
         staged_info, so both resolve within staged. Without (a), a relocated
         symbol's old and new copies (same simple name, one deleted, one
         added) would wire together despite never having coexisted in either
@@ -309,7 +330,7 @@ class GraphService:
             ]
 
         seen: set[tuple[str, str]] = set()
-        for source_id, calls in symbol_calls.items():
+        for source_id, names in symbol_targets.items():
             caller_deleted = status_by_id.get(source_id) is Status.DELETED
             allowed_target_statuses = (
                 {Status.DELETED, Status.MODIFIED, Status.UNCHANGED}
@@ -319,7 +340,7 @@ class GraphService:
             caller_rel = path_by_id.get(source_id)
             modules_by_file = admitting_modules_by_file(caller_rel, caller_deleted)
             allowed_files = reachable_files(caller_rel, caller_deleted)
-            for name in calls:
+            for name in names:
                 for target_id in name_to_ids.get(name, []):
                     if target_id == source_id or (source_id, target_id) in seen:
                         continue
@@ -332,7 +353,7 @@ class GraphService:
                     via_imports = via_imports_entries(
                         caller_rel, target_rel, modules_by_file, caller_deleted, source_id
                     )
-                    snap.edges.append(GraphEdge(source_id, target_id, "calls", via_imports=via_imports))
+                    snap.edges.append(GraphEdge(source_id, target_id, edge_kind, via_imports=via_imports))
 
     def _add_import_edges(self, snap: Snapshot, changes: dict, resolver: ModuleFileResolver) -> None:
         for rel, change in changes.items():
@@ -358,33 +379,37 @@ class GraphService:
                     snap.edges.append(GraphEdge(rel, target, "references", status))
 
     def _mark_affected(self, snap: Snapshot) -> None:
-        """Yellow ring: unchanged symbols that call into changed ones (human blast radius)."""
+        """Yellow ring: unchanged symbols that call into, or reference
+        (ADR 062's `uses`), changed ones (human blast radius)."""
         status_by_id = {n.id: n.status for n in snap.nodes}
         changed = {nid for nid, st in status_by_id.items() if st in CHANGED}
         affected = {
             e.source
             for e in snap.edges
-            if e.kind == "calls" and e.target in changed and status_by_id.get(e.source) is Status.UNCHANGED
+            if e.kind in {"calls", "uses"}
+            and e.target in changed
+            and status_by_id.get(e.source) is Status.UNCHANGED
         }
         for node in snap.nodes:
             if node.id in affected:
                 node.status = Status.AFFECTED
 
     def _mark_edge_status(self, snap: Snapshot) -> None:
-        """Lets a `calls` edge say whether it leads into changed code — same
-        review signal as node color, moved onto the edge (ADR 016). A call
-        into unchanged code stays `unchanged` even when its source is
-        `affected` via some *other* call: `affected` only ever describes the
-        edge that itself targets changed code, and that edge already gets
-        the target's real status below, so no edge is ever "affected" —
-        an unrelated call from an affected node carries no information about
-        the change itself. A deleted or added source is a different case
-        (ADR 054): the call site either no longer exists or is wholly new,
-        so every edge out of it takes the source's own status regardless of
-        the target, unless the target's own status already outranks it."""
+        """Lets a `calls`/`uses` edge say whether it leads into changed code
+        — same review signal as node color, moved onto the edge (ADR 016,
+        generalized to `uses` by ADR 062). An edge into unchanged code stays
+        `unchanged` even when its source is `affected` via some *other* edge:
+        `affected` only ever describes the edge that itself targets changed
+        code, and that edge already gets the target's real status below, so
+        no edge is ever "affected" — an unrelated edge from an affected node
+        carries no information about the change itself. A deleted or added
+        source is a different case (ADR 054): the call/use site either no
+        longer exists or is wholly new, so every edge out of it takes the
+        source's own status regardless of the target, unless the target's
+        own status already outranks it."""
         status_by_id = {n.id: n.status for n in snap.nodes}
         for edge in snap.edges:
-            if edge.kind != "calls":
+            if edge.kind not in {"calls", "uses"}:
                 continue
             target_status = status_by_id.get(edge.target)
             if target_status in CHANGED:

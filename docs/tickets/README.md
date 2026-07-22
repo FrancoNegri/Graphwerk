@@ -190,3 +190,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [178](178-commit-all-revert-all-endpoints.md) | `POST /api/commit-all` and `POST /api/revert-all` | done | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
 | [179](179-frontend-commit-all-revert-all-buttons.md) | Frontend: commit-all / revert-all buttons | done | [061](../decisions/061-whole-tree-commit-all-revert-all.md) |
 | [180](180-variable-symbol-extraction.md) | Module-level and class-level variable symbol extraction | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |
+| [182](182-uses-edges-and-status-propagation.md) | `GraphService` wires `uses` edges and propagates status like `calls` | done | [062](../decisions/062-variable-symbols-and-changed-method-blast-radius.md) |

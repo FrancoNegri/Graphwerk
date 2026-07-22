@@ -95,11 +95,11 @@ class GraphNode:
 class GraphEdge:
     source: str
     target: str
-    kind: str  # "calls" | "imports" | "references"
+    kind: str  # "calls" | "uses" | "imports" | "references"
     status: Status = Status.UNCHANGED
     module: str | None = None  # imports-kind only: the module name responsible for the edge
-    # calls-kind, cross-file only: [{"module", "status"}] for each import
-    # of the caller's file that admits the target's file
+    # calls/uses-kind, cross-file only: [{"module", "status"}] for each
+    # import of the source's file that admits the target's file
     via_imports: list | None = None
 
     def to_dict(self) -> dict:
