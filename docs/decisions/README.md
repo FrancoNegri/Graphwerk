@@ -69,3 +69,6 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [058](058-retire-worktree-single-directory-review.md) | Retire the shadow worktree: graphwerk becomes a single-directory review lens over git | proposed |
 | [059](059-class-symbol-calls-exclude-method-bodies.md) | A class symbol's own `calls` excludes its methods' bodies | proposed |
 | [060](060-comparison-picker-any-ref-vs-any-ref.md) | Comparison picker: any ref against any ref, including uncommitted | proposed |
+| [061](061-whole-tree-commit-all-revert-all.md) | Whole-tree commit-all / revert-all: a narrow exception to ADR 058 | proposed |
+| [062](062-variable-symbols-and-changed-method-blast-radius.md) | Global and class-variable symbols, wired as blast radius for changed methods | proposed |
+| [063](063-root-entry-point-node.md) | A synthetic `Root` node anchors the entry-point layer | proposed |

@@ -57,7 +57,10 @@ count as an architectural decision — run `north-star` first.
   is the developer's own working directory, not an isolated git worktree:
   graphwerk no longer stages or mutates files, only diffs the working
   directory against a recorded base git ref. Landing/undoing a change is
-  the developer's own plain git operation, not a graphwerk endpoint.
+  the developer's own plain git operation, not a graphwerk endpoint —
+  except the whole-tree `commit-all`/`revert-all` convenience (ADR 061),
+  which is exactly that same `git add`/`commit`/`stash` with no
+  symbol-level staging in between. Node-level apply stays retired.
 - The differ compares symbols by qualified name across two parsed trees —
   no hunk-to-symbol mapping. Keep new features consistent with that model.
 - `FileIndex`/`SymbolInfo` is the language-neutral contract; new languages

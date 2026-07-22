@@ -10,7 +10,7 @@ A developer tool that inverts how AI-generated code changes are reviewed.
 4. Each changed file/class carries a **"why" explanation** — the rationale for the change, captured from the agent — shown when the node is selected.
 5. The developer reviews at their own pace: what changed, where it sits structurally, and what it affects.
 6. If a change looks wrong, the developer says so in the prompt box, which continues the same Claude session with that feedback (ADR 058).
-7. When satisfied, the developer lands the change with their own plain git commit — graphwerk doesn't perform the write; it's a review lens over an ordinary git working directory, not a staging layer with its own apply/commit mechanism (ADR 058).
+7. When satisfied, the developer lands the change with their own plain git commit — or graphwerk's whole-tree "commit all" convenience, which is that same `git add`/`git commit` with no symbol-level staging in between (ADR 061). Either way it's a review lens over an ordinary git working directory, not a staging layer with a node-level apply/commit mechanism (ADR 058).
 
 The graph is the review surface. Today's review surface for AI changes is a flat text diff (terminal prompt, Cursor's review pane, a PR); this replaces it with a structural view that shows *where* in the architecture the change lands and *what it touches*.
 

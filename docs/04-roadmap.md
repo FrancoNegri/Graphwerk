@@ -28,6 +28,11 @@ Exit criterion: **build a graphwerk feature using graphwerk to review it.**
   and 009 (non-Python staged changes invisible in the graph).*
 - Scale UX: collapse/expand file boxes (double-click), a "changed + blast
   radius only" view toggle so big repos open readable.
+- Whole-tree "commit all" / "revert all" buttons, using the mined commit
+  message, so a dogfooded session can be landed or undone without leaving
+  the graph UI. *Added 2026-07-22 (user call): ADR 061, tickets 176-179 —
+  a narrow, explicitly all-or-nothing exception to ADR 058's "graphwerk
+  never mutates files"; node-level apply stays retired.*
 
 ## Phase 3 — Close the loop (reject drives the session)
 
