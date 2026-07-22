@@ -41,6 +41,13 @@
       <label class="view-toggle">base <select id="base-select"></select></label>
       <label class="view-toggle">compare to <select id="staged-select"></select></label>
     </div>
+    <div id="landing-actions">
+      <form id="commit-all-form">
+        <input id="commit-all-message" type="text" autocomplete="off" placeholder="commit message">
+        <button id="commit-all-btn" type="submit">Commit all</button>
+      </form>
+      <button id="revert-all-btn" type="button" class="danger">Revert all</button>
+    </div>
     <div id="paths" class="paths"></div>
   </header>
   <div id="banner" hidden>

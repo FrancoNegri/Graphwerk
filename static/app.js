@@ -85,12 +85,14 @@ function stagedIsLive() {
   return !option || option.dataset.kind === "working_tree";
 }
 
-// Gates the prompt box and session-status affordances on the selected pair
-// being live (ADR 060, ticket 175): a frozen historical pair has no session
-// to prompt or report status for.
+// Gates the prompt box, session-status affordances, and the commit-all/
+// revert-all buttons on the selected pair being live (ADR 060, ticket 175;
+// extended to landing-actions by ADR 061/ticket 179): a frozen historical
+// pair has no working tree to prompt, report status for, or commit/revert.
 function applySessionUiVisibility() {
   const live = stagedIsLive();
   document.getElementById("prompt-bar").hidden = !live;
+  document.getElementById("landing-actions").hidden = !live;
   if (!live) document.getElementById("check-banner").hidden = true;
 }
 
@@ -141,50 +143,58 @@ async function loadGraph() {
   loadGraphInFlight = true;
   try {
     const res = await fetch(`/api/graph${currentPairQuery()}`);
-    const data = await res.json();
-    currentHash = data.hash;
-    graphData = data;
-    if (selectedBaseRef == null) {
-      selectedBaseRef = selectDefaultRef(document.getElementById("base-select"), data.base, { fallbackToWorkingTree: false });
-    }
-    if (selectedStagedRef == null) {
-      selectedStagedRef = selectDefaultRef(document.getElementById("staged-select"), data.staged, { fallbackToWorkingTree: true });
-    }
-    applySessionUiVisibility();
-    nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
-    for (const id of [...userExpandedIds]) {
-      const node = nodesById[id];
-      if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
-    }
-    document.getElementById("paths").innerHTML =
-      `reviewing ${esc(data.staged)} against ${esc(data.base)}`;
-    renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
-
-    groupTints = buildGroupTints(data.nodes);
-    renderGroupLegend(groupTints);
-
-    const elements = toElements(data);
-    if (cy && sameTopology(elements)) {
-      for (const n of elements.nodes) {
-        const ele = cy.getElementById(n.data.id);
-        ele.data("status", n.data.status);
-        if (n.data.group != null) ele.data("group", n.data.group);
-        if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
-      }
-      for (const e of elements.edges) {
-        const ele = cy.getElementById(e.data.id);
-        ele.data("status", e.data.status);
-        ele.data("calls", e.data.calls);
-      }
-    } else {
-      renderGraph(elements);
-    }
-    if (selectedId) {
-      if (nodesById[selectedId]) showDetails(nodesById[selectedId]);
-      else clearDetails();
-    }
+    applyGraphResponse(await res.json());
   } finally {
     loadGraphInFlight = false;
+  }
+}
+
+// Shared by loadGraph's own fetch and the commit-all/revert-all handlers,
+// which already have a fresh post-action snapshot in hand from their own
+// response body (ADR 061, ticket 179) and so render it directly instead of
+// issuing a second /api/graph fetch.
+function applyGraphResponse(data) {
+  currentHash = data.hash;
+  graphData = data;
+  if (selectedBaseRef == null) {
+    selectedBaseRef = selectDefaultRef(document.getElementById("base-select"), data.base, { fallbackToWorkingTree: false });
+  }
+  if (selectedStagedRef == null) {
+    selectedStagedRef = selectDefaultRef(document.getElementById("staged-select"), data.staged, { fallbackToWorkingTree: true });
+  }
+  applySessionUiVisibility();
+  document.getElementById("commit-all-message").value = (data.meta && data.meta.commit_message) || "";
+  nodesById = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
+  for (const id of [...userExpandedIds]) {
+    const node = nodesById[id];
+    if (!node || (node.kind !== "file" && node.kind !== "class")) userExpandedIds.delete(id);
+  }
+  document.getElementById("paths").innerHTML =
+    `reviewing ${esc(data.staged)} against ${esc(data.base)}`;
+  renderBanner(data.meta && data.meta.rationale ? data.meta.rationale.message : null);
+
+  groupTints = buildGroupTints(data.nodes);
+  renderGroupLegend(groupTints);
+
+  const elements = toElements(data);
+  if (cy && sameTopology(elements)) {
+    for (const n of elements.nodes) {
+      const ele = cy.getElementById(n.data.id);
+      ele.data("status", n.data.status);
+      if (n.data.group != null) ele.data("group", n.data.group);
+      if (n.data.collapsedStatus) ele.data("collapsedStatus", n.data.collapsedStatus);
+    }
+    for (const e of elements.edges) {
+      const ele = cy.getElementById(e.data.id);
+      ele.data("status", e.data.status);
+      ele.data("calls", e.data.calls);
+    }
+  } else {
+    renderGraph(elements);
+  }
+  if (selectedId) {
+    if (nodesById[selectedId]) showDetails(nodesById[selectedId]);
+    else clearDetails();
   }
 }
 
@@ -980,8 +990,13 @@ function renderSessionState(session) {
   if (continueCheckbox.disabled) continueCheckbox.checked = false;
   renderSessionBusyIndicator(session, busy);
   const error = document.getElementById("prompt-error");
-  error.hidden = session.state !== "failed";
-  if (session.state === "failed") error.textContent = session.detail;
+  if (session.state === "failed") {
+    landingActionError = null;
+    error.hidden = false;
+    error.textContent = session.detail;
+  } else if (!landingActionError) {
+    error.hidden = true;
+  }
   renderCheckBanner(session);
   renderChecksIndicator(session);
   if ((session.state === "done" || session.state === "check_failed") && session.session_id
@@ -1098,6 +1113,20 @@ document.getElementById("check-banner-dismiss").addEventListener("click", () => 
 
 let completedSessionId = null;
 
+// Pinned independently of renderSessionState's per-poll session.state check
+// (ADR 061, ticket 179): a commit-all/revert-all failure is unrelated to the
+// agent session, so it must survive until explicitly cleared instead of
+// being blanked by the very next poll tick. Reuses the exact #prompt-error
+// element/technique the prompt-submit failure path already uses below.
+let landingActionError = null;
+
+function showLandingActionError(message) {
+  landingActionError = message;
+  const error = document.getElementById("prompt-error");
+  error.hidden = !message;
+  if (message) error.textContent = message;
+}
+
 document.getElementById("prompt-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = document.getElementById("prompt-input");
@@ -1165,6 +1194,33 @@ document.getElementById("staged-select").addEventListener("change", (event) => {
   selectedStagedRef = event.target.value;
   applySessionUiVisibility();
   loadGraph();
+});
+
+// Whole-tree commit/revert (ADR 061, ticket 179) — both only ever fire while
+// live (the button is hidden otherwise per applySessionUiVisibility), and
+// both render straight from the response's full graph payload rather than
+// waiting for the next hash poll.
+document.getElementById("commit-all-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  showLandingActionError(null);
+  const message = document.getElementById("commit-all-message").value;
+  const res = await fetch(`/api/commit-all${currentPairQuery()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  const data = await res.json();
+  if (res.ok) applyGraphResponse(data);
+  else showLandingActionError(data.detail);
+});
+
+document.getElementById("revert-all-btn").addEventListener("click", async () => {
+  if (!window.confirm("Revert all changes in the live pair? This stashes them (recoverable via git stash pop) rather than deleting them.")) return;
+  showLandingActionError(null);
+  const res = await fetch(`/api/revert-all${currentPairQuery()}`, { method: "POST" });
+  const data = await res.json();
+  if (res.ok) applyGraphResponse(data);
+  else showLandingActionError(data.detail);
 });
 
 const POLL_INTERVAL_MS = 1500;

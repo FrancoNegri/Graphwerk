@@ -71,6 +71,29 @@ header {
 
 .paths { font-size: 11px; color: var(--muted); margin-left: auto; text-align: right; }
 
+/* Commit-all/revert-all (ADR 061, ticket 179) — gated alongside #prompt-bar
+   to the live pair only, so hidden is the common no-JS-yet state too. */
+#landing-actions { display: flex; align-items: center; gap: 8px; }
+#landing-actions[hidden] { display: none; }
+#commit-all-form { display: flex; align-items: center; gap: 6px; }
+#commit-all-message {
+  background: #0b1220;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  width: 220px;
+}
+#commit-all-btn,
+#revert-all-btn {
+  width: auto;
+  margin: 0;
+  padding: 5px 14px;
+  font-size: 12px;
+}
+
 /* Docked as the body flex column's last row — bottom edge, full width,
    with main shrinking to make room (ADR 037). */
 #prompt-bar {
