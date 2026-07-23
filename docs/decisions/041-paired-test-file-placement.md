@@ -2,6 +2,7 @@
 
 Status: proposed
 Date: 2026-07-17
+Extends: 005
 
 *Amended 2026-07-17 (ticket 111 dogfood verification):* the mirror-key
 algorithm below only drops a file's literal top-level directory, which

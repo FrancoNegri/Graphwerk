@@ -2,6 +2,7 @@
 
 Status: proposed
 Date: 2026-07-16
+Supersedes: 029
 
 *[ADR 031](031-modified-status-blue-not-green.md) briefly proposed cyan for
 `modified` instead; rejected same day after seeing it rendered, before any

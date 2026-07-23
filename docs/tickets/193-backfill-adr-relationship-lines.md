@@ -1,6 +1,6 @@
 # 193. Backfill `Supersedes:`/`Amends:`/`Extends:` lines into existing ADRs
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal

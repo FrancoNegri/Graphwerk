@@ -2,6 +2,7 @@
 
 Status: proposed
 Date: 2026-07-20
+Supersedes: 037
 
 ## Context
 
