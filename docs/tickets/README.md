@@ -202,7 +202,7 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [190](190-frontend-changed-methods-render-used-imports.md) | Frontend: `changed-methods` mode renders each method's `used_imports` block | ready | [064](../decisions/064-changed-method-code-view-surfaces-its-imports.md) |
 | [191](191-adr-relationship-lines-parsed.md) | Parse `Supersedes:`/`Amends:`/`Extends:` ADR front-matter lines | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [192](192-graphservice-adr-relationship-edges.md) | `GraphService` wires `supersedes`/`amends`/`extends` edges between ADRs | done | [065](../decisions/065-decision-lineage-graph.md) |
-| [193](193-backfill-adr-relationship-lines.md) | Backfill `Supersedes:`/`Amends:`/`Extends:` lines into existing ADRs | ready | [065](../decisions/065-decision-lineage-graph.md) |
+| [193](193-backfill-adr-relationship-lines.md) | Backfill `Supersedes:`/`Amends:`/`Extends:` lines into existing ADRs | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [194](194-grounds-edge-from-product-concept.md) | `grounds` edge: `docs/02-product-concept.md` → every foundational ADR | ready | [065](../decisions/065-decision-lineage-graph.md) |
 | [195](195-implements-edge-ticket-to-adr.md) | Promote the ticket `Decision:` line to a typed `implements` edge | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [196](196-implements-edge-code-to-ticket.md) | `graphwerk/history.py` + `implements` edges from files to their ticket | done | [065](../decisions/065-decision-lineage-graph.md) |

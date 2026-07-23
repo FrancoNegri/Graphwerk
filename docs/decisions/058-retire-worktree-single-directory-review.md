@@ -2,6 +2,7 @@
 
 Status: proposed
 Date: 2026-07-21
+Supersedes: 037, 050
 
 ## Context
 

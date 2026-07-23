@@ -255,3 +255,21 @@ def test_adr_relationship_parsing_does_not_affect_existing_references(tmp_path: 
     assert index.decision_ref == "docs/decisions/046-thing.md"
     assert index.references == {"docs/decisions/046-thing.md"}
     assert index.adr_relationships == {"supersedes": {"docs/decisions/046-thing.md"}}
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_every_real_adr_relationship_line_resolves_to_an_existing_file(caplog) -> None:
+    """Guards ticket 193's backfill (and any future edit to these lines):
+    a `Supersedes:`/`Amends:`/`Extends:` line naming an ADR number with no
+    matching `docs/decisions/NNN-*.md` file logs a warning (ticket 191) —
+    fail the suite if that ever happens for a real, committed ADR."""
+    for adr_path in sorted((_REPO_ROOT / "docs" / "decisions").glob("*.md")):
+        rel_path = f"docs/decisions/{adr_path.name}"
+        MarkdownExtractor().extract(adr_path, rel_path)
+
+    unresolved = [
+        record.message for record in caplog.records if "ADR relationship target" in record.message
+    ]
+    assert unresolved == []
