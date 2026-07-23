@@ -1,6 +1,6 @@
 # 191. Parse `Supersedes:`/`Amends:`/`Extends:` ADR front-matter lines
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal

@@ -52,6 +52,11 @@ class FileIndex:
     imported_names: dict[str, tuple[str, int]] = field(default_factory=dict)
     # repo-root-relative target paths of this (Markdown) file's doc links
     references: set[str] = field(default_factory=set)
+    # ADR-to-ADR relationship kind ("supersedes" | "amends" | "extends") ->
+    # repo-root-relative target ADR paths, parsed from this ADR's own
+    # `Supersedes:`/`Amends:`/`Extends:` front-matter lines (ADR 065) —
+    # empty for every file outside docs/decisions/.
+    adr_relationships: dict[str, set[str]] = field(default_factory=dict)
     parse_error: str | None = None
 
 
