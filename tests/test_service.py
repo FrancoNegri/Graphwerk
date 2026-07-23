@@ -2,9 +2,10 @@ import json
 import subprocess
 from pathlib import Path
 
-from graphwerk.models import Status
+from graphwerk.models import FileIndex, Status
 from graphwerk.rationale import RationaleStore
 from graphwerk.service import GraphService, ModuleFileResolver
+from graphwerk.staging.differ import FileChange
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:
@@ -1134,6 +1135,64 @@ def test_ticket_with_decision_line_and_inline_link_gets_both_edge_kinds(tmp_path
         and e.source == "docs/tickets/124-thing.md"
         and e.target == "docs/decisions/046-thing.md"
     ]
+
+
+def test_adr_relationship_edges_carry_supersedes_amends_and_extends_kinds(tmp_path):
+    service = make_service(tmp_path, {
+        "docs/decisions/005-original-split.md": "# 005. Original split\n\nStatus: accepted\n",
+        "docs/decisions/037-old-thing.md": "# 037. Old thing\n\nStatus: retired\n",
+        "docs/decisions/041-extension.md": (
+            "# 041. Extension\n\nStatus: accepted\nExtends: 005\n"
+        ),
+        "docs/decisions/058-new-thing.md": (
+            "# 058. New thing\n\nStatus: accepted\nSupersedes: 037\n"
+        ),
+        "docs/decisions/061-amendment.md": (
+            "# 061. Amendment\n\nStatus: accepted\nAmends: 058\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    supersedes = edge_between(
+        snapshot, "docs/decisions/058-new-thing.md", "docs/decisions/037-old-thing.md",
+        kind="supersedes")
+    assert supersedes.status == Status.UNCHANGED
+
+    amends = edge_between(
+        snapshot, "docs/decisions/061-amendment.md", "docs/decisions/058-new-thing.md",
+        kind="amends")
+    assert amends.status == Status.UNCHANGED
+
+    extends = edge_between(
+        snapshot, "docs/decisions/041-extension.md", "docs/decisions/005-original-split.md",
+        kind="extends")
+    assert extends.status == Status.UNCHANGED
+
+
+def test_adr_relationship_edge_to_node_outside_snapshot_is_skipped(tmp_path):
+    """Same defensive posture `_add_import_edges` already takes (ADR 065):
+    an `adr_relationships` entry naming a target that isn't a node in the
+    current snapshot produces no dangling edge. Built directly against
+    `_add_adr_relationship_edges` with a hand-crafted `FileChange`, since
+    the real `MarkdownExtractor` already refuses to record a relationship
+    whose target doesn't resolve to a real file (tested in
+    tests/indexing/test_markdown_extractor.py) — this test isolates
+    `GraphService`'s own half of the defensive contract."""
+    service = make_service(tmp_path, {
+        "docs/decisions/058-new-thing.md": "# 058. New thing\n\nStatus: accepted\n",
+    })
+    snapshot = service.snapshot()
+
+    ghost_index = FileIndex(
+        rel_path="docs/decisions/058-new-thing.md",
+        adr_relationships={"supersedes": {"docs/decisions/999-ghost.md"}},
+    )
+    change = FileChange(
+        "docs/decisions/058-new-thing.md", Status.UNCHANGED, ghost_index, ghost_index, "",
+    )
+    service._add_adr_relationship_edges(snapshot, {"docs/decisions/058-new-thing.md": change})
+
+    assert not [e for e in snapshot.edges if e.kind == "supersedes"]
 
 
 def test_markdown_only_tree_produces_a_non_empty_graph(tmp_path):

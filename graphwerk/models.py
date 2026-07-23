@@ -123,6 +123,7 @@ class GraphEdge:
     source: str
     target: str
     kind: str  # "calls" | "uses" | "imports" | "references" | "implements"
+    # | "supersedes" | "amends" | "extends" (ADR-to-ADR lineage, ADR 065)
     status: Status = Status.UNCHANGED
     module: str | None = None  # imports-kind only: the module name responsible for the edge
     # calls/uses-kind, cross-file only: [{"module", "status"}] for each

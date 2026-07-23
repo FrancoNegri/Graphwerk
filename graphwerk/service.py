@@ -182,6 +182,7 @@ class GraphService:
         self._add_import_edges(snap, changes, resolver)
         self._add_reference_edges(snap, changes)
         self._add_decision_edges(snap, changes)
+        self._add_adr_relationship_edges(snap, changes)
         self._add_ticket_implements_edges(snap)
         self._mark_affected(snap)
         self._mark_edge_status(snap)
@@ -399,6 +400,24 @@ class GraphService:
             target, status = change.decision_ref
             if target != rel and target in changes:
                 snap.edges.append(GraphEdge(rel, target, "implements", status))
+
+    def _add_adr_relationship_edges(self, snap: Snapshot, changes: dict) -> None:
+        """ADR -> ADR `supersedes`/`amends`/`extends` edges (ADR 065), read
+        straight off ticket 191's parsed `FileIndex.adr_relationships` for
+        whichever tree currently has the file (mirrors the `change.staged or
+        change.base` fallback the node loop above already uses). Left
+        undiffed, unlike `references`/`decision_ref`: an ADR's relationship
+        to another ADR isn't something a code session's diff "changes", so
+        every edge keeps `GraphEdge`'s own default status regardless of the
+        source file's own change status."""
+        for rel, change in changes.items():
+            index = change.staged or change.base
+            if index is None:
+                continue
+            for kind, targets in index.adr_relationships.items():
+                for target in targets:
+                    if target != rel and target in changes:
+                        snap.edges.append(GraphEdge(rel, target, kind))
 
     def _add_ticket_implements_edges(self, snap: Snapshot) -> None:
         """Files -> ticket `implements` edges (ADR 065): ground truth

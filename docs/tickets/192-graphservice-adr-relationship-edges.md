@@ -1,6 +1,6 @@
 # 192. `GraphService` wires `supersedes`/`amends`/`extends` edges between ADRs
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal
