@@ -21,6 +21,14 @@ CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 # Ticket doc rel path -> its ticket number, e.g. "docs/tickets/196-....md" -> 196
 _TICKET_FILENAME = re.compile(r"^docs/tickets/(\d+)-")
 
+# ADR doc rel path, e.g. "docs/decisions/046-thing.md"
+_ADR_FILENAME = re.compile(r"^docs/decisions/\d+-")
+
+# The one real doc node ADR 065 names as the graph's literal root.
+PRODUCT_CONCEPT_PATH = "docs/02-product-concept.md"
+
+_ADR_RELATIONSHIP_KINDS = {"supersedes", "amends", "extends"}
+
 # The pseudo-ref meaning "the working directory, uncommitted" (ADR 060) — a
 # space can never appear in a real git ref name, so this can't collide with
 # one. Recognized on either side of a comparison, not just "staged".
@@ -188,6 +196,7 @@ class GraphService:
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
         self._add_root_node(snap)
+        self._add_grounds_edges(snap)
         changed_nodes_exist = any(node.status in CHANGED for node in snap.nodes)
         snap.meta["rationale"]["message"] = self.rationale.status_message(changed_nodes_exist)
         return snap
@@ -473,6 +482,21 @@ class GraphService:
         ))
         for target_id in entry_point_ids:
             snap.edges.append(GraphEdge("__root__", target_id, "entrypoint"))
+
+    def _add_grounds_edges(self, snap: Snapshot) -> None:
+        """`docs/02-product-concept.md` -> every ADR with no incoming
+        `supersedes`/`amends`/`extends` edge (ADR 065): a post-processing
+        pass over already-built nodes/edges, same category of work as
+        `_add_root_node` (ADR 063), just pointed at a real, always-present
+        doc node instead of a synthetic one. No-op when the product
+        concept doc isn't itself a node in this snapshot (a doc-only or
+        code-only tree that doesn't include it)."""
+        if not any(n.id == PRODUCT_CONCEPT_PATH for n in snap.nodes):
+            return
+        adr_ids = {n.id for n in snap.nodes if n.kind == "file" and _ADR_FILENAME.match(n.id)}
+        narrowed_adr_ids = {e.target for e in snap.edges if e.kind in _ADR_RELATIONSHIP_KINDS}
+        for adr_id in sorted(adr_ids - narrowed_adr_ids):
+            snap.edges.append(GraphEdge(PRODUCT_CONCEPT_PATH, adr_id, "grounds"))
 
     def _mark_edge_status(self, snap: Snapshot) -> None:
         """Lets a `calls`/`uses` edge say whether it leads into changed code

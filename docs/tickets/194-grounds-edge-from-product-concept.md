@@ -1,6 +1,6 @@
 # 194. `grounds` edge: `docs/02-product-concept.md` → every foundational ADR
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal

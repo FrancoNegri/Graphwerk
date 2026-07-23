@@ -1195,6 +1195,40 @@ def test_adr_relationship_edge_to_node_outside_snapshot_is_skipped(tmp_path):
     assert not [e for e in snapshot.edges if e.kind == "supersedes"]
 
 
+def test_grounds_edge_from_product_concept_to_un_amended_adr_only(tmp_path):
+    """ADR 065's `grounds` edge: the product concept doc anchors every ADR
+    that isn't itself a follow-on to another one (ticket 192's edges).
+    061 has no incoming supersedes/amends/extends edge, so it gets
+    grounded; 058 does (061 amends it), so it doesn't."""
+    service = make_service(tmp_path, {
+        "docs/02-product-concept.md": "# Product concept\n\n## Idea\nbody\n",
+        "docs/decisions/058-new-thing.md": (
+            "# 058. New thing\n\nStatus: accepted\n\n## Decision\nbody\n"
+        ),
+        "docs/decisions/061-amendment.md": (
+            "# 061. Amendment\n\nStatus: accepted\nAmends: 058\n\n## Decision\nbody\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    grounds_targets = {
+        e.target for e in snapshot.edges
+        if e.kind == "grounds" and e.source == "docs/02-product-concept.md"
+    }
+    assert grounds_targets == {"docs/decisions/061-amendment.md"}
+
+
+def test_grounds_edge_absent_without_a_product_concept_node(tmp_path):
+    """Same defensive posture `_add_root_node` already takes for a
+    doc-only tree with no code entry points: no source node, no edges."""
+    service = make_service(tmp_path, {
+        "docs/decisions/058-new-thing.md": "# 058. New thing\n\nStatus: accepted\n",
+    })
+    snapshot = service.snapshot()
+
+    assert not [e for e in snapshot.edges if e.kind == "grounds"]
+
+
 def test_markdown_only_tree_produces_a_non_empty_graph(tmp_path):
     service = make_service(tmp_path, {"doc.md": "# Title\n\n## Section\nbody\n"})
     snapshot = service.snapshot()
