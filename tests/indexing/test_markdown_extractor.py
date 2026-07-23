@@ -147,3 +147,86 @@ def test_unreadable_file_sets_parse_error(tmp_path: Path) -> None:
 
     assert index.parse_error is not None
     assert index.symbols == {}
+
+
+def _write_adr(tmp_path: Path, name: str, source: str = "# ADR\n") -> None:
+    path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source)
+
+
+def test_supersedes_line_resolves_bare_adr_number_to_its_file(tmp_path: Path) -> None:
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    index = _extract(
+        tmp_path,
+        "# 058. New thing\n\nStatus: proposed\nSupersedes: 037\n",
+        name="docs/decisions/058-new-thing.md",
+    )
+
+    assert index.adr_relationships == {"supersedes": {"docs/decisions/037-old-thing.md"}}
+
+
+def test_amends_and_extends_lines_are_both_recognized(tmp_path: Path) -> None:
+    _write_adr(tmp_path, "docs/decisions/058-old-thing.md")
+    _write_adr(tmp_path, "docs/decisions/005-split.md")
+    index = _extract(
+        tmp_path,
+        "# 061. Amendment\n\nStatus: proposed\nAmends: 058\nExtends: 005\n",
+        name="docs/decisions/061-amendment.md",
+    )
+
+    assert index.adr_relationships == {
+        "amends": {"docs/decisions/058-old-thing.md"},
+        "extends": {"docs/decisions/005-split.md"},
+    }
+
+
+def test_comma_separated_targets_all_resolve(tmp_path: Path) -> None:
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    _write_adr(tmp_path, "docs/decisions/050-other-thing.md")
+    index = _extract(
+        tmp_path,
+        "# 058. New thing\n\nStatus: proposed\nSupersedes: 037, 050\n",
+        name="docs/decisions/058-new-thing.md",
+    )
+
+    assert index.adr_relationships == {
+        "supersedes": {
+            "docs/decisions/037-old-thing.md",
+            "docs/decisions/050-other-thing.md",
+        }
+    }
+
+
+def test_unmatched_adr_number_is_skipped_but_logged(tmp_path, caplog) -> None:
+    index = _extract(
+        tmp_path,
+        "# 058. New thing\n\nStatus: proposed\nSupersedes: 999\n",
+        name="docs/decisions/058-new-thing.md",
+    )
+
+    assert index.adr_relationships == {}
+    assert any("999" in record.message for record in caplog.records)
+
+
+def test_relationship_line_outside_decisions_dir_is_ignored(tmp_path: Path) -> None:
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    index = _extract(
+        tmp_path,
+        "# 191. Some ticket\n\nSupersedes: 037\n",
+        name="docs/tickets/191-some-ticket.md",
+    )
+
+    assert index.adr_relationships == {}
+
+
+def test_adr_relationship_parsing_does_not_affect_existing_references(tmp_path: Path) -> None:
+    _write_adr(tmp_path, "docs/decisions/046-thing.md")
+    index = _extract(
+        tmp_path,
+        "# 058. New thing\n\nDecision: docs/decisions/046-thing.md\nSupersedes: 046\n",
+        name="docs/decisions/058-new-thing.md",
+    )
+
+    assert index.references == {"docs/decisions/046-thing.md"}
+    assert index.adr_relationships == {"supersedes": {"docs/decisions/046-thing.md"}}

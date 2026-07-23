@@ -6,6 +6,7 @@ line-based heading scan, no CommonMark dependency (ADR 046).
 
 from __future__ import annotations
 
+import logging
 import posixpath
 import re
 from pathlib import Path
@@ -15,6 +16,12 @@ from graphwerk.models import FileIndex, SymbolInfo
 _HEADING = re.compile(r"^(#{2,})\s+(.+?)\s*$")
 _INLINE_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _DECISION_LINE = re.compile(r"^Decision:\s*(\S+\.md)\s*$", re.MULTILINE)
+_ADR_RELATIONSHIP_LINE = re.compile(
+    r"^(Supersedes|Amends|Extends):[ \t]*(.+?)[ \t]*$", re.MULTILINE
+)
+_DECISIONS_DIR = "docs/decisions/"
+
+_logger = logging.getLogger(__name__)
 
 
 class MarkdownExtractor:
@@ -47,6 +54,7 @@ class MarkdownExtractor:
                 source="".join(lines[start:end]),
             )
         index.references = _extract_references(source, rel_path)
+        index.adr_relationships = _extract_adr_relationships(source, file_path, rel_path)
         return index
 
 
@@ -95,3 +103,51 @@ def _validated_md_target(link_target: str) -> str | None:
     if not target.endswith(".md") or "://" in target or target.startswith("/"):
         return None
     return target
+
+
+def _extract_adr_relationships(
+    source: str, file_path: Path, rel_path: str
+) -> dict[str, set[str]]:
+    """Parses the `Supersedes:`/`Amends:`/`Extends:` ADR front-matter
+    convention (ADR 065) into kind -> target ADR paths. ADR-specific by
+    design (see ADR 065's rejected "mine ADR NNN mentions in prose"
+    alternative) — a same-shaped line outside docs/decisions/ is ignored."""
+    if not rel_path.startswith(_DECISIONS_DIR):
+        return {}
+
+    repo_root = _repo_root(file_path, rel_path)
+    relationships: dict[str, set[str]] = {}
+    for kind_text, targets_text in _ADR_RELATIONSHIP_LINE.findall(source):
+        targets = {
+            resolved
+            for raw_number in targets_text.split(",")
+            if (resolved := _resolve_adr_number(repo_root, raw_number.strip())) is not None
+        }
+        if targets:
+            relationships.setdefault(kind_text.lower(), set()).update(targets)
+    return relationships
+
+
+def _repo_root(file_path: Path, rel_path: str) -> Path:
+    """`file_path` mirrors `rel_path` under the repo root for a real
+    on-disk read (`WorkingTreeRevision`); walking up one parent per
+    `rel_path` path component lands back at that root."""
+    root = file_path
+    for _ in Path(rel_path).parts:
+        root = root.parent
+    return root
+
+
+def _resolve_adr_number(repo_root: Path, raw_number: str) -> str | None:
+    if not raw_number.isdigit():
+        return None
+    matches = sorted(repo_root.glob(f"{_DECISIONS_DIR}{raw_number}-*.md"))
+    if not matches:
+        _logger.warning(
+            "ADR relationship target %r not found (%s%s-*.md)",
+            raw_number,
+            _DECISIONS_DIR,
+            raw_number,
+        )
+        return None
+    return posixpath.normpath(matches[0].relative_to(repo_root).as_posix())
