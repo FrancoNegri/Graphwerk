@@ -176,6 +176,7 @@ class GraphService:
         self._add_symbol_edges(snap, name_to_ids, symbol_uses, changes, resolver, "uses")
         self._add_import_edges(snap, changes, resolver)
         self._add_reference_edges(snap, changes)
+        self._add_decision_edges(snap, changes)
         self._mark_affected(snap)
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
@@ -380,6 +381,18 @@ class GraphService:
             for target, status in change.references.items():
                 if target != rel and target in changes:
                     snap.edges.append(GraphEdge(rel, target, "references", status))
+
+    def _add_decision_edges(self, snap: Snapshot, changes: dict) -> None:
+        """Ticket -> ADR `implements` edge (ADR 065): a ticket's own
+        `Decision:` line is unambiguous (exactly one ADR), so it gets its
+        own edge kind instead of the generic `references` bucket a plain
+        inline link produces."""
+        for rel, change in changes.items():
+            if change.decision_ref is None:
+                continue
+            target, status = change.decision_ref
+            if target != rel and target in changes:
+                snap.edges.append(GraphEdge(rel, target, "implements", status))
 
     def _mark_affected(self, snap: Snapshot) -> None:
         """Yellow ring: unchanged symbols that call into, or reference

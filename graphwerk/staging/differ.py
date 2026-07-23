@@ -113,6 +113,9 @@ class FileChange:
         self.imports: dict[str, Status] = {}
         # doc-link target rel_path -> status
         self.references: dict[str, Status] = {}
+        # (this ticket's Decision-line ADR target rel_path, status), or
+        # None if neither side has one (ADR 065)
+        self.decision_ref: tuple[str, Status] | None = None
         # full staged text (base text for deleted files); None if unreadable
         self.source: str | None = None
         self.base_source: str | None = None
@@ -202,6 +205,7 @@ class ChangeSetBuilder:
                         change.references[target] = Status.ADDED
                     else:
                         change.references[target] = Status.UNCHANGED
+            change.decision_ref = _decision_ref_change(base, staged)
             change.source = staged_text if staged_text is not None else base_text
             change.base_source = base_text
             change.staged_source = staged_text
@@ -261,6 +265,21 @@ class ChangeSetBuilder:
                 tofile=f"staged::{qualname}",
             )
         )
+
+
+def _decision_ref_change(base: FileIndex | None, staged: FileIndex | None) -> tuple[str, Status] | None:
+    """Single-valued counterpart to the `references`/`imports` set diffing
+    above: a ticket names exactly one ADR (or none), never a set of them,
+    so there's nothing to iterate — just compare the one value each side
+    carries."""
+    base_target = base.decision_ref if base else None
+    staged_target = staged.decision_ref if staged else None
+    if staged_target is not None:
+        status = Status.UNCHANGED if staged_target == base_target else Status.ADDED
+        return staged_target, status
+    if base_target is not None:
+        return base_target, Status.DELETED
+    return None
 
 
 def _file_diff(rel: str, base_text: str | None, staged_text: str | None) -> str:

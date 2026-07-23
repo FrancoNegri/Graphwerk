@@ -50,8 +50,15 @@ class FileIndex:
     # attribution needs; a name rebound by a later module-level statement
     # keeps only the later one, and `from x import *` binds nothing (ADR 064).
     imported_names: dict[str, tuple[str, int]] = field(default_factory=dict)
-    # repo-root-relative target paths of this (Markdown) file's doc links
+    # repo-root-relative target paths of this (Markdown) file's inline
+    # `[text](path.md)` doc links — the `Decision:` line is a distinct
+    # signal (see decision_ref, ADR 065), not folded in here
     references: set[str] = field(default_factory=set)
+    # repo-root-relative target of this (ticket) file's own
+    # `Decision: docs/decisions/NNN-....md` line, or None if it has none
+    # (ADR 046/052 parsed it; ADR 065 promotes it out of `references` into
+    # its own `implements` edge)
+    decision_ref: str | None = None
     parse_error: str | None = None
 
 
@@ -110,7 +117,7 @@ class GraphNode:
 class GraphEdge:
     source: str
     target: str
-    kind: str  # "calls" | "uses" | "imports" | "references"
+    kind: str  # "calls" | "uses" | "imports" | "references" | "implements"
     status: Status = Status.UNCHANGED
     module: str | None = None  # imports-kind only: the module name responsible for the edge
     # calls/uses-kind, cross-file only: [{"module", "status"}] for each

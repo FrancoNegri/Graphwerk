@@ -165,17 +165,58 @@ def test_added_doc_link_is_an_added_reference(tmp_path):
             ),
         },
     )
-    assert changes["tickets/124.md"].references["docs/decisions/046.md"] == Status.UNCHANGED
+    assert "docs/decisions/046.md" not in changes["tickets/124.md"].references
     assert changes["tickets/124.md"].references["decisions/047.md"] == Status.ADDED
 
 
 def test_removed_doc_link_is_a_deleted_reference(tmp_path):
     changes = build_changes(
         tmp_path,
+        base={"tickets/124.md": "# Ticket\nSee [also](../decisions/047.md).\n"},
+        staged={"tickets/124.md": "# Ticket\nno link anymore\n"},
+    )
+    assert changes["tickets/124.md"].references["decisions/047.md"] == Status.DELETED
+
+
+def test_decision_line_unchanged_is_an_unchanged_decision_ref(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"tickets/124.md": "# Ticket\nDecision: docs/decisions/046.md\n"},
+        staged={
+            "tickets/124.md": (
+                "# Ticket\nDecision: docs/decisions/046.md\n"
+                "See [also](../decisions/047.md).\n"
+            ),
+        },
+    )
+    assert changes["tickets/124.md"].decision_ref == ("docs/decisions/046.md", Status.UNCHANGED)
+
+
+def test_removed_decision_line_is_a_deleted_decision_ref(tmp_path):
+    changes = build_changes(
+        tmp_path,
         base={"tickets/124.md": "# Ticket\nDecision: docs/decisions/046.md\n"},
         staged={"tickets/124.md": "# Ticket\nno decision line anymore\n"},
     )
-    assert changes["tickets/124.md"].references["docs/decisions/046.md"] == Status.DELETED
+    assert changes["tickets/124.md"].decision_ref == ("docs/decisions/046.md", Status.DELETED)
+
+
+def test_added_decision_line_is_an_added_decision_ref(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"tickets/124.md": "# Ticket\nno decision line yet\n"},
+        staged={"tickets/124.md": "# Ticket\nDecision: docs/decisions/046.md\n"},
+    )
+    assert changes["tickets/124.md"].decision_ref == ("docs/decisions/046.md", Status.ADDED)
+
+
+def test_file_with_no_decision_line_has_no_decision_ref_change(tmp_path):
+    changes = build_changes(
+        tmp_path,
+        base={"tickets/124.md": "# Ticket\nno decision line\n"},
+        staged={"tickets/124.md": "# Ticket\nstill none\n"},
+    )
+    assert changes["tickets/124.md"].decision_ref is None
 
 
 def test_second_build_call_does_not_reparse_unchanged_files(tmp_path, monkeypatch):

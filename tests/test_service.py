@@ -1058,7 +1058,7 @@ def test_snapshot_assigns_layers_to_files_and_functions(tmp_path):
     assert all("layer" in n.to_dict() for n in snapshot.nodes)
 
 
-def test_ticket_linking_its_decision_adr_produces_a_references_edge(tmp_path):
+def test_ticket_linking_its_decision_adr_produces_an_implements_edge(tmp_path):
     service = make_service(tmp_path, {
         "docs/decisions/046-thing.md": "# 046. Thing\n\n## Decision\nbody\n",
         "docs/tickets/124-thing.md": (
@@ -1067,11 +1067,17 @@ def test_ticket_linking_its_decision_adr_produces_a_references_edge(tmp_path):
     })
     snapshot = service.snapshot()
     edge = edge_between(
-        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
+        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="implements")
     assert edge.status == Status.UNCHANGED
+    assert not [
+        e for e in snapshot.edges
+        if e.kind == "references"
+        and e.source == "docs/tickets/124-thing.md"
+        and e.target == "docs/decisions/046-thing.md"
+    ]
 
 
-def test_reference_edge_added_status_reflects_new_link(tmp_path):
+def test_implements_edge_added_status_reflects_new_decision_line(tmp_path):
     repo, base_ref = make_repo(
         tmp_path,
         {
@@ -1086,16 +1092,48 @@ def test_reference_edge_added_status_reflects_new_link(tmp_path):
     service = GraphService(repo, base_ref, RationaleStore(staged_root=repo))
     snapshot = service.snapshot()
     edge = edge_between(
-        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="references")
+        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="implements")
     assert edge.status == Status.ADDED
 
 
-def test_reference_to_nonexistent_path_produces_no_edge(tmp_path):
+def test_decision_ref_to_nonexistent_path_produces_no_edge(tmp_path):
     service = make_service(tmp_path, {
         "docs/tickets/124-thing.md": "# 124. Ticket\nDecision: docs/decisions/999-ghost.md\n",
     })
     snapshot = service.snapshot()
+    assert not [e for e in snapshot.edges if e.kind == "implements"]
     assert not [e for e in snapshot.edges if e.kind == "references"]
+
+
+def test_ticket_with_decision_line_and_inline_link_gets_both_edge_kinds(tmp_path):
+    """ADR 065's core acceptance criterion: the ticket's ADR no longer
+    appears in its `references` edges but does appear as an `implements`
+    edge, while a plain inline link to some other doc still produces a
+    `references` edge for that link."""
+    service = make_service(tmp_path, {
+        "docs/decisions/046-thing.md": "# 046. Thing\n\n## Decision\nbody\n",
+        "docs/other.md": "# Other doc\n\nSome unrelated notes.\n",
+        "docs/tickets/124-thing.md": (
+            "# 124. Some ticket\n\nDecision: docs/decisions/046-thing.md\n\n"
+            "See [other doc](../other.md) for background.\n"
+        ),
+    })
+    snapshot = service.snapshot()
+
+    implements_edge = edge_between(
+        snapshot, "docs/tickets/124-thing.md", "docs/decisions/046-thing.md", kind="implements")
+    assert implements_edge.status == Status.UNCHANGED
+
+    reference_edge = edge_between(
+        snapshot, "docs/tickets/124-thing.md", "docs/other.md", kind="references")
+    assert reference_edge.status == Status.UNCHANGED
+
+    assert not [
+        e for e in snapshot.edges
+        if e.kind == "references"
+        and e.source == "docs/tickets/124-thing.md"
+        and e.target == "docs/decisions/046-thing.md"
+    ]
 
 
 def test_markdown_only_tree_produces_a_non_empty_graph(tmp_path):
