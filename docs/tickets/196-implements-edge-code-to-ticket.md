@@ -1,6 +1,6 @@
 # 196. `graphwerk/history.py` + `implements` edges from files to their ticket
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal

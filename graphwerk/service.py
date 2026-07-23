@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import deque
 from pathlib import Path
 
 from graphwerk.codeview import build_code_view
 from graphwerk.highlight import highlight_lines
+from graphwerk.history import changed_files_for_commits, commits_for_ticket
 from graphwerk.indexing.walk import iter_markdown_files, iter_python_files
 from graphwerk.layout import assign_layers, is_test_path
 from graphwerk.models import GraphEdge, GraphNode, Snapshot, Status, SymbolInfo
@@ -15,6 +17,9 @@ from graphwerk.rationale import RationaleStore
 from graphwerk.staging import ChangeSetBuilder, GitRefRevision, Revision, WorkingTreeRevision
 
 CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
+
+# Ticket doc rel path -> its ticket number, e.g. "docs/tickets/196-....md" -> 196
+_TICKET_FILENAME = re.compile(r"^docs/tickets/(\d+)-")
 
 # The pseudo-ref meaning "the working directory, uncommitted" (ADR 060) — a
 # space can never appear in a real git ref name, so this can't collide with
@@ -177,6 +182,7 @@ class GraphService:
         self._add_import_edges(snap, changes, resolver)
         self._add_reference_edges(snap, changes)
         self._add_decision_edges(snap, changes)
+        self._add_ticket_implements_edges(snap)
         self._mark_affected(snap)
         self._mark_edge_status(snap)
         assign_layers(snap.nodes, snap.edges)
@@ -393,6 +399,29 @@ class GraphService:
             target, status = change.decision_ref
             if target != rel and target in changes:
                 snap.edges.append(GraphEdge(rel, target, "implements", status))
+
+    def _add_ticket_implements_edges(self, snap: Snapshot) -> None:
+        """Files -> ticket `implements` edges (ADR 065): ground truth
+        mined from git history (`graphwerk/history.py`) instead of a
+        ticket's own "Likely files" prose. A ticket number with no
+        matching commit (not yet landed, or a numbering gap) simply gets
+        no edges; a file a ticket's commit once touched but that's since
+        vanished from the current comparison isn't a node here, so it's
+        silently skipped — same defensive posture `_add_import_edges`
+        already takes."""
+        existing_file_ids = {node.id for node in snap.nodes if node.kind == "file"}
+        for node in snap.nodes:
+            if node.kind != "file":
+                continue
+            match = _TICKET_FILENAME.match(node.id)
+            if match is None:
+                continue
+            shas = commits_for_ticket(self.repo_root, int(match.group(1)))
+            if not shas:
+                continue
+            for rel in changed_files_for_commits(self.repo_root, shas):
+                if rel in existing_file_ids and rel != node.id:
+                    snap.edges.append(GraphEdge(rel, node.id, "implements"))
 
     def _mark_affected(self, snap: Snapshot) -> None:
         """Yellow ring: unchanged symbols that call into, or reference
