@@ -245,9 +245,13 @@ def test_adr_relationship_parsing_does_not_affect_existing_references(tmp_path: 
     _write_adr(tmp_path, "docs/decisions/046-thing.md")
     index = _extract(
         tmp_path,
-        "# 058. New thing\n\nDecision: docs/decisions/046-thing.md\nSupersedes: 046\n",
+        "# 058. New thing\n\n"
+        "Decision: docs/decisions/046-thing.md\n"
+        "Supersedes: 046\n\n"
+        "See also [046](046-thing.md).\n",
         name="docs/decisions/058-new-thing.md",
     )
 
+    assert index.decision_ref == "docs/decisions/046-thing.md"
     assert index.references == {"docs/decisions/046-thing.md"}
     assert index.adr_relationships == {"supersedes": {"docs/decisions/046-thing.md"}}
