@@ -48,8 +48,9 @@ let showCallsView = true;
 let showUsesView = false;
 // Decision-lineage edge kinds (ADR 065/ticket 197) — join the same per-kind
 // toggle family as calls/imports/uses above, default-on since they're
-// doc-domain-only (except the implements code->ticket hop) and so don't
-// clutter the default Implementation view just by being enabled.
+// doc-domain-only and so don't clutter the default Implementation view
+// just by being enabled (`implements`'s ticket-node endpoint has its own
+// narrower selection-driven visibility rule regardless, ADR 066).
 let showSupersedesView = true;
 let showAmendsView = true;
 let showExtendsView = true;
@@ -231,7 +232,7 @@ function toElements(data) {
     && n.status === "unchanged"
     && (strongestStatus.get(n.id) || "unchanged") === "unchanged";
 
-  const crossDomainImplementsIds = crossDomainImplementsBypassIds(data.nodes, data.edges);
+  const ticketIds = revealedTicketIds(data.edges);
 
   const nodes = data.nodes
     .filter((n) => representativeId(n.id) === n.id
@@ -240,11 +241,11 @@ function toElements(data) {
       // a spot in revealedIds the way real nodes do.
       && (!revealedIds || revealedIds.has(n.id) || n.kind === "root")
       && (!hideTestsView || !signalFreeTestNode(n))
-      // ADR 065's one deliberately cross-domain edge kind: a code file's
-      // `implements` edge into its ticket (or vice versa) stays visible
-      // regardless of the Design/Implementation toggle, so its otherwise-
-      // wrong-domain endpoint bypasses the normal domain filter here.
-      && (matchesDomainMode(n) || crossDomainImplementsIds.has(n.id)))
+      // Ticket nodes opt out of the ordinary domain filter entirely (ADR
+      // 066): they're governed solely by revealedTicketIds, never by
+      // matchesDomainMode, so a ticket doesn't show just because it shares
+      // Design mode's "doc" domain with its ADR.
+      && (TICKET_PATH_PATTERN.test(n.id) ? ticketIds.has(n.id) : matchesDomainMode(n)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (n.group != null) nodeData.group = n.group;
@@ -376,26 +377,26 @@ function matchesDomainMode(node) {
   return !wantedDomain || node.domain === wantedDomain;
 }
 
-// `implements` is used at two hops (ADR 065): ticket -> ADR (both doc-domain,
-// a normal doc-domain edge) and code file -> ticket (deliberately cross-
-// domain, the one edge kind meant to survive the Design/Implementation
-// toggle). Detected here by domain mismatch between the edge's own
-// endpoints rather than a path-pattern check, since that's the one property
-// that actually distinguishes the two hops on the raw payload. A no-op set
-// when the toggle itself is off, so turning "show implements" off reverts
-// both endpoints to plain domain filtering.
-function crossDomainImplementsBypassIds(nodes, edges) {
+// A ticket node's own path convention (`docs/tickets/NNN-*.md`), the same
+// one the backend uses to withhold a layer from it (ADR 066) — the payload
+// carries no explicit "is a ticket" flag, so this is the one property that
+// actually distinguishes a ticket id from an ADR/code-file id.
+const TICKET_PATH_PATTERN = /^docs\/tickets\/\d+-/;
+
+// Ticket-node visibility (ADR 066): hidden by default in both modes,
+// revealed only in Design mode, only while the currently-selected node is
+// one of its `implements`-edge neighbors (its ADR) — replaces the old
+// unconditional cross-domain bypass (ticket 197) that let every landed
+// ticket clutter Design mode and leak into Implementation mode alike.
+// `showImplementsView` stays the master kill-switch: off means an empty
+// set here regardless of selection, same as before.
+function revealedTicketIds(edges) {
   const ids = new Set();
-  if (!showImplementsView) return ids;
-  const domainById = new Map(nodes.map((n) => [n.id, n.domain]));
+  if (!showImplementsView || domainModeView !== "design" || !selectedId) return ids;
   for (const edge of edges) {
     if (edge.kind !== "implements") continue;
-    const sourceDomain = domainById.get(edge.source);
-    const targetDomain = domainById.get(edge.target);
-    if (sourceDomain && targetDomain && sourceDomain !== targetDomain) {
-      ids.add(edge.source);
-      ids.add(edge.target);
-    }
+    if (edge.source === selectedId && TICKET_PATH_PATTERN.test(edge.target)) ids.add(edge.target);
+    else if (edge.target === selectedId && TICKET_PATH_PATTERN.test(edge.source)) ids.add(edge.source);
   }
   return ids;
 }
@@ -523,6 +524,18 @@ function applyNodeIsolation() {
   }
   const keepSet = computeIsolationKeepSet(isolatedNodeId);
   cy.nodes().filter((n) => !keepSet.has(n.id())).addClass("isolation-hidden");
+}
+
+// Ticket reveal (ADR 066) is the only thing a selection change can add to
+// or remove from the rendered node set; sameTopology (already used by the
+// poll-driven refresh) tells us whether this particular selection actually
+// changed which tickets are showing, so a plain node click that doesn't
+// touch any ticket doesn't pay for a full rebuild (position/zoom reset)
+// for nothing.
+function reconcileRevealedTickets() {
+  if (!graphData) return;
+  const elements = toElements(graphData);
+  if (!sameTopology(elements)) renderGraph(elements);
 }
 
 function sameTopology(elements) {
@@ -798,6 +811,7 @@ function renderGraph(elements) {
     showDetails(nodesById[selectedId]);
     pinEdges(evt.target.connectedEdges());
     setIsolatedNode(selectedId);
+    reconcileRevealedTickets();
   });
   cy.on("tap", "edge", (evt) => pinEdges(evt.target));
   cy.on("tap", "edge[kind='calls']", (evt) => showEdgeCalls(evt.target));
@@ -807,6 +821,7 @@ function renderGraph(elements) {
       clearDetails();
       unpinAllEdges();
       setIsolatedNode(null);
+      reconcileRevealedTickets();
     }
   });
   cy.on("dbltap", "node[kind='file'], node[kind='class']", (evt) => toggleContainerCollapsed(evt.target.id()));

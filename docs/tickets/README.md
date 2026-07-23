@@ -209,4 +209,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [197](197-frontend-render-lineage-edges.md) | Frontend: render `supersedes`/`amends`/`extends`/`grounds`/`implements` edges | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [198](198-scope-adr-relationship-parsing-to-front-matter-block.md) | Scope ADR-relationship parsing to the front-matter block, fix `_repo_root` for git-ref reads | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [199](199-doc-domain-adr-layering.md) | Doc-domain ADR layering (bottom-up: root → founding ADRs → narrowing ADRs) | done | [066](../decisions/066-decision-graph-layering-and-ticket-visibility.md) |
-| [200](200-ticket-node-selection-driven-visibility.md) | Ticket-node selection-driven visibility (hidden in Implementation, reveal-on-ADR-click in Design) | ready | [066](../decisions/066-decision-graph-layering-and-ticket-visibility.md) |
+| [200](200-ticket-node-selection-driven-visibility.md) | Ticket-node selection-driven visibility (hidden in Implementation, reveal-on-ADR-click in Design) | done | [066](../decisions/066-decision-graph-layering-and-ticket-visibility.md) |
