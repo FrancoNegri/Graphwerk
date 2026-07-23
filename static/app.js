@@ -46,6 +46,15 @@ let hideTestsView = true;
 let showImportsView = false;
 let showCallsView = true;
 let showUsesView = false;
+// Decision-lineage edge kinds (ADR 065/ticket 197) — join the same per-kind
+// toggle family as calls/imports/uses above, default-on since they're
+// doc-domain-only (except the implements code->ticket hop) and so don't
+// clutter the default Implementation view just by being enabled.
+let showSupersedesView = true;
+let showAmendsView = true;
+let showExtendsView = true;
+let showGroundsView = true;
+let showImplementsView = true;
 // "design" | "implementation" — filters rendered nodes by domain
 // and doubles as the scope sent with the next spawned session (ADR 046).
 let domainModeView = "implementation";
@@ -222,6 +231,8 @@ function toElements(data) {
     && n.status === "unchanged"
     && (strongestStatus.get(n.id) || "unchanged") === "unchanged";
 
+  const crossDomainImplementsIds = crossDomainImplementsBypassIds(data.nodes, data.edges);
+
   const nodes = data.nodes
     .filter((n) => representativeId(n.id) === n.id
       // Root (ADR 063) carries no change/blast-radius status of its own, so
@@ -229,7 +240,11 @@ function toElements(data) {
       // a spot in revealedIds the way real nodes do.
       && (!revealedIds || revealedIds.has(n.id) || n.kind === "root")
       && (!hideTestsView || !signalFreeTestNode(n))
-      && matchesDomainMode(n))
+      // ADR 065's one deliberately cross-domain edge kind: a code file's
+      // `implements` edge into its ticket (or vice versa) stays visible
+      // regardless of the Design/Implementation toggle, so its otherwise-
+      // wrong-domain endpoint bypasses the normal domain filter here.
+      && (matchesDomainMode(n) || crossDomainImplementsIds.has(n.id)))
     .map((n) => {
       const nodeData = { id: n.id, label: n.label, kind: n.kind, status: n.status, parent: n.parent || undefined };
       if (n.group != null) nodeData.group = n.group;
@@ -250,6 +265,11 @@ function toElements(data) {
     if (e.kind === "imports" && !showImportsView) continue;
     if (e.kind === "calls" && !showCallsView) continue;
     if (e.kind === "uses" && !showUsesView) continue;
+    if (e.kind === "supersedes" && !showSupersedesView) continue;
+    if (e.kind === "amends" && !showAmendsView) continue;
+    if (e.kind === "extends" && !showExtendsView) continue;
+    if (e.kind === "grounds" && !showGroundsView) continue;
+    if (e.kind === "implements" && !showImplementsView) continue;
     const id = `${source}->${target}:${e.kind}`;
     let edge = edgesById.get(id);
     if (!edge) {
@@ -324,11 +344,60 @@ function setShowUsesView(enabled) {
   if (graphData) renderGraph(toElements(graphData));
 }
 
+function setShowSupersedesView(enabled) {
+  showSupersedesView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowAmendsView(enabled) {
+  showAmendsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowExtendsView(enabled) {
+  showExtendsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowGroundsView(enabled) {
+  showGroundsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
+function setShowImplementsView(enabled) {
+  showImplementsView = enabled;
+  if (graphData) renderGraph(toElements(graphData));
+}
+
 const DOMAIN_BY_MODE = { design: "doc", implementation: "code" };
 
 function matchesDomainMode(node) {
   const wantedDomain = DOMAIN_BY_MODE[domainModeView];
   return !wantedDomain || node.domain === wantedDomain;
+}
+
+// `implements` is used at two hops (ADR 065): ticket -> ADR (both doc-domain,
+// a normal doc-domain edge) and code file -> ticket (deliberately cross-
+// domain, the one edge kind meant to survive the Design/Implementation
+// toggle). Detected here by domain mismatch between the edge's own
+// endpoints rather than a path-pattern check, since that's the one property
+// that actually distinguishes the two hops on the raw payload. A no-op set
+// when the toggle itself is off, so turning "show implements" off reverts
+// both endpoints to plain domain filtering.
+function crossDomainImplementsBypassIds(nodes, edges) {
+  const ids = new Set();
+  if (!showImplementsView) return ids;
+  const domainById = new Map(nodes.map((n) => [n.id, n.domain]));
+  for (const edge of edges) {
+    if (edge.kind !== "implements") continue;
+    const sourceDomain = domainById.get(edge.source);
+    const targetDomain = domainById.get(edge.target);
+    if (sourceDomain && targetDomain && sourceDomain !== targetDomain) {
+      ids.add(edge.source);
+      ids.add(edge.target);
+    }
+  }
+  return ids;
 }
 
 function setDomainModeView(mode) {
@@ -646,6 +715,69 @@ function renderGraph(elements) {
           "arrow-scale": 0.6,
         },
       },
+      // Decision-lineage edges (ADR 065/ticket 197): five fixed, kind-owned
+      // colors (not status-derived, unlike calls/imports/uses above) so each
+      // reads as "this is lineage, not a diff signal" — plus a distinct
+      // line-style/arrow-shape combo per kind so all five stay tellable
+      // apart from each other when both ends of more than one are visible
+      // at once.
+      {
+        selector: "edge[kind='supersedes']",
+        style: {
+          width: 2,
+          "line-style": "solid",
+          "line-color": "#ec4899",
+          "target-arrow-color": "#ec4899",
+        },
+      },
+      {
+        selector: "edge[kind='amends']",
+        style: {
+          width: 2,
+          "line-style": "dashed",
+          "line-color": "#a855f7",
+          "target-arrow-color": "#a855f7",
+        },
+      },
+      {
+        selector: "edge[kind='extends']",
+        style: {
+          width: 2,
+          "line-style": "dotted",
+          "line-color": "#06b6d4",
+          "target-arrow-color": "#06b6d4",
+        },
+      },
+      {
+        selector: "edge[kind='grounds']",
+        style: {
+          width: 2,
+          "line-style": "solid",
+          "line-color": "#6366f1",
+          "target-arrow-color": "#6366f1",
+          "target-arrow-shape": "diamond",
+        },
+      },
+      {
+        selector: "edge[kind='implements']",
+        style: {
+          width: 2,
+          "line-style": "dashed",
+          "line-color": "#eab308",
+          "target-arrow-color": "#eab308",
+          "target-arrow-shape": "vee",
+        },
+      },
+      {
+        // Most lineage edges carry status "unchanged" by construction
+        // (ADR relationships/grounds/code->ticket implements are never
+        // diffed) — force past the "unchanged edges hidden by default"
+        // rule above the same way entrypoint edges already do, since these
+        // are structural lineage the reviewer should see at a glance, not
+        // diff-review noise gated behind a hover.
+        selector: "edge[kind='supersedes'], edge[kind='amends'], edge[kind='extends'], edge[kind='grounds'], edge[kind='implements']",
+        style: { display: "element" },
+      },
       { selector: "edge.revealed, edge.pinned", style: { display: "element" } },
       { selector: "node:selected", style: { "border-color": "#f8fafc", "border-width": 3 } },
     ],
@@ -844,6 +976,11 @@ function showDetails(node) {
   document.getElementById("d-why-confidence").hidden = node.why_confident !== false;
   document.getElementById("d-why-justifies").hidden = node.why_justifies !== false;
 
+  const lineageSection = document.getElementById("lineage-section");
+  const lineageHtml = renderLineageLines(node);
+  lineageSection.hidden = !lineageHtml;
+  if (lineageHtml) document.getElementById("d-lineage").innerHTML = lineageHtml;
+
   const codeSection = document.getElementById("code-section");
   const changedMethods = codeDisplayMode === "changed-methods" ? changedLeafDescendants(node.id) : [];
   const hasCode = changedMethods.length > 0 || (Array.isArray(node.code) && node.code.length > 0);
@@ -981,18 +1118,72 @@ function renderUsedImports(usedImports) {
     .join("");
 }
 
-// "Affects" line (ADR 062): names the changed method's enclosing class and
-// any variables it reaches via `uses` edges, so a reviewer sees blast
-// radius without leaving the code panel. Omitted entirely (returns "") when
-// there's nothing to list, rather than rendering an empty label.
-function renderAffectsLine(symbol) {
-  const classNode = enclosingClass(symbol.id);
-  const items = classNode ? [classNode, ...usedVariables(symbol.id)] : usedVariables(symbol.id);
+// One "<label>: chip chip chip" row — the shape both "Affects" (ADR 062)
+// and decision-lineage relationships (ADR 065/ticket 197) render into,
+// factored out so the latter reuses the former's exact markup instead of
+// duplicating it. Omitted entirely (returns "") when there's nothing to
+// list, rather than rendering an empty label.
+function renderLabeledNodeChips(label, items) {
   if (items.length === 0) return "";
   const chips = items
     .map((n) => `<span class="affects-item">${esc(n.label)} <span class="chip ${n.status}">${n.status}</span></span>`)
     .join("");
-  return `<div class="affects"><span class="affects-label">Affects:</span>${chips}</div>`;
+  return `<div class="affects"><span class="affects-label">${esc(label)}:</span>${chips}</div>`;
+}
+
+// "Affects" line (ADR 062): names the changed method's enclosing class and
+// any variables it reaches via `uses` edges, so a reviewer sees blast
+// radius without leaving the code panel.
+function renderAffectsLine(symbol) {
+  const classNode = enclosingClass(symbol.id);
+  const items = classNode ? [classNode, ...usedVariables(symbol.id)] : usedVariables(symbol.id);
+  return renderLabeledNodeChips("Affects", items);
+}
+
+// Kind + direction (this node is the edge's source vs. target) a lineage
+// edge is grouped under, so e.g. ADR 058 reads "Supersedes: 037, 050" and
+// "Amended by: 061" as two separate rows rather than one undifferentiated
+// bucket (ADR 065/ticket 197).
+const LINEAGE_LABEL_BY_KIND_AND_DIRECTION = {
+  "supersedes:out": "Supersedes",
+  "supersedes:in": "Superseded by",
+  "amends:out": "Amends",
+  "amends:in": "Amended by",
+  "extends:out": "Extends",
+  "extends:in": "Extended by",
+  "grounds:out": "Grounds",
+  "grounds:in": "Grounded by",
+  "implements:out": "Implements",
+  "implements:in": "Implemented by",
+};
+
+// Every `supersedes`/`amends`/`extends`/`grounds`/`implements` edge touching
+// `node`, grouped into one labeled chip row per kind+direction — so
+// selecting an ADR (or a ticket, or the product-concept root) shows its
+// typed relationships as a short list instead of requiring the reviewer to
+// trace arrows on the canvas by eye (ticket 197's own goal). Walks the raw,
+// unfiltered graph data (mirrors renderAffectsLine's usedVariables) so the
+// list reflects what the backend actually wired regardless of which
+// toggles/domain mode currently hide the edge on the canvas.
+const LINEAGE_EDGE_KINDS = new Set(["supersedes", "amends", "extends", "grounds", "implements"]);
+
+function renderLineageLines(node) {
+  const groups = new Map();
+  for (const edge of graphData.edges) {
+    if (!LINEAGE_EDGE_KINDS.has(edge.kind)) continue;
+    let direction, otherId;
+    if (edge.source === node.id) { direction = "out"; otherId = edge.target; }
+    else if (edge.target === node.id) { direction = "in"; otherId = edge.source; }
+    else continue;
+    const other = nodesById[otherId];
+    if (!other) continue;
+    const key = `${edge.kind}:${direction}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(other);
+  }
+  return [...groups.entries()]
+    .map(([key, others]) => renderLabeledNodeChips(LINEAGE_LABEL_BY_KIND_AND_DIRECTION[key] || key, others))
+    .join("");
 }
 
 // The method's enclosing class node, when its `parent` resolves to a
@@ -1295,6 +1486,26 @@ document.getElementById("show-calls").addEventListener("change", (event) => {
 
 document.getElementById("show-uses").addEventListener("change", (event) => {
   setShowUsesView(event.target.checked);
+});
+
+document.getElementById("show-supersedes").addEventListener("change", (event) => {
+  setShowSupersedesView(event.target.checked);
+});
+
+document.getElementById("show-amends").addEventListener("change", (event) => {
+  setShowAmendsView(event.target.checked);
+});
+
+document.getElementById("show-extends").addEventListener("change", (event) => {
+  setShowExtendsView(event.target.checked);
+});
+
+document.getElementById("show-grounds").addEventListener("change", (event) => {
+  setShowGroundsView(event.target.checked);
+});
+
+document.getElementById("show-implements").addEventListener("change", (event) => {
+  setShowImplementsView(event.target.checked);
 });
 
 document.querySelectorAll('#code-mode-toggle input[name="code-mode"]').forEach((input) => {

@@ -17,6 +17,13 @@
       <span><i class="dot unchanged"></i>unchanged</span>
     </div>
     <div class="legend" id="group-legend" hidden></div>
+    <div class="legend" id="lineage-legend">
+      <span><i class="edge-swatch supersedes"></i>supersedes</span>
+      <span><i class="edge-swatch amends"></i>amends</span>
+      <span><i class="edge-swatch extends"></i>extends</span>
+      <span><i class="edge-swatch grounds"></i>grounds</span>
+      <span><i class="edge-swatch implements"></i>implements</span>
+    </div>
     <label class="view-toggle">
       <input type="checkbox" id="changed-only">
       changed + blast radius only
@@ -37,6 +44,13 @@
       <input type="checkbox" id="show-uses">
       show uses
     </label>
+    <div id="lineage-toggle">
+      <label class="view-toggle"><input type="checkbox" id="show-supersedes" checked>supersedes</label>
+      <label class="view-toggle"><input type="checkbox" id="show-amends" checked>amends</label>
+      <label class="view-toggle"><input type="checkbox" id="show-extends" checked>extends</label>
+      <label class="view-toggle"><input type="checkbox" id="show-grounds" checked>grounds</label>
+      <label class="view-toggle"><input type="checkbox" id="show-implements" checked>implements</label>
+    </div>
     <div id="domain-mode-toggle">
       <label class="view-toggle"><input type="radio" name="domain-mode" value="design"> Design</label>
       <label class="view-toggle"><input type="radio" name="domain-mode" value="implementation" checked> Implementation</label>
@@ -70,6 +84,8 @@
         Select a node to review its staged change.<br><br>
         Files are boxes; classes and functions live inside them.
         Solid arrows are calls, dashed arrows are imports.<br><br>
+        Decision lineage (supersedes/amends/extends/grounds/implements) has
+        its own colors, shown in the header legend.<br><br>
         Double-click a file to collapse it to a single node; double-click
         again to expand.
       </div>
@@ -83,6 +99,10 @@
           <div id="d-why" class="why"></div>
           <span id="d-why-confidence" class="why-confidence" hidden>unconfirmed — nearest narration, not a direct mention</span>
           <span id="d-why-justifies" class="why-confidence" hidden>may only describe the code, not justify the change</span>
+        </section>
+        <section id="lineage-section" hidden>
+          <h3>Decision lineage</h3>
+          <div id="d-lineage"></div>
         </section>
         <section id="code-section" hidden>
           <h3>Code</h3>

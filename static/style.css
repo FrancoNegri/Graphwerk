@@ -47,6 +47,27 @@ header {
 
 #group-legend[hidden] { display: none; }
 
+/* Decision-lineage edge legend (ADR 065/ticket 197) — one swatch per kind,
+   line-style/color matching the Cytoscape edge styles in app.js exactly
+   (kept in sync by hand, same duplication-across-layers precedent as
+   COLORS in app.js already mirroring the --modified/--added/etc. CSS
+   variables above). */
+.edge-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: 5px;
+  vertical-align: middle;
+  border-top-width: 2px;
+}
+.edge-swatch.supersedes { border-top-style: solid; border-color: #ec4899; }
+.edge-swatch.amends { border-top-style: dashed; border-color: #a855f7; }
+.edge-swatch.extends { border-top-style: dotted; border-color: #06b6d4; }
+.edge-swatch.grounds { border-top-style: solid; border-color: #6366f1; }
+.edge-swatch.implements { border-top-style: dashed; border-color: #eab308; }
+
+#lineage-toggle { display: flex; gap: 14px; }
+
 .view-toggle {
   display: flex;
   align-items: center;
@@ -280,6 +301,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #details > .meta,
 #details > .path,
 #details > #why-section,
+#details > #lineage-section,
 #details > #actions {
   flex-shrink: 0;
 }

@@ -206,4 +206,4 @@ Numbered sequentially, independent of `docs/decisions/`.
 | [194](194-grounds-edge-from-product-concept.md) | `grounds` edge: `docs/02-product-concept.md` → every foundational ADR | ready | [065](../decisions/065-decision-lineage-graph.md) |
 | [195](195-implements-edge-ticket-to-adr.md) | Promote the ticket `Decision:` line to a typed `implements` edge | done | [065](../decisions/065-decision-lineage-graph.md) |
 | [196](196-implements-edge-code-to-ticket.md) | `graphwerk/history.py` + `implements` edges from files to their ticket | done | [065](../decisions/065-decision-lineage-graph.md) |
-| [197](197-frontend-render-lineage-edges.md) | Frontend: render `supersedes`/`amends`/`extends`/`grounds`/`implements` edges | ready | [065](../decisions/065-decision-lineage-graph.md) |
+| [197](197-frontend-render-lineage-edges.md) | Frontend: render `supersedes`/`amends`/`extends`/`grounds`/`implements` edges | done | [065](../decisions/065-decision-lineage-graph.md) |

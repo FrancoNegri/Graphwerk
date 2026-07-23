@@ -1,6 +1,6 @@
 # 197. Frontend: render `supersedes`/`amends`/`extends`/`grounds`/`implements` edges
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal
