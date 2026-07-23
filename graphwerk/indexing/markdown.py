@@ -55,6 +55,7 @@ class MarkdownExtractor:
             )
         index.references = _extract_references(source, rel_path)
         index.adr_relationships = _extract_adr_relationships(source, file_path, rel_path)
+        index.decision_ref = _extract_decision_ref(source)
         return index
 
 
@@ -73,16 +74,25 @@ def _unique_qualname(text: str, seen_counts: dict[str, int]) -> str:
 
 
 def _extract_references(source: str, rel_path: str) -> set[str]:
-    """Resolves both inline `[text](path.md)` links (relative to this file's
-    own directory) and the `Decision: docs/decisions/NNN-....md` line
-    (already repo-root-relative, as every ticket file writes it) to
-    repo-root-relative target paths — the deterministic doc-to-doc
-    link-parsing ADR 046 chose over inferred semantic relationships."""
+    """Resolves inline `[text](path.md)` links (relative to this file's own
+    directory) to repo-root-relative target paths — the deterministic
+    doc-to-doc link-parsing ADR 046 chose over inferred semantic
+    relationships. The `Decision:` line is deliberately excluded (ADR
+    065): it's a distinct, unambiguous signal, not an arbitrary mention —
+    see `_extract_decision_ref`."""
     inline_targets = [match.group(1) for match in _INLINE_LINK.finditer(source)]
     resolved = {_resolve_relative_link(rel_path, target) for target in inline_targets}
-    resolved |= {_resolve_rooted_link(target) for target in _DECISION_LINE.findall(source)}
     resolved.discard(None)
     return resolved
+
+
+def _extract_decision_ref(source: str) -> str | None:
+    """The repo-root-relative target of this file's own
+    `Decision: docs/decisions/NNN-....md` line (already repo-root-relative,
+    as every ticket file writes it), or None if it has none. ADR 065
+    promotes this out of `references` into its own `implements` edge."""
+    match = _DECISION_LINE.search(source)
+    return None if match is None else _resolve_rooted_link(match.group(1))
 
 
 def _resolve_relative_link(source_rel_path: str, link_target: str) -> str | None:

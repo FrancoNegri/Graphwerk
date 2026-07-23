@@ -1,6 +1,6 @@
 # 195. Promote the ticket `Decision:` line to a typed `implements` edge
 
-Status: ready
+Status: done
 Decision: docs/decisions/065-decision-lineage-graph.md
 
 ## Goal

@@ -110,14 +110,35 @@ def test_link_anchor_is_stripped_before_resolving(tmp_path: Path) -> None:
     assert index.references == {"decisions/046-thing.md"}
 
 
-def test_decision_line_is_recognized_as_a_reference(tmp_path: Path) -> None:
+def test_decision_line_is_captured_as_decision_ref(tmp_path: Path) -> None:
     index = _extract(
         tmp_path,
         "# 124. Some ticket\n\nDecision: docs/decisions/046-thing.md\n",
         name="tickets/124-thing.md",
     )
 
-    assert "docs/decisions/046-thing.md" in index.references
+    assert index.decision_ref == "docs/decisions/046-thing.md"
+
+
+def test_decision_line_no_longer_contributes_to_references(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# 124. Some ticket\n\nDecision: docs/decisions/046-thing.md\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.references == set()
+
+
+def test_file_with_no_decision_line_has_no_decision_ref(tmp_path: Path) -> None:
+    index = _extract(
+        tmp_path,
+        "# Title\n\nSee [the ADR](../decisions/046-thing.md) for context.\n",
+        name="tickets/124-thing.md",
+    )
+
+    assert index.decision_ref is None
+    assert index.references == {"decisions/046-thing.md"}
 
 
 def test_external_url_link_is_not_a_reference(tmp_path: Path) -> None:
