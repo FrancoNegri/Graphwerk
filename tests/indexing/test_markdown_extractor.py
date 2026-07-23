@@ -7,7 +7,7 @@ def _extract(tmp_path: Path, source: str, name: str = "doc.md"):
     path = tmp_path / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source)
-    return MarkdownExtractor().extract(path, name)
+    return MarkdownExtractor().extract(path, name, tmp_path)
 
 
 def test_level_two_heading_becomes_a_symbol(tmp_path: Path) -> None:
@@ -246,6 +246,7 @@ def test_adr_relationship_parsing_does_not_affect_existing_references(tmp_path: 
     index = _extract(
         tmp_path,
         "# 058. New thing\n\n"
+        "Status: proposed\n"
         "Decision: docs/decisions/046-thing.md\n"
         "Supersedes: 046\n\n"
         "See also [046](046-thing.md).\n",
@@ -267,9 +268,67 @@ def test_every_real_adr_relationship_line_resolves_to_an_existing_file(caplog) -
     fail the suite if that ever happens for a real, committed ADR."""
     for adr_path in sorted((_REPO_ROOT / "docs" / "decisions").glob("*.md")):
         rel_path = f"docs/decisions/{adr_path.name}"
-        MarkdownExtractor().extract(adr_path, rel_path)
+        MarkdownExtractor().extract(adr_path, rel_path, _REPO_ROOT)
 
     unresolved = [
         record.message for record in caplog.records if "ADR relationship target" in record.message
     ]
     assert unresolved == []
+
+
+def test_adr_065s_own_convention_example_is_not_a_real_relationship(tmp_path: Path) -> None:
+    """Reproduces the actual bug found live (ticket 198): ADR 065's
+    Decision section quotes `Supersedes:`/`Amends:`/`Extends:` inside a
+    fenced code block to explain the syntax. That's documentation, not a
+    declaration by ADR 065 about itself."""
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    _write_adr(tmp_path, "docs/decisions/050-other-thing.md")
+    _write_adr(tmp_path, "docs/decisions/058-old-thing.md")
+    _write_adr(tmp_path, "docs/decisions/005-split.md")
+    index = _extract(
+        tmp_path,
+        "# 065. Decision lineage graph\n\n"
+        "Status: proposed\n"
+        "Date: 2026-07-22\n\n"
+        "## Decision\n\n"
+        "A new three-line convention:\n\n"
+        "```\n"
+        "Supersedes: 037, 050\n"
+        "Amends: 058\n"
+        "Extends: 005\n"
+        "```\n",
+        name="docs/decisions/065-decision-lineage.md",
+    )
+
+    assert index.adr_relationships == {}
+
+
+def test_relationship_line_after_header_block_is_ignored(tmp_path: Path) -> None:
+    """Not just fenced examples — any relationship-shaped line outside the
+    fixed block right under Status:/Date: is prose, not a declaration."""
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    index = _extract(
+        tmp_path,
+        "# 058. New thing\n\n"
+        "Status: proposed\n"
+        "Date: 2026-07-21\n\n"
+        "## Context\n\n"
+        "Supersedes: 037\n",
+        name="docs/decisions/058-new-thing.md",
+    )
+
+    assert index.adr_relationships == {}
+
+
+def test_relationship_resolves_when_file_path_does_not_mirror_rel_path(tmp_path: Path) -> None:
+    """Reproduces `differ.py`'s `GitRefRevision` path (ticket 198): git blob
+    content gets materialized to a flat temp file with no relation to the
+    repo's directory layout, so resolution must rely on the explicit
+    `repo_root` argument, not on walking up parents of `file_path`."""
+    _write_adr(tmp_path, "docs/decisions/037-old-thing.md")
+    flat_path = tmp_path / "some-unrelated-temp-file.md"
+    flat_path.write_text("# 058. New thing\n\nStatus: proposed\nSupersedes: 037\n")
+
+    index = MarkdownExtractor().extract(flat_path, "docs/decisions/058-new-thing.md", tmp_path)
+
+    assert index.adr_relationships == {"supersedes": {"docs/decisions/037-old-thing.md"}}

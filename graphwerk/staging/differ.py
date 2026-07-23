@@ -235,24 +235,29 @@ class ChangeSetBuilder:
         as-is); any other revision has no real path of its own, so its bytes
         get materialized to a temp file instead (`_extract_from_bytes`)."""
         if isinstance(revision, WorkingTreeRevision):
-            extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
-            return extractor.extract(self.repo_root / rel, rel)
+            return self._extract_at(self.repo_root / rel, rel)
         raw = revision.read_bytes(rel)
         return self._extract_from_bytes(rel, raw) if raw is not None else FileIndex(rel_path=rel)
 
     def _extract_from_bytes(self, rel: str, raw: bytes) -> FileIndex:
         """Materializes a git blob to a temp file so the extractor's own
         read/decode/parse-error handling runs identically to a disk read —
-        the base ref has no real path of its own to hand it instead."""
-        extractor = self._markdown_extractor if rel.endswith(".md") else self._python_extractor
+        the base ref has no real path of its own to hand it instead. That
+        temp path has no relation to the repo's own layout, so `repo_root`
+        is always passed explicitly (`_extract_at`) rather than derived from
+        it (ticket 198)."""
         with tempfile.NamedTemporaryFile(suffix=Path(rel).suffix, delete=False) as handle:
             handle.write(raw)
             tmp_path = Path(handle.name)
         try:
-            index = extractor.extract(tmp_path, rel)
+            return self._extract_at(tmp_path, rel)
         finally:
             tmp_path.unlink(missing_ok=True)
-        return index
+
+    def _extract_at(self, file_path: Path, rel: str) -> FileIndex:
+        if rel.endswith(".md"):
+            return self._markdown_extractor.extract(file_path, rel, self.repo_root)
+        return self._python_extractor.extract(file_path, rel)
 
     def _symbol_diff(self, base: FileIndex | None, staged: FileIndex | None, qualname: str) -> str:
         base_src = base.symbols[qualname].source if base and qualname in base.symbols else ""

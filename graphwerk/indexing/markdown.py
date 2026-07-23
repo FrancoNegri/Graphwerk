@@ -19,6 +19,7 @@ _DECISION_LINE = re.compile(r"^Decision:\s*(\S+\.md)\s*$", re.MULTILINE)
 _ADR_RELATIONSHIP_LINE = re.compile(
     r"^(Supersedes|Amends|Extends):[ \t]*(.+?)[ \t]*$", re.MULTILINE
 )
+_STATUS_LINE = re.compile(r"^Status:", re.MULTILINE)
 _DECISIONS_DIR = "docs/decisions/"
 
 _logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ _logger = logging.getLogger(__name__)
 class MarkdownExtractor:
     """Extracts level-2-and-deeper headings as sections of one file."""
 
-    def extract(self, file_path: Path, rel_path: str) -> FileIndex:
+    def extract(self, file_path: Path, rel_path: str, repo_root: Path | None = None) -> FileIndex:
         index = FileIndex(rel_path=rel_path)
         try:
             source = file_path.read_text(encoding="utf-8")
@@ -54,7 +55,7 @@ class MarkdownExtractor:
                 source="".join(lines[start:end]),
             )
         index.references = _extract_references(source, rel_path)
-        index.adr_relationships = _extract_adr_relationships(source, file_path, rel_path)
+        index.adr_relationships = _extract_adr_relationships(source, rel_path, repo_root)
         index.decision_ref = _extract_decision_ref(source)
         return index
 
@@ -116,18 +117,22 @@ def _validated_md_target(link_target: str) -> str | None:
 
 
 def _extract_adr_relationships(
-    source: str, file_path: Path, rel_path: str
+    source: str, rel_path: str, repo_root: Path | None
 ) -> dict[str, set[str]]:
     """Parses the `Supersedes:`/`Amends:`/`Extends:` ADR front-matter
     convention (ADR 065) into kind -> target ADR paths. ADR-specific by
     design (see ADR 065's rejected "mine ADR NNN mentions in prose"
-    alternative) — a same-shaped line outside docs/decisions/ is ignored."""
-    if not rel_path.startswith(_DECISIONS_DIR):
+    alternative) — a same-shaped line outside docs/decisions/ is ignored.
+    Scoped to `_front_matter_block` rather than the whole file (ticket
+    198): a relationship-shaped line quoted later in the document — e.g.
+    ADR 065's own Decision section, which shows the convention as a
+    fenced-code-block example — is prose about the syntax, not a
+    declaration, and must not be mistaken for one."""
+    if not rel_path.startswith(_DECISIONS_DIR) or repo_root is None:
         return {}
 
-    repo_root = _repo_root(file_path, rel_path)
     relationships: dict[str, set[str]] = {}
-    for kind_text, targets_text in _ADR_RELATIONSHIP_LINE.findall(source):
+    for kind_text, targets_text in _ADR_RELATIONSHIP_LINE.findall(_front_matter_block(source)):
         targets = {
             resolved
             for raw_number in targets_text.split(",")
@@ -138,14 +143,22 @@ def _extract_adr_relationships(
     return relationships
 
 
-def _repo_root(file_path: Path, rel_path: str) -> Path:
-    """`file_path` mirrors `rel_path` under the repo root for a real
-    on-disk read (`WorkingTreeRevision`); walking up one parent per
-    `rel_path` path component lands back at that root."""
-    root = file_path
-    for _ in Path(rel_path).parts:
-        root = root.parent
-    return root
+def _front_matter_block(source: str) -> str:
+    """The contiguous run of non-blank lines starting at `Status:` — the
+    fixed three-line block (ADR 065) directly under an ADR's `Status:`/
+    `Date:` header where `Supersedes:`/`Amends:`/`Extends:` live. Ends at
+    the first blank line, so anything past it — the rest of the ADR's own
+    prose, including a fenced-code-block example — is excluded by
+    construction, not by detecting the fence itself."""
+    match = _STATUS_LINE.search(source)
+    if match is None:
+        return ""
+    block_lines: list[str] = []
+    for line in source[match.start():].splitlines():
+        if line.strip() == "":
+            break
+        block_lines.append(line)
+    return "\n".join(block_lines)
 
 
 def _resolve_adr_number(repo_root: Path, raw_number: str) -> str | None:
