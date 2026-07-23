@@ -74,3 +74,4 @@ Numbered sequentially, independent of the topic docs in `docs/` (01-04).
 | [063](063-root-entry-point-node.md) | A synthetic `Root` node anchors the entry-point layer | proposed |
 | [064](064-changed-method-code-view-surfaces-its-imports.md) | Changed-method code view surfaces the module imports it actually uses | proposed |
 | [065](065-decision-lineage-graph.md) | Decision lineage graph: root pitch → typed ADR relationships → tickets → code | proposed |
+| [066](066-decision-graph-layering-and-ticket-visibility.md) | Decision-graph layering and ticket-node visibility | proposed |

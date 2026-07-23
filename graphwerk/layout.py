@@ -6,7 +6,11 @@ Files get an import-depth layer (a file nothing imports sits in layer 0,
 same as every other root, regardless of how deep its own dependency tree
 descends — ADR 022); top-level functions get a call-depth layer scoped to
 their own file's functions, anchored the same way on functions nothing
-calls. Within each layer, barycenter sweeps assign a left-to-right
+calls. ADRs get a bottom-up lineage layer from the same longest-path helper,
+walked over `supersedes`/`amends`/`extends` edges and shifted by one so a
+founding ADR (nothing narrows it) lands at layer 1; `docs/02-product-
+concept.md` is pinned at layer 0 and ticket nodes get no layer at all
+(ADR 066). Within each layer, barycenter sweeps assign a left-to-right
 order that pulls cross-layer neighbors close (ADR 008). For the file band
 only, that order is then re-sorted so files sharing a top-level directory
 sit contiguously, group order following the mean barycenter position of its
@@ -17,10 +21,20 @@ only maps them to layout constraints — it never re-derives graph structure
 
 from __future__ import annotations
 
+import re
+
 from graphwerk.models import GraphEdge, GraphNode
 
 
 _WRAPPER_DIRECTORY_NAMES = {"src", "lib"}
+
+# docs/02-product-concept.md's node (ADR 065's grounds-edge source, ADR
+# 066's layer-0 anchor for the doc domain).
+PRODUCT_CONCEPT_PATH = "docs/02-product-concept.md"
+
+_ADR_PATH = re.compile(r"^docs/decisions/\d+-")
+_TICKET_PATH = re.compile(r"^docs/tickets/\d+-")
+_ADR_RELATIONSHIP_KINDS = {"supersedes", "amends", "extends"}
 
 
 def group_for_path(path: str) -> str:
@@ -52,11 +66,44 @@ def assign_layers(nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
         if is_file_graph:
             orders = _grouped_by_directory(orders, layers, group_by_id)
         order_by_id.update(orders)
+    _apply_doc_domain_layers(nodes, edges, layer_by_id)
     for node in nodes:
         node.layer = layer_by_id.get(node.id)
         node.order = order_by_id.get(node.id)
         node.group = group_by_id.get(node.id)
         node.paired_file = paired_file_by_test_id.get(node.id)
+
+
+def _apply_doc_domain_layers(
+    nodes: list[GraphNode], edges: list[GraphEdge], layer_by_id: dict[str, int]
+) -> None:
+    """Overrides the file-import pass's result for the doc domain (ADR
+    066): ADRs get a bottom-up lineage layer computed independently over
+    `supersedes`/`amends`/`extends` edges, `docs/02-product-concept.md` is
+    pinned at layer 0, and ticket nodes get no layer at all."""
+    for adr_id, base_layer in _layers_by_longest_path(_adr_relationship_adjacency(nodes, edges)).items():
+        layer_by_id[adr_id] = base_layer + 1
+    for node in nodes:
+        if node.kind != "file":
+            continue
+        if node.id == PRODUCT_CONCEPT_PATH:
+            layer_by_id[node.id] = 0
+        elif _TICKET_PATH.match(node.id):
+            layer_by_id.pop(node.id, None)
+
+
+def _adr_relationship_adjacency(nodes: list[GraphNode], edges: list[GraphEdge]) -> dict[str, set[str]]:
+    """Narrower ADR -> ADR it narrows, the same `source -> target` direction
+    the edges themselves already carry (ADR 065). An ADR with no incoming
+    edge here is a "founding" ADR — the same no-incoming-edge definition
+    `_add_grounds_edges` already uses for the `grounds` edge target, just
+    recomputed independently (no shared code, no edge-ordering dependency)."""
+    adr_ids = {node.id for node in nodes if node.kind == "file" and _ADR_PATH.match(node.id)}
+    neighbors_of: dict[str, set[str]] = {adr_id: set() for adr_id in adr_ids}
+    for edge in edges:
+        if edge.kind in _ADR_RELATIONSHIP_KINDS and edge.source in adr_ids and edge.target in adr_ids:
+            neighbors_of[edge.source].add(edge.target)
+    return neighbors_of
 
 
 def _layered_adjacencies(

@@ -1,4 +1,5 @@
 from graphwerk.layout import (
+    PRODUCT_CONCEPT_PATH,
     _grouped_by_directory,
     is_test_path,
     _orders_by_barycenter,
@@ -34,6 +35,25 @@ def method_node(rel: str, qualname: str) -> GraphNode:
 
 def imports(source_rel: str, target_rel: str) -> GraphEdge:
     return GraphEdge(source_rel, target_rel, "imports")
+
+
+def adr_node(number: str, slug: str = "x") -> GraphNode:
+    rel = f"docs/decisions/{number}-{slug}.md"
+    return GraphNode(id=rel, label=rel, kind="file", path=rel, domain="doc")
+
+
+def ticket_node(number: str, slug: str = "x") -> GraphNode:
+    rel = f"docs/tickets/{number}-{slug}.md"
+    return GraphNode(id=rel, label=rel, kind="file", path=rel, domain="doc")
+
+
+def product_concept_node() -> GraphNode:
+    return GraphNode(id=PRODUCT_CONCEPT_PATH, label=PRODUCT_CONCEPT_PATH, kind="file",
+                      path=PRODUCT_CONCEPT_PATH, domain="doc")
+
+
+def adr_relationship(source_number: str, target_number: str, kind: str) -> GraphEdge:
+    return GraphEdge(f"docs/decisions/{source_number}-x.md", f"docs/decisions/{target_number}-x.md", kind)
 
 
 def calls(source_id: str, target_id: str) -> GraphEdge:
@@ -564,3 +584,70 @@ def test_pair_tests_with_files_wrapper_directory_with_no_package_root_does_not_c
     nodes = [file_node("src/only.py"), file_node("tests/test_only.py")]
     paired = pair_tests_with_files(nodes)
     assert paired == {"tests/test_only.py": "src/only.py"}
+
+
+def test_founding_adr_with_no_relationship_edges_lands_at_layer_one():
+    nodes = [adr_node("042")]
+    assign_layers(nodes, [])
+    assert layers_of(nodes) == {"docs/decisions/042-x.md": 1}
+
+
+def test_adr_that_is_only_ever_a_relationship_source_still_lands_at_layer_one():
+    nodes = [adr_node("061"), adr_node("058")]
+    edges = [adr_relationship("061", "058", "amends")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["docs/decisions/061-x.md"] == 1
+
+
+def test_doc_domain_adr_layering_matches_this_repos_own_relationships():
+    # Ticket 198's real front-matter list: 061 amends 058; 058 supersedes
+    # 037 and 050; 050 also supersedes 037; 042 also supersedes 037; plus
+    # three independent one-hop chains. 037 has three parents (042, 058,
+    # 050) and must resolve to the longest of the three paths through them,
+    # not the first-seen one (ADR 066).
+    numbers = ["015", "002", "030", "029", "042", "037", "050", "058", "061", "025", "009", "041", "005"]
+    nodes = [adr_node(number) for number in numbers]
+    edges = [
+        adr_relationship("015", "002", "supersedes"),
+        adr_relationship("030", "029", "supersedes"),
+        adr_relationship("042", "037", "supersedes"),
+        adr_relationship("050", "037", "supersedes"),
+        adr_relationship("058", "037", "supersedes"),
+        adr_relationship("058", "050", "supersedes"),
+        adr_relationship("061", "058", "amends"),
+        adr_relationship("025", "009", "extends"),
+        adr_relationship("041", "005", "extends"),
+    ]
+    assign_layers(nodes, edges)
+    layers = {number: layers_of(nodes)[f"docs/decisions/{number}-x.md"] for number in numbers}
+    assert layers["061"] == 1
+    assert layers["058"] == 2
+    assert layers["050"] == 3
+    assert layers["037"] == 4
+    for founding in ("002", "029", "009", "005"):
+        assert layers[founding] == 2
+
+
+def test_product_concept_node_gets_layer_zero():
+    nodes = [product_concept_node(), adr_node("042")]
+    assign_layers(nodes, [])
+    assert layers_of(nodes)[PRODUCT_CONCEPT_PATH] == 0
+
+
+def test_ticket_node_gets_no_layer_overriding_isolated_file_default():
+    nodes = [ticket_node("199")]
+    assign_layers(nodes, [])
+    assert layers_of(nodes)["docs/tickets/199-x.md"] is None
+
+
+def test_code_domain_layering_unaffected_by_doc_domain_nodes_present():
+    nodes = [
+        file_node("a.py"), file_node("b.py"),
+        adr_node("042"), ticket_node("199"), product_concept_node(),
+    ]
+    edges = [imports("a.py", "b.py")]
+    assign_layers(nodes, edges)
+    layers = layers_of(nodes)
+    assert layers["a.py"] == 0
+    assert layers["b.py"] == 1

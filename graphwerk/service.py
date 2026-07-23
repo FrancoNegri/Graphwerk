@@ -472,8 +472,9 @@ class GraphService:
         063): a review-surface annotation over `assign_layers()`'s own
         result, not a new structural computation, so it runs after layout
         and carries no status/diff of its own. Scoped to the code-domain
-        file graph only — doc files have no meaningful depth structure to
-        anchor (see ADR 063)."""
+        file graph only — the doc domain has its own real anchor now,
+        `docs/02-product-concept.md`, rather than a synthetic root
+        (ADR 066)."""
         entry_point_ids = [n.id for n in snap.nodes if n.kind == "file" and n.domain == "code" and n.layer == 0]
         if not entry_point_ids:
             return
